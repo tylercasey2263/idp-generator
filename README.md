@@ -20,9 +20,15 @@ A static web app for generating player Individual Development Plan (IDP) infogra
 
 ## Accessing the App
 
-The app is password-protected so a shared API key can be used without it being publicly exposed. When you open the site you'll be prompted to enter the team access password. Contact the team admin for the password.
+There are two ways to authenticate — use whichever applies to you:
 
-Once authenticated, your session stays unlocked until you close the browser tab.
+### Option 1 — Team Password
+The app ships with a shared, encrypted API key. When you open the site you'll be prompted for the team password. Contact the team admin for the password. Once entered, your session stays unlocked until you close the browser tab.
+
+### Option 2 — Your Own API Key
+If you have your own Anthropic API key, click **Set API Key** in the top-right corner, paste your key (starts with `sk-ant-`), and click **Save Key**. Your personal key takes priority over the team key and is stored only for the current browser session. Get a key at [console.anthropic.com](https://console.anthropic.com).
+
+Both buttons in the nav turn teal with a ✓ when their respective key is active.
 
 ---
 
