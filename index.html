@@ -493,9 +493,9 @@
   <nav class="topnav">
     <div class="topnav-brand">Player <span>IDP</span> Generator</div>
     <div class="topnav-right">
-      <div class="key-status" id="keyStatus" onclick="openKeyModal()">
+      <div class="key-status" id="keyStatus" onclick="openPasswordModal()">
         <div class="dot"></div>
-        <span id="keyLabel">Add API Key</span>
+        <span id="keyLabel">Team Access</span>
       </div>
     </div>
   </nav>
@@ -546,9 +546,9 @@
       <!-- Info -->
       <div style="font-size:12px; color: var(--text-dim); line-height:1.6;">
         <strong style="color:var(--text-muted); font-family:'Barlow Condensed',sans-serif; font-weight:700; letter-spacing:0.06em; text-transform:uppercase;">How it works</strong><br><br>
-        <strong style="color:var(--text-muted);">Clean &amp; Generate</strong> — sends your transcript to Claude to clean up grammar and structure, then builds the infographic. Requires an API key.<br><br>
-        <strong style="color:var(--text-muted);">Generate As-Is</strong> — uses your transcript directly without AI cleanup. Works without an API key.<br><br>
-        Your API key is stored only in your browser (localStorage) and never sent anywhere except Anthropic's API.
+        <strong style="color:var(--text-muted);">Clean &amp; Generate</strong> — sends your transcript to Claude to clean up grammar and structure, then builds the infographic. Requires the team password.<br><br>
+        <strong style="color:var(--text-muted);">Generate As-Is</strong> — uses your transcript directly without AI cleanup. No password needed.<br><br>
+        The team password unlocks access for your current browser session only. Nothing is stored on any server.
       </div>
 
     </div>
@@ -574,56 +574,94 @@
   </div>
 </div>
 
-<!-- API KEY MODAL -->
-<div class="modal-overlay" id="keyModal">
+<!-- TEAM PASSWORD MODAL -->
+<div class="modal-overlay" id="pwdModal">
   <div class="modal">
-    <h2>Anthropic API Key</h2>
-    <p>
-      Your key is stored only in your browser's localStorage and is only used to call Anthropic's API directly.
-      It is never stored on any server.<br><br>
-      Get a key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.
-    </p>
-    <input type="text" id="keyInput" placeholder="sk-ant-..." autocomplete="off" />
+    <h2>Team Access</h2>
+    <p id="pwdReason">Enter the team password to unlock AI generation for this session.</p>
+    <input type="password" id="pwdInput" placeholder="Team password" autocomplete="off"
+           onkeydown="if(event.key==='Enter') unlockWithPassword()" />
     <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeKeyModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveKey()">Save Key</button>
+      <button class="btn btn-secondary" onclick="closePasswordModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="unlockWithPassword()">Unlock</button>
     </div>
-    <div id="keyModalStatus" style="font-size:12px; color:var(--text-dim); min-height:16px;"></div>
+    <div id="pwdStatus" style="font-size:12px; color:var(--text-dim); min-height:16px;"></div>
   </div>
 </div>
 
 <script>
-// ─── API KEY MANAGEMENT ───
-function getKey() { return localStorage.getItem('anthropic_api_key') || ''; }
-function openKeyModal() {
-  document.getElementById('keyInput').value = getKey();
-  document.getElementById('keyModal').classList.add('visible');
-  document.getElementById('keyModalStatus').textContent = '';
+// ─── TEAM ACCESS CONFIG ───
+// Paste the blob from setup_key.html here after encrypting your API key:
+const ENCRYPTED_KEY_BLOB = '';
+
+// ─── CRYPTO ───
+async function _deriveKey(password, salt) {
+  const enc = new TextEncoder();
+  const km = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+    km, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
+  );
 }
-function closeKeyModal() { document.getElementById('keyModal').classList.remove('visible'); }
-function saveKey() {
-  const k = document.getElementById('keyInput').value.trim();
-  if (!k) { document.getElementById('keyModalStatus').textContent = 'Please enter a key.'; return; }
-  if (!k.startsWith('sk-ant-')) {
-    document.getElementById('keyModalStatus').textContent = 'Key should start with sk-ant-';
+async function _decryptBlob(blob, password) {
+  const bytes = Uint8Array.from(atob(blob), c => c.charCodeAt(0));
+  const key = await _deriveKey(password, bytes.slice(0, 16));
+  const pt  = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(16, 28) }, key, bytes.slice(28));
+  return new TextDecoder().decode(pt);
+}
+
+// ─── SESSION KEY ───
+function getKey() { return sessionStorage.getItem('_idp_k') || ''; }
+
+// ─── PASSWORD MODAL ───
+function openPasswordModal(reason) {
+  if (reason) document.getElementById('pwdReason').textContent = reason;
+  document.getElementById('pwdInput').value = '';
+  document.getElementById('pwdStatus').textContent = '';
+  document.getElementById('pwdModal').classList.add('visible');
+  setTimeout(() => document.getElementById('pwdInput').focus(), 80);
+}
+function closePasswordModal() { document.getElementById('pwdModal').classList.remove('visible'); }
+
+async function unlockWithPassword() {
+  if (!ENCRYPTED_KEY_BLOB) {
+    document.getElementById('pwdStatus').textContent = 'No key configured yet — see setup_key.html.';
     return;
   }
-  localStorage.setItem('anthropic_api_key', k);
-  updateKeyStatus();
-  closeKeyModal();
+  const pwd = document.getElementById('pwdInput').value;
+  if (!pwd) { document.getElementById('pwdStatus').textContent = 'Enter the team password.'; return; }
+  const statusEl = document.getElementById('pwdStatus');
+  statusEl.textContent = 'Checking…';
+  try {
+    const k = await _decryptBlob(ENCRYPTED_KEY_BLOB, pwd);
+    if (!k.startsWith('sk-ant-')) throw new Error('bad key');
+    sessionStorage.setItem('_idp_k', k);
+    updateKeyStatus();
+    closePasswordModal();
+  } catch(_) {
+    statusEl.textContent = 'Incorrect password — try again.';
+    document.getElementById('pwdInput').value = '';
+    document.getElementById('pwdInput').focus();
+  }
 }
+
 function updateKeyStatus() {
-  const k = getKey();
-  const el = document.getElementById('keyStatus');
+  const unlocked = !!getKey();
+  const el  = document.getElementById('keyStatus');
   const lbl = document.getElementById('keyLabel');
-  if (k) { el.classList.add('active'); lbl.textContent = 'API Key ✓'; }
-  else { el.classList.remove('active'); lbl.textContent = 'Add API Key'; }
+  if (unlocked) { el.classList.add('active'); lbl.textContent = 'Team Access ✓'; }
+  else          { el.classList.remove('active'); lbl.textContent = '🔒 Team Access'; }
 }
 updateKeyStatus();
 
-// Close modal on backdrop click
-document.getElementById('keyModal').addEventListener('click', function(e) {
-  if (e.target === this) closeKeyModal();
+// Auto-prompt on load if blob is configured but session not yet unlocked
+if (ENCRYPTED_KEY_BLOB && !getKey()) {
+  document.addEventListener('DOMContentLoaded', () => openPasswordModal());
+}
+
+// Close on backdrop click
+document.getElementById('pwdModal').addEventListener('click', function(e) {
+  if (e.target === this) closePasswordModal();
 });
 
 // ─── STATUS ───
@@ -647,7 +685,7 @@ async function handleGenerate(useAI) {
 
   if (useAI) {
     const key = getKey();
-    if (!key) { openKeyModal(); setStatus('Add your API key first.', 'error'); return; }
+    if (!key) { openPasswordModal('Enter the team password to use Clean & Generate.'); return; }
     setStatus('Sending to Claude...', 'loading');
     try {
       const data = await callClaude(key, name, pos, dur, foc, raw);

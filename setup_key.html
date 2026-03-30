@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>IDP Key Setup</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0D1B2A; color: #EDF2F7;
+    font-family: system-ui, sans-serif; font-size: 15px; line-height: 1.6;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 2rem;
+  }
+  .card {
+    background: #1A2E44; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px; padding: 2rem; width: 100%; max-width: 560px;
+    display: flex; flex-direction: column; gap: 1.25rem;
+  }
+  h1 { font-size: 20px; font-weight: 700; color: #22A882; }
+  p  { font-size: 13px; color: #94A3B8; line-height: 1.6; }
+  label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+          text-transform: uppercase; color: #64748B; display: block; margin-bottom: 5px; }
+  input {
+    width: 100%; background: #0D1B2A; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px; padding: 10px 12px; color: #EDF2F7; font-size: 14px;
+    outline: none; font-family: monospace;
+  }
+  input:focus { border-color: rgba(34,168,130,0.5); }
+  button {
+    background: #1B8A6B; color: #EDF2F7; border: none; border-radius: 6px;
+    padding: 11px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: background 0.2s;
+  }
+  button:hover { background: #22A882; }
+  .output-wrap { display: none; flex-direction: column; gap: 8px; }
+  .output-wrap.visible { display: flex; }
+  .blob-box {
+    background: #0D1B2A; border: 1px solid rgba(34,168,130,0.4);
+    border-radius: 6px; padding: 12px; font-family: monospace; font-size: 12px;
+    color: #22A882; word-break: break-all; line-height: 1.5;
+  }
+  .copy-btn {
+    background: #0D2E25; border: 1px solid rgba(34,168,130,0.3);
+    color: #22A882; padding: 8px 16px; font-size: 13px; align-self: flex-start;
+  }
+  .copy-btn:hover { background: #143d2f; }
+  .instructions {
+    background: #0D2E25; border: 1px solid rgba(34,168,130,0.2);
+    border-radius: 8px; padding: 14px 16px; font-size: 13px; color: #94A3B8;
+  }
+  .instructions code {
+    background: rgba(255,255,255,0.08); padding: 1px 5px;
+    border-radius: 3px; font-family: monospace; color: #EDF2F7; font-size: 12px;
+  }
+  .err { font-size: 13px; color: #E05050; min-height: 16px; }
+  hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>IDP Key Setup</h1>
+  <p>
+    This tool encrypts your Anthropic API key with the team password using AES-256-GCM.
+    Open this file <strong>locally in your browser</strong> — nothing is sent anywhere.
+    Run it once, then paste the blob into <code>index.html</code>.
+  </p>
+
+  <hr>
+
+  <div>
+    <label>Your Anthropic API Key</label>
+    <input type="password" id="apiKey" placeholder="sk-ant-api03-..." autocomplete="off" />
+  </div>
+
+  <div>
+    <label>Team Password</label>
+    <input type="password" id="password" placeholder="Team password" autocomplete="off"
+           onkeydown="if(event.key==='Enter') generate()" />
+  </div>
+
+  <div class="err" id="errMsg"></div>
+
+  <button onclick="generate()">Generate Encrypted Blob</button>
+
+  <div class="output-wrap" id="outputWrap">
+    <hr>
+    <label>Encrypted Blob — copy this entire string</label>
+    <div class="blob-box" id="blobOut"></div>
+    <button class="copy-btn" onclick="copyBlob()">Copy to Clipboard</button>
+
+    <div class="instructions">
+      <strong style="color:#EDF2F7;">Next step:</strong><br>
+      Open <code>index.html</code>, find this line near the top of the &lt;script&gt; block:<br><br>
+      <code>const ENCRYPTED_KEY_BLOB = '';</code><br><br>
+      Replace the empty string with the blob above:<br><br>
+      <code>const ENCRYPTED_KEY_BLOB = '<span id="blobPreview" style="color:#22A882;">…paste here…</span>';</code><br><br>
+      Save, commit, and push. Coaches will be prompted for the team password when they visit the site.
+      You can now delete <code>setup_key.html</code> from the repo (it's in .gitignore by default).
+    </div>
+  </div>
+</div>
+
+<script>
+async function generate() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const password = document.getElementById('password').value;
+  const errEl = document.getElementById('errMsg');
+  errEl.textContent = '';
+
+  if (!apiKey) { errEl.textContent = 'Enter your Anthropic API key.'; return; }
+  if (!apiKey.startsWith('sk-ant-')) { errEl.textContent = 'Key should start with sk-ant-'; return; }
+  if (!password) { errEl.textContent = 'Enter the team password.'; return; }
+
+  try {
+    const blob = await encryptKey(apiKey, password);
+    document.getElementById('blobOut').textContent = blob;
+    document.getElementById('blobPreview').textContent = blob.slice(0, 24) + '…';
+    document.getElementById('outputWrap').classList.add('visible');
+  } catch(e) {
+    errEl.textContent = 'Encryption failed: ' + e.message;
+  }
+}
+
+async function encryptKey(apiKey, password) {
+  const enc  = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv   = crypto.getRandomValues(new Uint8Array(12));
+
+  const km = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+    km, { name: 'AES-GCM', length: 256 }, false, ['encrypt']
+  );
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(apiKey));
+
+  const all = new Uint8Array(16 + 12 + ct.byteLength);
+  all.set(salt, 0); all.set(iv, 16); all.set(new Uint8Array(ct), 28);
+  return btoa(String.fromCharCode(...all));
+}
+
+async function copyBlob() {
+  const blob = document.getElementById('blobOut').textContent;
+  await navigator.clipboard.writeText(blob);
+  const btn = document.querySelector('.copy-btn');
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy to Clipboard', 2000);
+}
+</script>
+</body>
+</html>
