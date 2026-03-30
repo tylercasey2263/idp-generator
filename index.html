@@ -121,7 +121,7 @@
     border: 1px solid var(--border-strong);
     border-radius: 7px;
     color: var(--text);
-    font-family: 'Barlow', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 14px;
     padding: 10px 12px;
     width: 100%;
@@ -137,6 +137,55 @@
   }
 
   textarea { min-height: 200px; line-height: 1.5; }
+
+  /* ─── TAG INPUT ─── */
+  .tag-input-wrap {
+    position: relative;
+    background: var(--navy-mid);
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    padding: 6px 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+    cursor: text;
+    min-height: 42px;
+    transition: border-color 0.2s;
+  }
+  .tag-input-wrap:focus-within { border-color: var(--teal); }
+  .tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--teal-faint); border: 1px solid rgba(27,138,107,0.45);
+    color: var(--teal-light); border-radius: 4px; padding: 2px 8px 2px 9px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; line-height: 1.6;
+  }
+  .tag-remove {
+    cursor: pointer; color: var(--teal); font-size: 15px; line-height: 1;
+    opacity: 0.7; margin-left: 1px;
+  }
+  .tag-remove:hover { opacity: 1; }
+  .tag-text-input {
+    border: none; background: transparent; color: var(--text);
+    font-size: 14px; font-family: 'Inter', sans-serif;
+    outline: none; flex: 1; min-width: 90px; padding: 2px 4px;
+  }
+  .tag-text-input::placeholder { color: var(--text-dim); }
+  .tag-dropdown {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--navy-mid); border: 1px solid var(--border-strong);
+    border-radius: 7px; z-index: 200; max-height: 210px; overflow-y: auto;
+    display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  }
+  .tag-dropdown.open { display: block; }
+  .tag-option {
+    padding: 8px 12px; cursor: pointer; font-size: 13px; color: var(--text-muted);
+    display: flex; align-items: center; justify-content: space-between;
+    transition: background 0.1s;
+  }
+  .tag-option:hover { background: rgba(27,138,107,0.12); color: var(--text); }
+  .tag-option.added { color: var(--text-dim); cursor: default; }
+  .tag-option.added::after { content: '✓'; color: var(--teal); font-size: 12px; }
 
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
@@ -511,24 +560,11 @@
         <div class="input-group">
           <div class="row">
             <input type="text" id="playerName" placeholder="Player name" />
-            <input type="text" id="playerPos" placeholder="Position" list="positionOptions" />
-            <datalist id="positionOptions">
-              <option value="Goalkeeper">
-              <option value="Defender">
-              <option value="Center Back">
-              <option value="Right Back">
-              <option value="Left Back">
-              <option value="Midfielder">
-              <option value="Defensive Midfielder">
-              <option value="Central Midfielder">
-              <option value="Attacking Midfielder">
-              <option value="Winger">
-              <option value="Right Winger">
-              <option value="Left Winger">
-              <option value="Forward">
-              <option value="Striker">
-              <option value="GK / Field Player">
-            </datalist>
+            <div class="tag-input-wrap" id="playerPosWrap" onclick="document.getElementById('playerPosInput').focus()">
+              <div id="playerPosTags"></div>
+              <input class="tag-text-input" id="playerPosInput" placeholder="Position(s)" autocomplete="off" />
+              <div class="tag-dropdown" id="playerPosDropdown"></div>
+            </div>
           </div>
           <div class="row">
             <input type="text" id="planDuration" placeholder="Plan duration" list="durationOptions" />
@@ -539,20 +575,11 @@
               <option value="18 months">
               <option value="2 years">
             </datalist>
-            <input type="text" id="planFocus" placeholder="Focus phrase" list="focusOptions" />
-            <datalist id="focusOptions">
-              <option value="Assert &amp; Progress">
-              <option value="Technical Development">
-              <option value="Physical Development">
-              <option value="Tactical Awareness">
-              <option value="Decision Making">
-              <option value="1v1 Defending">
-              <option value="Attacking Play">
-              <option value="First Touch &amp; Control">
-              <option value="Leadership &amp; Communication">
-              <option value="Set Pieces">
-              <option value="Positioning &amp; Shape">
-            </datalist>
+            <div class="tag-input-wrap" id="planFocusWrap" onclick="document.getElementById('planFocusInput').focus()">
+              <div id="planFocusTags"></div>
+              <input class="tag-text-input" id="planFocusInput" placeholder="Focus area(s)" autocomplete="off" />
+              <div class="tag-dropdown" id="planFocusDropdown"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -627,6 +654,81 @@
 </div>
 
 <script>
+// ─── TAG INPUT ───
+const TAG_OPTIONS = {
+  playerPos: ['Goalkeeper','Defender','Center Back','Right Back','Left Back',
+              'Midfielder','Defensive Midfielder','Central Midfielder',
+              'Attacking Midfielder','Winger','Right Winger','Left Winger',
+              'Forward','Striker','GK / Field Player'],
+  planFocus: ['Assert & Progress','Technical Development','Physical Development',
+              'Tactical Awareness','Decision Making','1v1 Defending',
+              'Attacking Play','First Touch & Control',
+              'Leadership & Communication','Set Pieces','Positioning & Shape']
+};
+const tagValues = { playerPos: [], planFocus: [] };
+
+function tagInit(id) {
+  const input    = document.getElementById(id + 'Input');
+  const dropdown = document.getElementById(id + 'Dropdown');
+  const wrap     = document.getElementById(id + 'Wrap');
+
+  input.addEventListener('focus', () => { renderTagDropdown(id); dropdown.classList.add('open'); });
+  input.addEventListener('input', () => renderTagDropdown(id));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const v = input.value.trim();
+      if (v) { tagAdd(id, v); input.value = ''; renderTagDropdown(id); }
+    } else if (e.key === 'Backspace' && !input.value && tagValues[id].length) {
+      tagRemove(id, tagValues[id][tagValues[id].length - 1]);
+    }
+  });
+  // Close dropdown when focus leaves the whole wrap
+  wrap.addEventListener('focusout', e => {
+    if (!wrap.contains(e.relatedTarget)) dropdown.classList.remove('open');
+  });
+}
+
+function tagAdd(id, value) {
+  if (!tagValues[id].includes(value)) {
+    tagValues[id].push(value);
+    renderTagChips(id);
+    renderTagDropdown(id);
+  }
+}
+
+function tagRemove(id, value) {
+  tagValues[id] = tagValues[id].filter(v => v !== value);
+  renderTagChips(id);
+  renderTagDropdown(id);
+}
+
+function renderTagChips(id) {
+  document.getElementById(id + 'Tags').innerHTML = tagValues[id].map(v =>
+    `<span class="tag">${esc(v)}<span class="tag-remove" onmousedown="event.preventDefault();tagRemove('${id}','${v.replace(/'/g,"\\'")}')">&times;</span></span>`
+  ).join('');
+}
+
+function renderTagDropdown(id) {
+  const filter = document.getElementById(id + 'Input').value.toLowerCase();
+  const opts = TAG_OPTIONS[id].filter(o => o.toLowerCase().includes(filter));
+  document.getElementById(id + 'Dropdown').innerHTML = opts.map(o => {
+    const added = tagValues[id].includes(o);
+    return `<div class="tag-option${added ? ' added' : ''}"
+      onmousedown="event.preventDefault();${added ? '' : `tagAdd('${id}','${o.replace(/'/g,"\\'")}');document.getElementById('${id}Input').value='';renderTagDropdown('${id}')`}"
+    >${esc(o)}</div>`;
+  }).join('') || '<div class="tag-option" style="color:var(--text-dim);cursor:default;">No matches — press Enter to add</div>';
+}
+
+function getTagString(id) {
+  const typed = document.getElementById(id + 'Input').value.trim();
+  const all = typed ? [...tagValues[id], typed] : tagValues[id];
+  return all.join(' / ');
+}
+
+tagInit('playerPos');
+tagInit('planFocus');
+
 // ─── TEAM ACCESS CONFIG ───
 // Paste the blob from setup_key.html here after encrypting your API key:
 const ENCRYPTED_KEY_BLOB = 'qzqyD0bEowlnSRpH/Rp7X2u1NeWkwjsn6NFfG0Jgx/Q2KZyYOpeMkViq++RVYqYI45iZufYY3A0iIZzZqoQjsEK5iVd/u0rs0TodL3lF24SxkfPXuzorqmNRRh3jy22hWAbajcA2AUhlPgtrjJn8bb9K1rnpvodbJjYUdVK9kMCYQ93F5RY/3AhuFaJKycnysjpsH4tTG9o=';
@@ -713,9 +815,9 @@ function setStatus(msg, type = '') {
 // ─── GENERATE ───
 async function handleGenerate(useAI) {
   const name = document.getElementById('playerName').value.trim() || 'Player';
-  const pos  = document.getElementById('playerPos').value.trim() || 'Field Player';
+  const pos  = getTagString('playerPos') || 'Field Player';
   const dur  = document.getElementById('planDuration').value.trim() || '12 months';
-  const foc  = document.getElementById('planFocus').value.trim() || 'Development';
+  const foc  = getTagString('planFocus') || 'Development';
   const raw  = document.getElementById('transcript').value.trim();
 
   if (!raw) { setStatus('Please paste a transcript first.', 'error'); return; }
