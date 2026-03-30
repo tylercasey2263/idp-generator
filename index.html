@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Player IDP Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #0D1B2A;
+    --navy-mid: #1A2E44;
+    --navy-light: #243B55;
+    --teal: #1B8A6B;
+    --teal-light: #22A882;
+    --teal-faint: #0D2E25;
+    --amber: #D4870A;
+    --amber-light: #F0A020;
+    --amber-faint: #2E1E05;
+    --green: #2D7A3E;
+    --green-light: #38A050;
+    --green-faint: #0D2214;
+    --purple: #5A3FA0;
+    --purple-light: #7357C8;
+    --purple-faint: #1A1230;
+    --red: #B33030;
+    --red-light: #E05050;
+    --text: #EDF2F7;
+    --text-muted: #94A3B8;
+    --text-dim: #64748B;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.15);
+  }
+
+  html, body { min-height: 100vh; }
+
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  /* ─── LAYOUT ─── */
+  .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* ─── TOP NAV ─── */
+  .topnav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2rem;
+    height: 56px;
+    border-bottom: 1px solid var(--border);
+    background: var(--navy);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topnav-brand {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: var(--text);
+  }
+  .topnav-brand span { color: var(--teal-light); }
+  .topnav-right { display: flex; align-items: center; gap: 10px; }
+  .key-status {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .key-status:hover { border-color: var(--border-strong); color: var(--text-muted); }
+  .key-status .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text-dim); flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .key-status.active .dot { background: var(--teal-light); }
+  .key-status.active { color: var(--teal-light); border-color: rgba(34,168,130,0.3); }
+
+  /* ─── MAIN PANELS ─── */
+  .main {
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    flex: 1;
+    min-height: calc(100vh - 56px);
+  }
+
+  /* ─── LEFT PANEL ─── */
+  .left-panel {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    gap: 1rem;
+    overflow-y: auto;
+    max-height: calc(100vh - 56px);
+    position: sticky;
+    top: 56px;
+  }
+
+  .panel-section-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 6px;
+  }
+
+  .input-group { display: flex; flex-direction: column; gap: 6px; }
+
+  input[type="text"], textarea, select {
+    background: var(--navy-mid);
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 14px;
+    padding: 10px 12px;
+    width: 100%;
+    transition: border-color 0.2s;
+    resize: vertical;
+  }
+  input[type="text"]:focus, textarea:focus {
+    outline: none;
+    border-color: var(--teal);
+  }
+  input[type="text"]::placeholder, textarea::placeholder {
+    color: var(--text-dim);
+  }
+
+  textarea { min-height: 200px; line-height: 1.5; }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 11px 16px;
+    border-radius: 7px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: pointer; border: none;
+    transition: opacity 0.2s, transform 0.1s;
+    width: 100%;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-primary {
+    background: var(--teal);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--teal-light); }
+
+  .btn-secondary {
+    background: var(--navy-light);
+    color: var(--text-muted);
+    border: 1px solid var(--border-strong);
+  }
+  .btn-secondary:hover:not(:disabled) { background: var(--navy-mid); color: var(--text); }
+
+  .btn-amber {
+    background: var(--amber-faint);
+    color: var(--amber-light);
+    border: 1px solid rgba(212,135,10,0.3);
+  }
+  .btn-amber:hover:not(:disabled) { border-color: var(--amber); }
+
+  .divider-line {
+    height: 1px; background: var(--border); margin: 2px 0;
+  }
+
+  .status-bar {
+    font-size: 12px; color: var(--text-dim);
+    font-family: 'Barlow Condensed', sans-serif;
+    min-height: 18px;
+    transition: color 0.3s;
+  }
+  .status-bar.loading { color: var(--teal-light); }
+  .status-bar.error { color: var(--red-light); }
+  .status-bar.success { color: var(--green-light); }
+
+  /* spinner */
+  .spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid var(--border-strong);
+    border-top-color: var(--teal-light);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─── RIGHT PANEL (PREVIEW) ─── */
+  .right-panel {
+    overflow-y: auto;
+    max-height: calc(100vh - 56px);
+    position: relative;
+  }
+
+  .empty-state {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 100%; min-height: 400px;
+    gap: 12px; color: var(--text-dim);
+    text-align: center; padding: 2rem;
+  }
+  .empty-state .big-icon {
+    font-size: 48px; opacity: 0.3;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800; letter-spacing: -2px;
+    color: var(--teal-light);
+  }
+  .empty-state p { font-size: 14px; color: var(--text-dim); max-width: 280px; line-height: 1.6; }
+
+  /* download bar */
+  .download-bar {
+    display: none;
+    position: sticky; top: 0; z-index: 50;
+    background: var(--navy-mid);
+    border-bottom: 1px solid var(--border-strong);
+    padding: 10px 1.5rem;
+    gap: 10px;
+    align-items: center;
+  }
+  .download-bar.visible { display: flex; }
+  .download-bar .dl-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-dim); flex: 1;
+  }
+  .btn-dl {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: pointer; border: none;
+    transition: opacity 0.2s;
+  }
+  .btn-dl-html { background: var(--navy-light); color: var(--text-muted); border: 1px solid var(--border-strong); }
+  .btn-dl-html:hover { color: var(--text); }
+  .btn-dl-print { background: var(--teal-faint); color: var(--teal-light); border: 1px solid rgba(34,168,130,0.3); }
+  .btn-dl-print:hover { border-color: var(--teal); }
+
+  #preview-container { padding: 1.5rem; }
+
+  /* ─── API KEY MODAL ─── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal {
+    background: var(--navy-mid);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    padding: 2rem;
+    width: 100%; max-width: 440px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .modal h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px; font-weight: 800; color: var(--text);
+  }
+  .modal p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+  .modal a { color: var(--teal-light); text-decoration: none; }
+  .modal a:hover { text-decoration: underline; }
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-actions .btn { flex: 1; }
+
+  /* ─── INFOGRAPHIC STYLES (scoped inside #infographic) ─── */
+  #infographic {
+    font-family: 'Barlow', sans-serif;
+    font-size: 15px;
+    color: #EDF2F7;
+    background: #0D1B2A;
+    border-radius: 10px;
+    padding: 2rem;
+    animation: fadeIn 0.4s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  #infographic .ig-header {
+    display: grid; grid-template-columns: 1fr auto;
+    align-items: end; gap: 1rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+    margin-bottom: 1.5rem;
+  }
+  #infographic .ig-header h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 42px; font-weight: 800; line-height: 1;
+    color: #EDF2F7;
+  }
+  #infographic .ig-header h1 span { color: #22A882; }
+  #infographic .ig-header .sub {
+    font-size: 12px; color: #64748B; margin-top: 5px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  #infographic .ig-header .pos-badge {
+    display: inline-block;
+    background: #0D2E25; border: 1px solid #1B8A6B;
+    color: #22A882;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 5px 12px; border-radius: 4px;
+  }
+  #infographic .ig-header .phase {
+    display: block; font-size: 11px; color: #64748B;
+    font-family: 'Barlow Condensed', sans-serif;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    margin-top: 6px; text-align: right;
+  }
+
+  #infographic .stats-row {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 8px; margin-bottom: 1.5rem;
+  }
+  #infographic .stat-card {
+    background: #1A2E44; border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px; padding: 12px 14px;
+  }
+  #infographic .stat-card .val {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 17px; font-weight: 700; color: #EDF2F7; line-height: 1.2;
+  }
+  #infographic .stat-card .lbl {
+    font-size: 10px; color: #64748B;
+    text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 500;
+  }
+
+  #infographic .sec-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: #64748B; margin-bottom: 8px; margin-top: 1.5rem;
+  }
+
+  #infographic .card-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 7px;
+  }
+  #infographic .card {
+    border-radius: 8px; padding: 12px 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  #infographic .card.green { background: #0D2214; border-color: rgba(56,160,80,0.2); }
+  #infographic .card.amber { background: #2E1E05; border-color: rgba(212,135,10,0.2); }
+  #infographic .card h4 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px; font-weight: 700; color: #EDF2F7;
+    margin-bottom: 4px; display: flex; align-items: center; gap: 6px;
+  }
+  #infographic .card .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  #infographic .card p { font-size: 12px; color: #94A3B8; line-height: 1.5; }
+
+  #infographic .divider { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 1.5rem 0 0; }
+
+  #infographic .plan-list { display: flex; flex-direction: column; gap: 6px; }
+  #infographic .plan-item {
+    display: grid; grid-template-columns: 100px 1fr;
+    border-radius: 8px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  #infographic .plan-badge {
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    padding: 10px 7px; line-height: 1.3;
+  }
+  #infographic .plan-badge.purple { background: #1A1230; color: #7357C8; border-right: 1px solid rgba(115,87,200,0.2); }
+  #infographic .plan-badge.amber  { background: #2E1E05; color: #F0A020;  border-right: 1px solid rgba(212,135,10,0.2); }
+  #infographic .plan-badge.teal   { background: #0D2E25; color: #22A882;  border-right: 1px solid rgba(27,138,107,0.2); }
+  #infographic .plan-badge.blue   { background: #0D1E2E; color: #60A5FA;  border-right: 1px solid rgba(96,165,250,0.2); }
+  #infographic .plan-content { background: #1A2E44; padding: 10px 14px; }
+  #infographic .plan-content h4 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px; font-weight: 700; color: #EDF2F7; margin-bottom: 5px;
+  }
+  #infographic .plan-content ul { list-style: none; display: flex; flex-direction: column; gap: 3px; }
+  #infographic .plan-content ul li {
+    font-size: 12px; color: #94A3B8;
+    display: flex; gap: 7px; align-items: flex-start; line-height: 1.45;
+  }
+  #infographic .plan-content ul li::before { content: '—'; color: #64748B; flex-shrink: 0; }
+
+  #infographic .micro-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: #60A5FA; display: flex; align-items: center; gap: 6px;
+    margin-bottom: 8px; margin-top: 1.5rem;
+  }
+  #infographic .micro-label::after { content: ''; flex: 1; height: 1px; background: rgba(96,165,250,0.2); }
+  #infographic .micro-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; }
+  #infographic .micro-card {
+    background: #0D1E2E; border: 1px solid rgba(96,165,250,0.2);
+    border-radius: 8px; padding: 12px 14px; text-align: center;
+  }
+  #infographic .micro-card .num {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 28px; font-weight: 800; color: #60A5FA; line-height: 1;
+  }
+  #infographic .micro-card .desc { font-size: 11px; color: #94A3B8; margin-top: 4px; line-height: 1.4; }
+
+  #infographic .gameday {
+    background: #1A2E44; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px; padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px; margin-top: 8px;
+  }
+  #infographic .gameday .gd-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: #64748B; white-space: nowrap;
+  }
+  #infographic .gameday .gd-text {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px; font-weight: 700; color: #EDF2F7;
+  }
+  #infographic .gameday .gd-text span { color: #22A882; }
+
+  #infographic .goal-banner {
+    background: #0D2E25; border: 1px solid rgba(27,138,107,0.35);
+    border-radius: 10px; padding: 16px 18px; margin-top: 8px;
+    display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center;
+  }
+  #infographic .goal-banner .timeline {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 700; color: #22A882;
+    text-transform: uppercase; letter-spacing: 0.1em; white-space: nowrap;
+  }
+  #infographic .goal-banner p { font-size: 13px; color: #94A3B8; line-height: 1.55; }
+  #infographic .goal-banner p strong { color: #22A882; font-weight: 600; }
+
+  #infographic .parent-note {
+    margin-top: 1.5rem;
+    border-left: 3px solid rgba(255,255,255,0.15);
+    padding: 10px 16px;
+    background: #1A2E44;
+    border-radius: 0 8px 8px 0;
+  }
+  #infographic .parent-note .plabel {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: #64748B; margin-bottom: 6px;
+  }
+  #infographic .parent-note p { font-size: 12px; color: #94A3B8; line-height: 1.6; font-style: italic; }
+
+  /* ─── PRINT STYLES ─── */
+  @media print {
+    .topnav, .left-panel, .download-bar { display: none !important; }
+    .main { display: block; }
+    .right-panel { max-height: none; overflow: visible; }
+    #preview-container { padding: 0; }
+    #infographic { border-radius: 0; padding: 1rem; }
+    body { background: #0D1B2A; }
+  }
+
+  @media (max-width: 768px) {
+    .main { grid-template-columns: 1fr; }
+    .left-panel { max-height: none; position: static; border-right: none; border-bottom: 1px solid var(--border); }
+    .right-panel { max-height: none; }
+    #infographic .stats-row { grid-template-columns: 1fr 1fr; }
+    #infographic .card-grid { grid-template-columns: 1fr; }
+    #infographic .micro-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- NAV -->
+  <nav class="topnav">
+    <div class="topnav-brand">Player <span>IDP</span> Generator</div>
+    <div class="topnav-right">
+      <div class="key-status" id="keyStatus" onclick="openKeyModal()">
+        <div class="dot"></div>
+        <span id="keyLabel">Add API Key</span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main">
+
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+
+      <!-- Player Info -->
+      <div>
+        <div class="panel-section-label">Player info</div>
+        <div class="input-group">
+          <div class="row">
+            <input type="text" id="playerName" placeholder="Player name" />
+            <input type="text" id="playerPos" placeholder="Position (e.g. Defender)" />
+          </div>
+          <div class="row">
+            <input type="text" id="planDuration" placeholder="Plan duration (e.g. 12 months)" />
+            <input type="text" id="planFocus" placeholder="Focus (e.g. Assert & Progress)" />
+          </div>
+        </div>
+      </div>
+
+      <div class="divider-line"></div>
+
+      <!-- Transcript -->
+      <div>
+        <div class="panel-section-label">Transcript</div>
+        <div class="input-group">
+          <textarea id="transcript" placeholder="Paste the raw voice memo transcript here..."></textarea>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="input-group" style="gap:8px;">
+        <button class="btn btn-primary" id="btnClean" onclick="handleGenerate(true)">
+          <span>✦</span> Clean &amp; Generate
+        </button>
+        <button class="btn btn-secondary" id="btnRaw" onclick="handleGenerate(false)">
+          Generate As-Is
+        </button>
+        <div class="status-bar" id="statusBar"></div>
+      </div>
+
+      <div class="divider-line"></div>
+
+      <!-- Info -->
+      <div style="font-size:12px; color: var(--text-dim); line-height:1.6;">
+        <strong style="color:var(--text-muted); font-family:'Barlow Condensed',sans-serif; font-weight:700; letter-spacing:0.06em; text-transform:uppercase;">How it works</strong><br><br>
+        <strong style="color:var(--text-muted);">Clean &amp; Generate</strong> — sends your transcript to Claude to clean up grammar and structure, then builds the infographic. Requires an API key.<br><br>
+        <strong style="color:var(--text-muted);">Generate As-Is</strong> — uses your transcript directly without AI cleanup. Works without an API key.<br><br>
+        Your API key is stored only in your browser (localStorage) and never sent anywhere except Anthropic's API.
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel" id="rightPanel">
+
+      <div class="download-bar" id="downloadBar">
+        <div class="dl-label">Preview ready</div>
+        <button class="btn-dl btn-dl-html" onclick="downloadHTML()">⬇ Download HTML</button>
+        <button class="btn-dl btn-dl-print" onclick="window.print()">⬒ Save as PDF</button>
+      </div>
+
+      <div id="preview-container">
+        <div class="empty-state" id="emptyState">
+          <div class="big-icon">IDP</div>
+          <p>Fill in the player details and paste a transcript, then hit <strong>Clean &amp; Generate</strong> or <strong>Generate As-Is</strong>.</p>
+        </div>
+        <div id="infographic" style="display:none;"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- API KEY MODAL -->
+<div class="modal-overlay" id="keyModal">
+  <div class="modal">
+    <h2>Anthropic API Key</h2>
+    <p>
+      Your key is stored only in your browser's localStorage and is only used to call Anthropic's API directly.
+      It is never stored on any server.<br><br>
+      Get a key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.
+    </p>
+    <input type="text" id="keyInput" placeholder="sk-ant-..." autocomplete="off" />
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeKeyModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveKey()">Save Key</button>
+    </div>
+    <div id="keyModalStatus" style="font-size:12px; color:var(--text-dim); min-height:16px;"></div>
+  </div>
+</div>
+
+<script>
+// ─── API KEY MANAGEMENT ───
+function getKey() { return localStorage.getItem('anthropic_api_key') || ''; }
+function openKeyModal() {
+  document.getElementById('keyInput').value = getKey();
+  document.getElementById('keyModal').classList.add('visible');
+  document.getElementById('keyModalStatus').textContent = '';
+}
+function closeKeyModal() { document.getElementById('keyModal').classList.remove('visible'); }
+function saveKey() {
+  const k = document.getElementById('keyInput').value.trim();
+  if (!k) { document.getElementById('keyModalStatus').textContent = 'Please enter a key.'; return; }
+  if (!k.startsWith('sk-ant-')) {
+    document.getElementById('keyModalStatus').textContent = 'Key should start with sk-ant-';
+    return;
+  }
+  localStorage.setItem('anthropic_api_key', k);
+  updateKeyStatus();
+  closeKeyModal();
+}
+function updateKeyStatus() {
+  const k = getKey();
+  const el = document.getElementById('keyStatus');
+  const lbl = document.getElementById('keyLabel');
+  if (k) { el.classList.add('active'); lbl.textContent = 'API Key ✓'; }
+  else { el.classList.remove('active'); lbl.textContent = 'Add API Key'; }
+}
+updateKeyStatus();
+
+// Close modal on backdrop click
+document.getElementById('keyModal').addEventListener('click', function(e) {
+  if (e.target === this) closeKeyModal();
+});
+
+// ─── STATUS ───
+function setStatus(msg, type = '') {
+  const el = document.getElementById('statusBar');
+  el.className = 'status-bar' + (type ? ' ' + type : '');
+  el.innerHTML = type === 'loading'
+    ? `<span style="display:flex;align-items:center;gap:6px;"><span class="spinner"></span>${msg}</span>`
+    : msg;
+}
+
+// ─── GENERATE ───
+async function handleGenerate(useAI) {
+  const name = document.getElementById('playerName').value.trim() || 'Player';
+  const pos  = document.getElementById('playerPos').value.trim() || 'Field Player';
+  const dur  = document.getElementById('planDuration').value.trim() || '12 months';
+  const foc  = document.getElementById('planFocus').value.trim() || 'Development';
+  const raw  = document.getElementById('transcript').value.trim();
+
+  if (!raw) { setStatus('Please paste a transcript first.', 'error'); return; }
+
+  if (useAI) {
+    const key = getKey();
+    if (!key) { openKeyModal(); setStatus('Add your API key first.', 'error'); return; }
+    setStatus('Sending to Claude...', 'loading');
+    try {
+      const data = await callClaude(key, name, pos, dur, foc, raw);
+      renderInfographic(data);
+      setStatus('Generated successfully.', 'success');
+    } catch(e) {
+      setStatus('Error: ' + e.message, 'error');
+    }
+  } else {
+    setStatus('Building from raw transcript...', 'loading');
+    const data = parseRaw(name, pos, dur, foc, raw);
+    renderInfographic(data);
+    setStatus('Generated from raw transcript.', 'success');
+  }
+}
+
+// ─── CLAUDE API CALL ───
+async function callClaude(key, name, pos, dur, foc, transcript) {
+  const systemPrompt = `You are a youth soccer development expert. Given a raw voice memo transcript of a player IDP (Individual Development Plan), extract and structure the information into a clean JSON object. Return ONLY valid JSON, no markdown, no explanation.
+
+JSON structure:
+{
+  "playerName": "string",
+  "position": "string",
+  "duration": "string",
+  "focus": "string",
+  "mantra": "short 3-5 word game day focus phrase",
+  "strengths": [
+    { "title": "short title", "body": "1-2 sentence description" }
+  ],
+  "improvements": [
+    { "title": "short title", "body": "1-2 sentence description" }
+  ],
+  "plan": [
+    { "badge": "Next 30 days", "badgeType": "purple", "title": "Technical — ...", "bullets": ["bullet 1", "bullet 2", "bullet 3"] },
+    { "badge": "In training", "badgeType": "amber", "title": "...", "bullets": ["..."] },
+    { "badge": "12-month goal", "badgeType": "teal", "title": "...", "bullets": ["..."] }
+  ],
+  "microHabits": [
+    { "num": "15", "desc": "description of habit" },
+    { "num": "10", "desc": "description of habit" },
+    { "num": "20", "desc": "description of habit" }
+  ],
+  "gameDayFocus": "Short sentence with key action highlighted — the key phrase goes after a dash",
+  "goalVision": "2-3 sentence paragraph describing the 12-month vision for this player",
+  "parentNote": "2-3 sentence note to parents about how to support the player"
+}
+
+Fill in playerName, position, duration, and focus using the provided values unless the transcript overrides them.
+Keep titles short (3-5 words). Keep bullet points concise (one clear idea each).
+badgeType must be one of: purple, amber, teal, blue`;
+
+  const userMsg = `Player name: ${name}
+Position: ${pos}
+Duration: ${dur}
+Focus: ${foc}
+
+TRANSCRIPT:
+${transcript}`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMsg }]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API error ${response.status}`);
+  }
+
+  const result = await response.json();
+  const text = result.content[0].text.trim();
+  const clean = text.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
+// ─── RAW PARSE (no AI) ───
+function parseRaw(name, pos, dur, foc, transcript) {
+  // Split into paragraphs, use as bullets
+  const paras = transcript.split(/\n+/).map(s => s.trim()).filter(s => s.length > 20);
+  const chunk = (arr, size) => Array.from({ length: Math.ceil(arr.length/size) }, (_, i) => arr.slice(i*size, i*size+size));
+  const chunks = chunk(paras, Math.max(1, Math.floor(paras.length / 6)));
+
+  return {
+    playerName: name,
+    position: pos,
+    duration: dur,
+    focus: foc,
+    mantra: 'Play with intent',
+    strengths: (chunks[0] || []).slice(0,6).map((p,i) => ({
+      title: ['Passing', 'Physical tools', 'Movement', 'Effort', 'Character', 'Preparation'][i] || `Strength ${i+1}`,
+      body: p.slice(0, 120)
+    })),
+    improvements: (chunks[1] || []).slice(0,6).map((p,i) => ({
+      title: ['Decision speed', 'First touch', 'Assertiveness', 'Transition', 'Weak foot', 'Line-breaking'][i] || `Area ${i+1}`,
+      body: p.slice(0, 120)
+    })),
+    plan: [
+      { badge: 'Next 30 days', badgeType: 'purple', title: 'Technical priorities',
+        bullets: (chunks[2] || paras).slice(0,4).map(p => p.slice(0,100)) },
+      { badge: 'In training', badgeType: 'amber', title: 'Training focus',
+        bullets: (chunks[3] || paras).slice(0,3).map(p => p.slice(0,100)) },
+      { badge: '12-month goal', badgeType: 'teal', title: 'Long-term vision',
+        bullets: (chunks[4] || paras).slice(0,3).map(p => p.slice(0,100)) },
+    ],
+    microHabits: [
+      { num: '15', desc: 'Directional first touches daily' },
+      { num: '10', desc: 'Short acceleration sprints' },
+      { num: '20', desc: 'Passes with weaker foot' }
+    ],
+    gameDayFocus: 'Can I go forward? — Take the first touch into space.',
+    goalVision: (chunks[5] || paras).slice(0,2).join(' ').slice(0, 300) || 'Become a more assertive, impactful player who plays with intent and influences the game.',
+    parentNote: paras[paras.length-1]?.slice(0,300) || 'Continue to encourage confidence and allow ownership within the game.'
+  };
+}
+
+// ─── RENDER ───
+function renderInfographic(d) {
+  const ig = document.getElementById('infographic');
+
+  const strengthCards = (d.strengths || []).map(s => `
+    <div class="card green">
+      <h4><span class="dot" style="background:#38A050;"></span>${esc(s.title)}</h4>
+      <p>${esc(s.body)}</p>
+    </div>`).join('');
+
+  const improvCards = (d.improvements || []).map(s => `
+    <div class="card amber">
+      <h4><span class="dot" style="background:#F0A020;"></span>${esc(s.title)}</h4>
+      <p>${esc(s.body)}</p>
+    </div>`).join('');
+
+  const planRows = (d.plan || []).map(p => `
+    <div class="plan-item">
+      <div class="plan-badge ${p.badgeType || 'purple'}">${esc(p.badge)}</div>
+      <div class="plan-content">
+        <h4>${esc(p.title)}</h4>
+        <ul>${(p.bullets||[]).map(b => `<li>${esc(b)}</li>`).join('')}</ul>
+      </div>
+    </div>`).join('');
+
+  const microCards = (d.microHabits || []).map(m => `
+    <div class="micro-card">
+      <div class="num">${esc(m.num)}</div>
+      <div class="desc">${esc(m.desc)}</div>
+    </div>`).join('');
+
+  // Game day focus: split on dash
+  const gdParts = (d.gameDayFocus || '').split('—');
+  const gdText = gdParts.length > 1
+    ? `<span>${esc(gdParts[0].trim())}</span> — ${esc(gdParts[1].trim())}`
+    : esc(d.gameDayFocus || '');
+
+  ig.innerHTML = `
+    <div class="ig-header">
+      <div>
+        <h1>${esc(d.playerName || 'Player')} <span>IDP</span></h1>
+        <div class="sub">Individual Development Plan · 2026 · Coaching Staff</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="pos-badge">${esc(d.position || 'Field Player')}</div>
+        <span class="phase">Phase: ${esc(d.focus || 'Development')}</span>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="val">Development</div><div class="lbl">Current phase</div></div>
+      <div class="stat-card"><div class="val">${esc(d.focus || '—')}</div><div class="lbl">Focus</div></div>
+      <div class="stat-card"><div class="val">${esc(d.duration || '12 months')}</div><div class="lbl">Plan duration</div></div>
+      <div class="stat-card"><div class="val">${esc(d.mantra || 'Play with intent')}</div><div class="lbl">Mantra</div></div>
+    </div>
+
+    <div class="sec-label">Keep doing — strengths to build on</div>
+    <div class="card-grid">${strengthCards}</div>
+
+    <hr class="divider">
+
+    <div class="sec-label">Areas to improve</div>
+    <div class="card-grid">${improvCards}</div>
+
+    <hr class="divider">
+
+    <div class="sec-label">Development plan</div>
+    <div class="plan-list">${planRows}</div>
+
+    <div class="micro-label">Home micro-habits — daily</div>
+    <div class="micro-grid">${microCards}</div>
+
+    <div class="gameday" style="margin-top:8px;">
+      <div class="gd-label">Game day focus</div>
+      <div class="gd-text">${gdText}</div>
+    </div>
+
+    <div class="sec-label" style="margin-top:1.5rem;">12-month goal</div>
+    <div class="goal-banner">
+      <div class="timeline">12-month<br>vision</div>
+      <p>${esc(d.goalVision || '')}</p>
+    </div>
+
+    <div class="parent-note">
+      <div class="plabel">Note for parents</div>
+      <p>${esc(d.parentNote || '')}</p>
+    </div>
+  `;
+
+  document.getElementById('emptyState').style.display = 'none';
+  ig.style.display = 'block';
+  document.getElementById('downloadBar').classList.add('visible');
+  ig.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ─── DOWNLOAD HTML ───
+function downloadHTML() {
+  const ig = document.getElementById('infographic');
+  if (!ig || ig.style.display === 'none') return;
+  const name = document.getElementById('playerName').value.trim() || 'Player';
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${name} — IDP 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0D1B2A;color:#EDF2F7;font-family:'Barlow',sans-serif;font-size:15px;line-height:1.6;padding:2rem 1.5rem 3rem;max-width:900px;margin:0 auto;}
+${getInfographicCSS()}
+</style>
+</head>
+<body>
+${ig.outerHTML}
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${name.replace(/\s+/g,'_')}_IDP_2026.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function getInfographicCSS() {
+  return `
+#infographic{font-family:'Barlow',sans-serif;font-size:15px;color:#EDF2F7;background:#0D1B2A;border-radius:10px;padding:2rem;}
+.ig-header{display:grid;grid-template-columns:1fr auto;align-items:end;gap:1rem;padding-bottom:1.25rem;border-bottom:1px solid rgba(255,255,255,0.15);margin-bottom:1.5rem;}
+.ig-header h1{font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:800;line-height:1;color:#EDF2F7;}
+.ig-header h1 span{color:#22A882;}
+.ig-header .sub{font-size:12px;color:#64748B;margin-top:5px;font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;}
+.ig-header .pos-badge{display:inline-block;background:#0D2E25;border:1px solid #1B8A6B;color:#22A882;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:5px 12px;border-radius:4px;}
+.ig-header .phase{display:block;font-size:11px;color:#64748B;font-family:'Barlow Condensed',sans-serif;letter-spacing:0.08em;text-transform:uppercase;margin-top:6px;text-align:right;}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1.5rem;}
+.stat-card{background:#1A2E44;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px 14px;}
+.stat-card .val{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;color:#EDF2F7;line-height:1.2;}
+.stat-card .lbl{font-size:10px;color:#64748B;text-transform:uppercase;letter-spacing:0.08em;margin-top:3px;font-family:'Barlow Condensed',sans-serif;font-weight:500;}
+.sec-label{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#64748B;margin-bottom:8px;margin-top:1.5rem;}
+.card-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.card{border-radius:8px;padding:12px 14px;border:1px solid rgba(255,255,255,0.08);}
+.card.green{background:#0D2214;border-color:rgba(56,160,80,0.2);}
+.card.amber{background:#2E1E05;border-color:rgba(212,135,10,0.2);}
+.card h4{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:#EDF2F7;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+.card .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.card p{font-size:12px;color:#94A3B8;line-height:1.5;}
+.divider{border:none;border-top:1px solid rgba(255,255,255,0.08);margin:1.5rem 0 0;}
+.plan-list{display:flex;flex-direction:column;gap:6px;}
+.plan-item{display:grid;grid-template-columns:100px 1fr;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);}
+.plan-badge{display:flex;align-items:center;justify-content:center;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:10px 7px;line-height:1.3;}
+.plan-badge.purple{background:#1A1230;color:#7357C8;border-right:1px solid rgba(115,87,200,0.2);}
+.plan-badge.amber{background:#2E1E05;color:#F0A020;border-right:1px solid rgba(212,135,10,0.2);}
+.plan-badge.teal{background:#0D2E25;color:#22A882;border-right:1px solid rgba(27,138,107,0.2);}
+.plan-badge.blue{background:#0D1E2E;color:#60A5FA;border-right:1px solid rgba(96,165,250,0.2);}
+.plan-content{background:#1A2E44;padding:10px 14px;}
+.plan-content h4{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:#EDF2F7;margin-bottom:5px;}
+.plan-content ul{list-style:none;display:flex;flex-direction:column;gap:3px;}
+.plan-content ul li{font-size:12px;color:#94A3B8;display:flex;gap:7px;align-items:flex-start;line-height:1.45;}
+.plan-content ul li::before{content:'—';color:#64748B;flex-shrink:0;}
+.micro-label{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#60A5FA;display:flex;align-items:center;gap:6px;margin-bottom:8px;margin-top:1.5rem;}
+.micro-label::after{content:'';flex:1;height:1px;background:rgba(96,165,250,0.2);}
+.micro-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
+.micro-card{background:#0D1E2E;border:1px solid rgba(96,165,250,0.2);border-radius:8px;padding:12px 14px;text-align:center;}
+.micro-card .num{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:#60A5FA;line-height:1;}
+.micro-card .desc{font-size:11px;color:#94A3B8;margin-top:4px;line-height:1.4;}
+.gameday{background:#1A2E44;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-top:8px;}
+.gameday .gd-label{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#64748B;white-space:nowrap;}
+.gameday .gd-text{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:#EDF2F7;}
+.gameday .gd-text span{color:#22A882;}
+.goal-banner{background:#0D2E25;border:1px solid rgba(27,138,107,0.35);border-radius:10px;padding:16px 18px;margin-top:8px;display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;}
+.goal-banner .timeline{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:#22A882;text-transform:uppercase;letter-spacing:0.1em;white-space:nowrap;}
+.goal-banner p{font-size:13px;color:#94A3B8;line-height:1.55;}
+.goal-banner p strong{color:#22A882;font-weight:600;}
+.parent-note{margin-top:1.5rem;border-left:3px solid rgba(255,255,255,0.15);padding:10px 16px;background:#1A2E44;border-radius:0 8px 8px 0;}
+.parent-note .plabel{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#64748B;margin-bottom:6px;}
+.parent-note p{font-size:12px;color:#94A3B8;line-height:1.6;font-style:italic;}
+  `;
+}
+</script>
+</body>
+</html>
