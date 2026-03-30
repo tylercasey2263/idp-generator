@@ -511,11 +511,48 @@
         <div class="input-group">
           <div class="row">
             <input type="text" id="playerName" placeholder="Player name" />
-            <input type="text" id="playerPos" placeholder="Position (e.g. Defender)" />
+            <input type="text" id="playerPos" placeholder="Position" list="positionOptions" />
+            <datalist id="positionOptions">
+              <option value="Goalkeeper">
+              <option value="Defender">
+              <option value="Center Back">
+              <option value="Right Back">
+              <option value="Left Back">
+              <option value="Midfielder">
+              <option value="Defensive Midfielder">
+              <option value="Central Midfielder">
+              <option value="Attacking Midfielder">
+              <option value="Winger">
+              <option value="Right Winger">
+              <option value="Left Winger">
+              <option value="Forward">
+              <option value="Striker">
+              <option value="GK / Field Player">
+            </datalist>
           </div>
           <div class="row">
-            <input type="text" id="planDuration" placeholder="Plan duration (e.g. 12 months)" />
-            <input type="text" id="planFocus" placeholder="Focus (e.g. Assert & Progress)" />
+            <input type="text" id="planDuration" placeholder="Plan duration" list="durationOptions" />
+            <datalist id="durationOptions">
+              <option value="3 months">
+              <option value="6 months">
+              <option value="12 months">
+              <option value="18 months">
+              <option value="2 years">
+            </datalist>
+            <input type="text" id="planFocus" placeholder="Focus phrase" list="focusOptions" />
+            <datalist id="focusOptions">
+              <option value="Assert &amp; Progress">
+              <option value="Technical Development">
+              <option value="Physical Development">
+              <option value="Tactical Awareness">
+              <option value="Decision Making">
+              <option value="1v1 Defending">
+              <option value="Attacking Play">
+              <option value="First Touch &amp; Control">
+              <option value="Leadership &amp; Communication">
+              <option value="Set Pieces">
+              <option value="Positioning &amp; Shape">
+            </datalist>
           </div>
         </div>
       </div>
