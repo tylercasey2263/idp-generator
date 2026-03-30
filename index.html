@@ -542,6 +542,10 @@
   <nav class="topnav">
     <div class="topnav-brand">Player <span>IDP</span> Generator</div>
     <div class="topnav-right">
+      <div class="key-status" id="personalKeyStatus" onclick="openPersonalKeyModal()">
+        <div class="dot"></div>
+        <span id="personalKeyLabel">My API Key</span>
+      </div>
       <div class="key-status" id="keyStatus" onclick="openPasswordModal()">
         <div class="dot"></div>
         <span id="keyLabel">Team Access</span>
@@ -635,6 +639,22 @@
       </div>
 
     </div>
+  </div>
+</div>
+
+<!-- PERSONAL API KEY MODAL -->
+<div class="modal-overlay" id="personalKeyModal">
+  <div class="modal">
+    <h2>My API Key</h2>
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">Paste your own Anthropic API key below. It's stored only for this browser session and takes priority over the team key. Get one at <a href="https://console.anthropic.com" target="_blank" style="color:var(--teal-light);">console.anthropic.com</a>.</p>
+    <input type="password" id="personalKeyInput" placeholder="sk-ant-…" autocomplete="off"
+           onkeydown="if(event.key==='Enter') savePersonalKey()" />
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="clearPersonalKey()">Clear Key</button>
+      <button class="btn btn-secondary" onclick="closePersonalKeyModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePersonalKey()">Save Key</button>
+    </div>
+    <div id="personalKeyStatus2" style="font-size:12px; color:var(--text-dim); min-height:16px;"></div>
   </div>
 </div>
 
@@ -750,7 +770,10 @@ async function _decryptBlob(blob, password) {
 }
 
 // ─── SESSION KEY ───
-function getKey() { return sessionStorage.getItem('_idp_k') || ''; }
+// Personal key takes priority over team key
+function getKey() {
+  return sessionStorage.getItem('_idp_pk') || sessionStorage.getItem('_idp_k') || '';
+}
 
 // ─── PASSWORD MODAL ───
 function openPasswordModal(reason) {
@@ -785,12 +808,52 @@ async function unlockWithPassword() {
 }
 
 function updateKeyStatus() {
-  const unlocked = !!getKey();
+  // Team key button
+  const teamUnlocked = !!sessionStorage.getItem('_idp_k');
   const el  = document.getElementById('keyStatus');
   const lbl = document.getElementById('keyLabel');
-  if (unlocked) { el.classList.add('active'); lbl.textContent = 'Team Access ✓'; }
-  else          { el.classList.remove('active'); lbl.textContent = '🔒 Team Access'; }
+  if (teamUnlocked) { el.classList.add('active'); lbl.textContent = 'Team Access ✓'; }
+  else              { el.classList.remove('active'); lbl.textContent = '🔒 Team Access'; }
+
+  // Personal key button
+  const personalSet = !!sessionStorage.getItem('_idp_pk');
+  const pel  = document.getElementById('personalKeyStatus');
+  const plbl = document.getElementById('personalKeyLabel');
+  if (personalSet) { pel.classList.add('active'); plbl.textContent = 'My Key ✓'; }
+  else             { pel.classList.remove('active'); plbl.textContent = 'Set API Key'; }
 }
+
+// ─── PERSONAL KEY MODAL ───
+function openPersonalKeyModal() {
+  const current = sessionStorage.getItem('_idp_pk') || '';
+  document.getElementById('personalKeyInput').value = current;
+  document.getElementById('personalKeyStatus2').textContent = '';
+  document.getElementById('personalKeyModal').classList.add('visible');
+  setTimeout(() => document.getElementById('personalKeyInput').focus(), 80);
+}
+function closePersonalKeyModal() {
+  document.getElementById('personalKeyModal').classList.remove('visible');
+}
+function savePersonalKey() {
+  const val = document.getElementById('personalKeyInput').value.trim();
+  if (!val) { document.getElementById('personalKeyStatus2').textContent = 'Paste your API key above.'; return; }
+  if (!val.startsWith('sk-ant-')) {
+    document.getElementById('personalKeyStatus2').textContent = 'That doesn\'t look like an Anthropic key (should start with sk-ant-).';
+    return;
+  }
+  sessionStorage.setItem('_idp_pk', val);
+  updateKeyStatus();
+  closePersonalKeyModal();
+}
+function clearPersonalKey() {
+  sessionStorage.removeItem('_idp_pk');
+  document.getElementById('personalKeyInput').value = '';
+  document.getElementById('personalKeyStatus2').textContent = 'Personal key cleared.';
+  updateKeyStatus();
+}
+document.getElementById('personalKeyModal').addEventListener('click', function(e) {
+  if (e.target === this) closePersonalKeyModal();
+});
 updateKeyStatus();
 
 // Auto-prompt on load if blob is configured but session not yet unlocked
