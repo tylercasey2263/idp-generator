@@ -272,11 +272,30 @@ let allPlayers = [];   // populated after teams load for combined search
 })();
 
 async function loadAllPlayers() {
-  const { data } = await sb
+  // Simple select without embedded join to avoid FK-dependency issues
+  const { data, error } = await sb
     .from('players')
-    .select('id, name, positions, team_id, teams(name)')
+    .select('id, name, positions, team_id')
     .order('name');
-  allPlayers = data || [];
+
+  if (error || !data) { allPlayers = []; return; }
+
+  // Fetch team names separately for all unique team_ids
+  const teamIds = [...new Set(data.filter(p => p.team_id).map(p => p.team_id))];
+  const teamNameMap = {};
+  if (teamIds.length > 0) {
+    const { data: teams } = await sb.from('teams').select('id, name').in('id', teamIds);
+    (teams || []).forEach(t => { teamNameMap[t.id] = t.name; });
+  }
+
+  allPlayers = data.map(p => ({
+    ...p,
+    teamName: p.team_id ? (teamNameMap[p.team_id] || null) : null
+  }));
+
+  // Re-run search if the user already typed something before data arrived
+  const q = document.getElementById('globalSearch')?.value;
+  if (q && q.trim()) runSearch();
 }
 
 async function loadTeams() {
@@ -371,7 +390,7 @@ function runSearch() {
   const filteredPlayers = allPlayers.filter(p =>
     p.name.toLowerCase().includes(q) ||
     (p.positions||'').toLowerCase().includes(q) ||
-    (p.teams?.name||'').toLowerCase().includes(q)
+    (p.teamName||'').toLowerCase().includes(q)
   );
 
   if (filteredPlayers.length === 0) { prDiv.innerHTML = ''; return; }
@@ -385,7 +404,7 @@ function runSearch() {
           <a class="player-result-row" href="/view-idp.html?player=${p.id}&team=${teamId}">
             <span class="pr-name">${esc(p.name)}</span>
             ${p.positions ? `<span class="pr-pos">${esc(p.positions)}</span>` : ''}
-            ${p.teams?.name ? `<span class="pr-team">${esc(p.teams.name)}</span>` : ''}
+            ${p.teamName ? `<span class="pr-team">${esc(p.teamName)}</span>` : ''}
             <span class="pr-arrow">→</span>
           </a>`;
       }).join('')}
