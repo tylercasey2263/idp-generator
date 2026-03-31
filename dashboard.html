@@ -141,6 +141,8 @@ input::placeholder { color: var(--text-dim); }
 .modal-actions { display: flex; gap: 10px; }
 .modal-actions .btn { flex: 1; padding: 11px 16px; }
 .modal-status { font-size: 12px; color: var(--text-dim); min-height: 16px; }
+.btn-danger { background: #8B1A1A; color: #FCA5A5; border: 1px solid rgba(224,80,80,0.4); }
+.btn-danger:hover { background: #A32020; }
 
 .spinner {
   display: inline-block; width: 14px; height: 14px;
@@ -184,6 +186,19 @@ input::placeholder { color: var(--text-dim); }
     </div>
   </div>
 </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="overlay" id="deleteConfirmModal">
+  <div class="modal" style="max-width:400px;">
+    <h2 style="color:var(--red-light);">Delete Team?</h2>
+    <p id="deleteConfirmMsg" style="font-size:14px;color:var(--text-muted);line-height:1.6;"></p>
+    <p style="font-size:12px;color:var(--text-dim);">All players on this team will also be permanently removed.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeDeleteConfirm()">Cancel</button>
+      <button class="btn btn-danger" id="confirmDeleteBtn" onclick="confirmDelete()">Yes, Delete</button>
+    </div>
+  </div>
 </div>
 
 <!-- ADD TEAM MODAL -->
@@ -290,14 +305,40 @@ function viewTeam(id) {
   window.location.href = `/team.html?team=${id}`;
 }
 
-async function deleteTeam(id, name) {
-  if (!confirm(`Delete "${name}" and all its players? This cannot be undone.`)) return;
-  // Remove players, coach link, then the team itself
-  await sb.from('players').delete().eq('team_id', id);
-  await sb.from('coach_teams').delete().eq('team_id', id);
-  await sb.from('teams').delete().eq('id', id);
-  // Remove from local cache and re-render without a full reload
-  window._allTeamRows = (window._allTeamRows || []).filter(r => r.team_id !== id);
+let _pendingDeleteId   = null;
+let _pendingDeleteName = null;
+
+function deleteTeam(id, name) {
+  _pendingDeleteId   = id;
+  _pendingDeleteName = name;
+  document.getElementById('deleteConfirmMsg').textContent =
+    `Are you sure you want to delete "${name}"?`;
+  document.getElementById('confirmDeleteBtn').disabled = false;
+  document.getElementById('confirmDeleteBtn').textContent = 'Yes, Delete';
+  document.getElementById('deleteConfirmModal').classList.add('open');
+}
+
+function closeDeleteConfirm() {
+  document.getElementById('deleteConfirmModal').classList.remove('open');
+  _pendingDeleteId = _pendingDeleteName = null;
+}
+
+document.getElementById('deleteConfirmModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDeleteConfirm();
+});
+
+async function confirmDelete() {
+  if (!_pendingDeleteId) return;
+  const btn = document.getElementById('confirmDeleteBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  await sb.from('players').delete().eq('team_id', _pendingDeleteId);
+  await sb.from('coach_teams').delete().eq('team_id', _pendingDeleteId);
+  await sb.from('teams').delete().eq('id', _pendingDeleteId);
+
+  window._allTeamRows = (window._allTeamRows || []).filter(r => r.team_id !== _pendingDeleteId);
+  closeDeleteConfirm();
   renderTeamCards(window._allTeamRows, window._countMap || {});
 }
 
