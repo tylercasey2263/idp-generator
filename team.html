@@ -356,11 +356,28 @@ async function loadTeam() {
 }
 
 async function loadPlayers() {
-  const { data: players } = await sb
+  // Primary roster: players whose home team is this one
+  const { data: direct } = await sb
     .from('players')
     .select('*')
     .eq('team_id', teamId)
     .order('name');
+
+  // Additional roster: players linked via player_teams
+  const { data: linked } = await sb
+    .from('player_teams')
+    .select('player_id, players(*)')
+    .eq('team_id', teamId);
+
+  // Merge, deduplicate, mark shared players
+  const playerMap = {};
+  (direct || []).forEach(p => { playerMap[p.id] = { ...p, _shared: false }; });
+  (linked || []).forEach(pt => {
+    if (pt.players && !playerMap[pt.players.id]) {
+      playerMap[pt.players.id] = { ...pt.players, _shared: true };
+    }
+  });
+  const players = Object.values(playerMap).sort((a, b) => a.name.localeCompare(b.name));
 
   const container = document.getElementById('playerContent');
 
@@ -408,7 +425,7 @@ async function loadPlayers() {
           return `
             <tr class="player-row">
               <td>
-                <div class="player-name">${esc(p.name)}</div>
+                <div class="player-name">${esc(p.name)}${p._shared ? ' <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--teal-light);background:var(--teal-faint);border:1px solid rgba(27,138,107,.3);border-radius:4px;padding:2px 6px;vertical-align:middle;">Shared</span>' : ''}</div>
                 ${p.positions ? `<div class="player-pos">${esc(p.positions)}</div>` : ''}
               </td>
               <td>${badge}</td>

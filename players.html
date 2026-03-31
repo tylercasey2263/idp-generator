@@ -115,7 +115,10 @@ select.filter-select:focus { border-color: var(--teal); }
 .player-row:hover { background: rgba(255,255,255,0.02); }
 .player-row td { padding: 12px 14px; vertical-align: middle; }
 .player-name { font-weight: 600; font-size: 15px; }
+.player-name a { color: var(--text); text-decoration: none; }
+.player-name a:hover { color: var(--teal-light); text-decoration: underline; }
 .player-pos { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.team-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .team-chip {
   display: inline-flex; align-items: center; gap: 5px;
   background: var(--navy-light); border: 1px solid var(--border-strong);
@@ -123,6 +126,7 @@ select.filter-select:focus { border-color: var(--teal); }
   white-space: nowrap;
 }
 .team-chip.unassigned { color: var(--text-dim); border-style: dashed; }
+.team-chip.extra { background: var(--teal-faint); border-color: rgba(27,138,107,0.3); color: var(--teal-light); }
 .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
 .btn-action {
   padding: 5px 11px; border-radius: 6px; border: none;
@@ -136,6 +140,9 @@ select.filter-select:focus { border-color: var(--teal); }
 .btn-idp { background: var(--teal-faint); color: var(--teal-light);
   border: 1px solid rgba(27,138,107,0.35); }
 .btn-idp:hover { border-color: var(--teal); }
+.btn-add-team { background: rgba(96,165,250,0.08); color: #60A5FA;
+  border: 1px solid rgba(96,165,250,0.3); }
+.btn-add-team:hover { border-color: #60A5FA; }
 .btn-danger { background: transparent; color: #E05050;
   border: 1px solid rgba(224,80,80,0.25); }
 .btn-danger:hover { border-color: rgba(224,80,80,0.5); }
@@ -276,6 +283,23 @@ input::placeholder { color: var(--text-dim); }
   </div>
 </div>
 
+<!-- ─── ADD TO TEAM MODAL ─── -->
+<div class="overlay" id="addToTeamModal">
+  <div class="modal">
+    <h2>Add to Another Team</h2>
+    <p id="addToTeamDesc" style="font-size:13px;color:var(--text-muted);line-height:1.6;"></p>
+    <div class="field">
+      <label>Select Team</label>
+      <select class="modal-select" id="addToTeamSelect"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeAddToTeamModal()">Cancel</button>
+      <button class="btn btn-primary" id="saveAddToTeamBtn" onclick="saveAddToTeam()">Add to Team</button>
+    </div>
+    <div class="modal-status" id="addToTeamStatus"></div>
+  </div>
+</div>
+
 <!-- ─── CSV IMPORT MODAL ─── -->
 <div class="overlay" id="csvModal">
   <div class="modal wide">
@@ -327,10 +351,11 @@ input::placeholder { color: var(--text-dim); }
 </div>
 
 <script>
-let allPlayers  = [];
-let allTeams    = [];
-let editingId   = null;
-let csvRows     = [];
+let allPlayers     = [];
+let allTeams       = [];
+let playerTeamsMap = {};   // player_id -> [{team_id, name}]
+let editingId      = null;
+let csvRows        = [];
 
 (async () => {
   const ctx = await requireCoach();
@@ -343,16 +368,24 @@ async function loadData() {
   // Load all teams
   const { data: teams } = await sb.from('teams').select('id, name, season').order('name');
   allTeams = teams || [];
-
-  // Populate team filter + selects
   populateTeamSelects();
 
-  // Load all players with team info
+  // Load all players with primary team info
   const { data: players } = await sb
     .from('players')
     .select('id, name, positions, team_id, teams(id, name)')
     .order('name');
   allPlayers = players || [];
+
+  // Load all player_teams (multi-team links)
+  const { data: ptLinks } = await sb
+    .from('player_teams')
+    .select('player_id, team_id, teams(id, name)');
+  playerTeamsMap = {};
+  (ptLinks || []).forEach(pt => {
+    if (!playerTeamsMap[pt.player_id]) playerTeamsMap[pt.player_id] = [];
+    playerTeamsMap[pt.player_id].push({ team_id: pt.team_id, name: pt.teams?.name || '' });
+  });
 
   renderTable(allPlayers);
 }
@@ -377,7 +410,10 @@ function filterPlayers() {
   let filtered = allPlayers;
   if (q)      filtered = filtered.filter(p => p.name.toLowerCase().includes(q) ||
                                               (p.positions||'').toLowerCase().includes(q));
-  if (teamId) filtered = filtered.filter(p => p.team_id === teamId);
+  if (teamId) filtered = filtered.filter(p =>
+    p.team_id === teamId ||
+    (playerTeamsMap[p.id] || []).some(t => t.team_id === teamId)
+  );
 
   renderTable(filtered);
 }
@@ -410,20 +446,29 @@ function renderTable(players) {
         </thead>
         <tbody>
           ${players.map(p => {
-            const teamName = p.teams?.name || null;
+            const extraTeams = playerTeamsMap[p.id] || [];
+            const primaryTeamId = p.team_id || (extraTeams[0]?.team_id ?? '');
+            const teamChips = p.teams?.name
+              ? `<span class="team-chip">${esc(p.teams.name)}</span>` +
+                extraTeams.map(t => `<span class="team-chip extra">${esc(t.name)}</span>`).join('')
+              : extraTeams.length
+                ? extraTeams.map(t => `<span class="team-chip extra">${esc(t.name)}</span>`).join('')
+                : `<span class="team-chip unassigned">Unassigned</span>`;
             return `
               <tr class="player-row">
-                <td><div class="player-name">${esc(p.name)}</div></td>
-                <td><div class="player-pos">${esc(p.positions || '—')}</div></td>
                 <td>
-                  ${teamName
-                    ? `<span class="team-chip">${esc(teamName)}</span>`
-                    : `<span class="team-chip unassigned">Unassigned</span>`}
+                  <div class="player-name">
+                    <a href="/view-idp.html?player=${p.id}&team=${primaryTeamId}">${esc(p.name)}</a>
+                  </div>
+                  ${p.positions ? `<div class="player-pos">${esc(p.positions)}</div>` : ''}
                 </td>
+                <td><div class="player-pos">${esc(p.positions || '—')}</div></td>
+                <td><div class="team-chips">${teamChips}</div></td>
                 <td>
                   <div class="row-actions">
                     <button class="btn-action btn-edit" onclick="openEditPlayer('${p.id}')">Edit</button>
-                    <button class="btn-action btn-idp" onclick="goIDP('${p.id}', '${p.team_id||''}')">✦ IDP</button>
+                    <button class="btn-action btn-add-team" onclick="openAddToTeam('${p.id}','${esc(p.name)}')">+ Team</button>
+                    <button class="btn-action btn-idp" onclick="window.location.href='/view-idp.html?player=${p.id}&team=${primaryTeamId}'">View IDP</button>
                     <button class="btn-action btn-danger" onclick="deletePlayer('${p.id}', '${esc(p.name)}')">Remove</button>
                   </div>
                 </td>
@@ -434,8 +479,72 @@ function renderTable(players) {
     </div>`;
 }
 
-function goIDP(playerId, teamId) {
-  window.location.href = `/generate.html?player=${playerId}${teamId ? '&team=' + teamId : ''}`;
+// ─── ADD TO TEAM ──────────────────────────────
+let addToTeamPlayerId   = null;
+let addToTeamPlayerName = null;
+
+function openAddToTeam(playerId, playerName) {
+  addToTeamPlayerId   = playerId;
+  addToTeamPlayerName = playerName;
+
+  const p = allPlayers.find(x => x.id === playerId);
+  const alreadyTeamIds = new Set([
+    p?.team_id,
+    ...(playerTeamsMap[playerId] || []).map(t => t.team_id),
+  ].filter(Boolean));
+
+  const available = allTeams.filter(t => !alreadyTeamIds.has(t.id));
+
+  if (available.length === 0) {
+    document.getElementById('addToTeamDesc').textContent =
+      `${playerName} is already on every team.`;
+    document.getElementById('addToTeamSelect').innerHTML = '';
+    document.getElementById('saveAddToTeamBtn').disabled = true;
+  } else {
+    document.getElementById('addToTeamDesc').textContent =
+      `Add ${playerName} to an additional team. They'll appear on that team's roster alongside their existing teams.`;
+    document.getElementById('addToTeamSelect').innerHTML =
+      available.map(t => `<option value="${t.id}">${esc(t.name)}${t.season ? ' — '+esc(t.season) : ''}</option>`).join('');
+    document.getElementById('saveAddToTeamBtn').disabled = false;
+  }
+
+  document.getElementById('addToTeamStatus').textContent = '';
+  document.getElementById('addToTeamStatus').className   = 'modal-status';
+  document.getElementById('saveAddToTeamBtn').textContent = 'Add to Team';
+  document.getElementById('addToTeamModal').classList.add('open');
+}
+
+function closeAddToTeamModal() {
+  document.getElementById('addToTeamModal').classList.remove('open');
+}
+document.getElementById('addToTeamModal').addEventListener('click', function(e) {
+  if (e.target === this) closeAddToTeamModal();
+});
+
+async function saveAddToTeam() {
+  const teamId = document.getElementById('addToTeamSelect').value;
+  const st     = document.getElementById('addToTeamStatus');
+  if (!teamId) { st.textContent = 'Please select a team.'; return; }
+
+  const btn = document.getElementById('saveAddToTeamBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+
+  const { error } = await sb.from('player_teams').insert({
+    player_id: addToTeamPlayerId, team_id: teamId,
+  });
+
+  btn.disabled = false; btn.textContent = 'Add to Team';
+
+  if (error) {
+    st.textContent = 'Error: ' + error.message;
+    st.className   = 'modal-status';
+  } else {
+    const teamName = allTeams.find(t => t.id === teamId)?.name || '';
+    st.textContent = `Added to ${teamName}!`;
+    st.className   = 'modal-status success';
+    await loadData();
+    setTimeout(() => closeAddToTeamModal(), 1200);
+  }
 }
 
 // ─── ADD PLAYER ───────────────────────────────
