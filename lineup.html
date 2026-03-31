@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/js/auth.js"></script>
+<script src="/js/nav.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -57,7 +58,7 @@ html, body { height: 100vh; overflow: hidden; background: var(--navy);
 /* ─── IFRAME WRAPPER ─── */
 .frame-wrap {
   width: 100%;
-  height: calc(100vh - 56px);
+  height: 100vh;
   display: flex; flex-direction: column;
 }
 iframe {
@@ -68,20 +69,8 @@ iframe {
 </head>
 <body>
 
-<nav class="topnav">
-  <div class="nav-left">
-    <a class="nav-back" href="/dashboard.html">← Dashboard</a>
-    <div class="nav-brand">Player <span>IDP</span></div>
-  </div>
-  <div class="nav-center">
-    <span class="nav-title">⚽ Lineup Manager</span>
-  </div>
-  <div class="nav-right">
-    <span class="nav-name" id="navName"></span>
-    <button class="nav-btn" onclick="signOut()">Sign Out</button>
-  </div>
-</nav>
-
+<div id="sidebarMount"></div>
+<div class="main-content" style="display:flex;flex-direction:column;">
 <div class="frame-wrap">
   <iframe
     src="https://coach-assist.barcahome.com/"
@@ -89,12 +78,13 @@ iframe {
     allow="microphone"
   ></iframe>
 </div>
+</div>
 
 <script>
 (async () => {
   const ctx = await requireCoach();
   if (!ctx) return;
-  document.getElementById('navName').textContent = ctx.profile.full_name || ctx.session.user.email;
+  await renderSidebar('lineup');
 })();
 </script>
 </body>

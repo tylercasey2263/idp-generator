@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/js/auth.js"></script>
+<script src="/js/nav.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -148,26 +149,13 @@ input::placeholder { color: var(--text-dim); }
 </head>
 <body>
 
-<nav class="topnav">
-  <div class="nav-brand">Player <span>IDP</span></div>
-  <div style="display:flex;align-items:center;gap:6px;">
-    <a href="/dashboard.html" class="nav-btn" style="text-decoration:none;color:var(--teal-light);border-color:rgba(34,168,130,0.3);">My Teams</a>
-    <a href="/players.html" class="nav-btn" style="text-decoration:none;">All Players</a>
-    <a href="/lineup.html" class="nav-btn" style="text-decoration:none;">Lineup Manager</a>
-  </div>
-  <div class="nav-right">
-    <span class="nav-name" id="navName"></span>
-    <button class="nav-btn" onclick="signOut()">Sign Out</button>
-  </div>
-</nav>
+<div id="sidebarMount"></div>
 
+<div class="main-content">
 <div class="page">
   <div class="page-header">
     <div class="page-title">My Teams</div>
-    <div style="display:flex;gap:10px;align-items:center;">
-      <a href="/lineup.html" class="btn btn-ghost" style="text-decoration:none;">⚽ Lineup Manager</a>
-      <button class="btn btn-primary" onclick="openAddTeam()">+ Add Team</button>
-    </div>
+    <button class="btn btn-primary" onclick="openAddTeam()">+ Add Team</button>
   </div>
 
   <div class="team-grid" id="teamGrid">
@@ -176,6 +164,7 @@ input::placeholder { color: var(--text-dim); }
       <p>Loading your teams…</p>
     </div>
   </div>
+</div>
 </div>
 
 <!-- ADD TEAM MODAL -->
@@ -207,7 +196,7 @@ let coachId = null;
   const ctx = await requireCoach();
   if (!ctx) return;
   coachId = ctx.session.user.id;
-  document.getElementById('navName').textContent = ctx.profile.full_name || ctx.session.user.email;
+  await renderSidebar('dashboard');
   loadTeams();
 })();
 

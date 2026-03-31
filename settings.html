@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings — Player IDP</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/nav.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0D1B2A; --navy-mid: #1A2E44; --navy-light: #243B55;
+  --teal: #1B8A6B; --teal-light: #22A882; --teal-faint: #0D2E25;
+  --amber: #D4870A; --amber-light: #F0A020; --amber-faint: #2E1E05;
+  --text: #EDF2F7; --text-muted: #94A3B8; --text-dim: #64748B;
+  --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
+  --red-light: #E05050;
+}
+html, body { min-height: 100vh; background: var(--navy); color: var(--text); font-family: 'Inter', sans-serif; font-size: 15px; }
+
+.page { max-width: 760px; margin: 0 auto; padding: 2.5rem 2rem; }
+.page-title { font-family: 'Barlow Condensed', sans-serif; font-size: 32px; font-weight: 800; margin-bottom: 2rem; }
+
+/* Settings sections */
+.settings-section {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 1.75rem; margin-bottom: 1.5rem;
+}
+.section-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.25rem; gap: 1rem; }
+.section-title { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 800; }
+.section-desc { font-size: 13px; color: var(--text-dim); margin-top: 2px; line-height: 1.5; }
+
+/* Fields */
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+.field label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
+input[type="text"], input[type="password"] {
+  background: var(--navy); border: 1px solid var(--border-strong);
+  border-radius: 8px; color: var(--text); font-family: 'Inter', sans-serif;
+  font-size: 14px; padding: 10px 13px; width: 100%; outline: none;
+  transition: border-color .2s;
+}
+input:focus { border-color: var(--teal); }
+input::placeholder { color: var(--text-dim); }
+.field-hint { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+
+/* Logo upload */
+.logo-row { display: flex; align-items: center; gap: 1.25rem; }
+.logo-preview {
+  width: 72px; height: 72px; border-radius: 12px; flex-shrink: 0;
+  background: var(--navy); border: 2px dashed var(--border-strong);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; cursor: pointer; transition: border-color .2s;
+}
+.logo-preview:hover { border-color: var(--teal); }
+.logo-preview img { width: 100%; height: 100%; object-fit: cover; }
+.logo-preview .logo-placeholder { font-size: 11px; color: var(--text-dim); text-align: center; line-height: 1.4; padding: 6px; }
+.logo-upload-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 7px; font-size: 13px; font-weight: 600;
+  background: var(--navy); border: 1px solid var(--border-strong); color: var(--text-muted);
+  cursor: pointer; transition: border-color .2s, color .2s;
+}
+.logo-upload-btn:hover { border-color: var(--teal); color: var(--text); }
+#logoFileInput { display: none; }
+
+/* Save button */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 20px; border-radius: 8px; border: none;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 13px;
+  font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  cursor: pointer; transition: background .15s; white-space: nowrap;
+}
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover { background: var(--teal-light); }
+.btn-danger-sm {
+  padding: 4px 10px; border-radius: 5px; font-size: 11px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase; cursor: pointer;
+  background: transparent; border: 1px solid rgba(224,80,80,.25); color: #E05050;
+  font-family: 'Barlow Condensed', sans-serif; transition: border-color .15s;
+}
+.btn-danger-sm:hover { border-color: rgba(224,80,80,.5); }
+.save-row { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+.save-status { font-size: 13px; }
+.save-status.ok { color: var(--teal-light); }
+.save-status.err { color: var(--red-light); }
+
+/* Key field */
+.key-row { display: flex; gap: 8px; align-items: stretch; }
+.key-row input { flex: 1; }
+.toggle-key {
+  background: var(--navy); border: 1px solid var(--border-strong); border-radius: 8px;
+  color: var(--text-dim); font-size: 12px; padding: 0 12px; cursor: pointer;
+  flex-shrink: 0; transition: border-color .2s; white-space: nowrap;
+}
+.toggle-key:hover { border-color: var(--teal); }
+
+/* User table */
+.user-table { width: 100%; border-collapse: collapse; }
+.user-table th {
+  text-align: left; font-size: 11px; font-weight: 700; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: .09em; padding: 0 12px 10px;
+  border-bottom: 1px solid var(--border-strong);
+}
+.user-row { border-bottom: 1px solid var(--border); }
+.user-row:last-child { border-bottom: none; }
+.user-row td { padding: 12px; vertical-align: middle; }
+.user-email { font-size: 13px; color: var(--text); }
+.user-name-sm { font-size: 12px; color: var(--text-dim); margin-top: 1px; }
+.role-select {
+  background: var(--navy); border: 1px solid var(--border-strong); border-radius: 6px;
+  color: var(--text); font-family: 'Inter', sans-serif; font-size: 12px;
+  padding: 5px 8px; cursor: pointer; outline: none; transition: border-color .2s;
+}
+.role-select:focus { border-color: var(--teal); }
+.role-badge {
+  display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; padding: 2px 7px; border-radius: 3px;
+}
+.role-badge.admin  { background: rgba(212,135,10,.2);  color: #F0A020; }
+.role-badge.coach  { background: rgba(27,138,107,.2);  color: #22A882; }
+.role-badge.parent { background: rgba(100,116,139,.2); color: #94A3B8; }
+
+/* Access denied */
+.access-denied {
+  text-align: center; padding: 5rem 2rem; color: var(--text-dim);
+}
+.access-denied h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800; color: var(--text); margin-bottom: .5rem; }
+.access-denied p { font-size: 14px; margin-bottom: 1.5rem; }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="sidebarMount"></div>
+
+<div class="main-content">
+<div class="page" id="pageContent">
+  <div style="color:var(--text-dim);padding:3rem;text-align:center;">Loading…</div>
+</div>
+</div>
+
+<script>
+(async () => {
+  const ctx = await requireCoach();
+  if (!ctx) return;
+
+  await renderSidebar('settings');
+
+  if (ctx.profile.role !== 'admin') {
+    document.getElementById('pageContent').innerHTML = `
+      <div class="access-denied">
+        <h2>Access Restricted</h2>
+        <p>Only admins can access Settings. Contact your club admin to change your role.</p>
+        <a href="/dashboard.html" class="btn btn-primary" style="text-decoration:none;display:inline-flex;">← Back to Dashboard</a>
+      </div>`;
+    return;
+  }
+
+  // Load current settings
+  const { data: rows } = await sb.from('settings').select('key,value');
+  const S = {};
+  (rows || []).forEach(r => S[r.key] = r.value);
+
+  // Load all users
+  const { data: users } = await sb.from('profiles').select('id, full_name, role').order('full_name');
+
+  // Get user emails from auth (we only have IDs in profiles, emails in auth.users — not accessible client-side)
+  // We'll show full_name + truncated ID
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="page-title">Settings</div>
+
+    <!-- ── CLUB INFO ── -->
+    <div class="settings-section" id="clubSection">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Club Information</div>
+          <div class="section-desc">Shown in the sidebar across the entire portal.</div>
+        </div>
+      </div>
+
+      <div class="logo-row" style="margin-bottom:1.25rem;">
+        <div class="logo-preview" id="logoPreview" onclick="document.getElementById('logoFileInput').click()">
+          ${S.club_logo
+            ? `<img id="logoImg" src="${S.club_logo}" alt="Club Logo">`
+            : `<div class="logo-placeholder" id="logoImg">Click to upload</div>`}
+        </div>
+        <div>
+          <label class="logo-upload-btn" for="logoFileInput">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 9V2M3 5l3.5-3.5L10 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 10.5h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            Upload Logo
+          </label>
+          <input type="file" id="logoFileInput" accept="image/*" onchange="handleLogoSelect(event)" />
+          <div class="field-hint" style="margin-top:6px;">PNG or JPG, square recommended. Displayed at 36×36px.</div>
+          ${S.club_logo ? `<button class="btn-danger-sm" style="margin-top:8px;" onclick="removeLogo()">Remove Logo</button>` : ''}
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Club Name</label>
+        <input type="text" id="clubName" value="${esc(S.club_name || '')}" placeholder="e.g. Barca Academy" />
+      </div>
+
+      <div class="field">
+        <label>Default Season</label>
+        <input type="text" id="defaultSeason" value="${esc(S.default_season || '')}" placeholder="e.g. Fall 2026" />
+        <div class="field-hint">Pre-filled when creating new teams.</div>
+      </div>
+
+      <div class="save-row">
+        <button class="btn btn-primary" onclick="saveClubInfo()">Save Club Info</button>
+        <span class="save-status" id="clubStatus"></span>
+      </div>
+    </div>
+
+    <!-- ── AI SETTINGS ── -->
+    <div class="settings-section">
+      <div class="section-header">
+        <div>
+          <div class="section-title">AI Settings</div>
+          <div class="section-desc">Claude API key used by all coaches to generate IDPs.</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Anthropic (Claude) API Key</label>
+        <div class="key-row">
+          <input type="password" id="claudeKey" value="${esc(S.claude_api_key || '')}" placeholder="sk-ant-api03-…" />
+          <button class="toggle-key" onclick="toggleKeyVisibility()">Show</button>
+        </div>
+        <div class="field-hint">Get your key at <strong>console.anthropic.com</strong> → API Keys.</div>
+      </div>
+
+      <div class="save-row">
+        <button class="btn btn-primary" onclick="saveApiKey()">Save API Key</button>
+        <span class="save-status" id="keyStatus"></span>
+      </div>
+    </div>
+
+    <!-- ── USER MANAGEMENT ── -->
+    <div class="settings-section">
+      <div class="section-header">
+        <div>
+          <div class="section-title">User Management</div>
+          <div class="section-desc">All registered users. Change roles as needed.</div>
+        </div>
+      </div>
+
+      <table class="user-table">
+        <thead>
+          <tr>
+            <th>Name / ID</th>
+            <th>Current Role</th>
+            <th>Change Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${(users || []).map(u => `
+            <tr class="user-row">
+              <td>
+                <div class="user-email">${esc(u.full_name || 'Unnamed User')}</div>
+                <div class="user-name-sm">${u.id.substring(0,16)}…</div>
+              </td>
+              <td><span class="role-badge ${u.role}">${u.role}</span></td>
+              <td>
+                <select class="role-select" data-uid="${u.id}" onchange="changeRole(this)">
+                  <option value="admin"  ${u.role==='admin'  ? 'selected':''}>Admin</option>
+                  <option value="coach"  ${u.role==='coach'  ? 'selected':''}>Coach</option>
+                  <option value="parent" ${u.role==='parent' ? 'selected':''}>Parent</option>
+                </select>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="font-size:12px;color:var(--text-dim);margin-top:12px;">
+        Role changes take effect on next login. <strong>Admin</strong> — full access including Settings.
+        <strong>Coach</strong> — manage teams &amp; players. <strong>Parent</strong> — read-only IDP view.
+      </div>
+    </div>
+  `;
+
+  // Trigger tour for first-time admin
+  maybeStartTour('settings');
+})();
+
+// ── Logo ──────────────────────────────────────
+let pendingLogo = null;
+function handleLogoSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 500 * 1024) {
+    alert('Logo must be under 500KB. Please resize the image first.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    pendingLogo = ev.target.result;
+    const preview = document.getElementById('logoPreview');
+    preview.innerHTML = `<img id="logoImg" src="${pendingLogo}" alt="Club Logo">`;
+    document.getElementById('clubStatus').textContent = 'Logo ready — click Save Club Info to apply.';
+    document.getElementById('clubStatus').className = 'save-status ok';
+  };
+  reader.readAsDataURL(file);
+}
+function removeLogo() {
+  pendingLogo = '';
+  document.getElementById('logoPreview').innerHTML = `<div class="logo-placeholder" id="logoImg">Click to upload</div>`;
+}
+
+// ── Save club info ────────────────────────────
+async function saveClubInfo() {
+  const name   = document.getElementById('clubName').value.trim();
+  const season = document.getElementById('defaultSeason').value.trim();
+  const logo   = pendingLogo !== null ? pendingLogo : undefined;
+  const st     = document.getElementById('clubStatus');
+  st.textContent = '';
+
+  const updates = [
+    { key: 'club_name',      value: name   || '' },
+    { key: 'default_season', value: season || '' },
+  ];
+  if (logo !== undefined) updates.push({ key: 'club_logo', value: logo });
+
+  const { error } = await sb.from('settings').upsert(updates, { onConflict: 'key' });
+  if (error) {
+    st.textContent = 'Error: ' + error.message;
+    st.className = 'save-status err';
+  } else {
+    st.textContent = '✓ Saved! Reload the page to see the updated sidebar.';
+    st.className = 'save-status ok';
+    pendingLogo = null;
+  }
+}
+
+// ── API key ───────────────────────────────────
+async function saveApiKey() {
+  const key = document.getElementById('claudeKey').value.trim();
+  const st  = document.getElementById('keyStatus');
+  if (!key) { st.textContent = 'Key cannot be empty.'; st.className = 'save-status err'; return; }
+  const { error } = await sb.from('settings').upsert([{ key: 'claude_api_key', value: key }], { onConflict: 'key' });
+  if (error) {
+    st.textContent = 'Error: ' + error.message;
+    st.className = 'save-status err';
+  } else {
+    st.textContent = '✓ API key saved!';
+    st.className = 'save-status ok';
+  }
+}
+function toggleKeyVisibility() {
+  const input = document.getElementById('claudeKey');
+  const btn   = event.target;
+  if (input.type === 'password') { input.type = 'text';     btn.textContent = 'Hide'; }
+  else                           { input.type = 'password'; btn.textContent = 'Show'; }
+}
+
+// ── Role change ───────────────────────────────
+async function changeRole(select) {
+  const uid  = select.dataset.uid;
+  const role = select.value;
+  const { error } = await sb.from('profiles').update({ role }).eq('id', uid);
+  if (error) {
+    alert('Error updating role: ' + error.message);
+    select.value = select.dataset.prev || 'coach';
+  } else {
+    // Update badge in same row
+    const badge = select.closest('tr').querySelector('.role-badge');
+    if (badge) { badge.className = `role-badge ${role}`; badge.textContent = role; }
+  }
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

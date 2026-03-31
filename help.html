@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Help & How-To — Player IDP</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/nav.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0D1B2A; --navy-mid: #1A2E44; --navy-light: #243B55;
+  --teal: #1B8A6B; --teal-light: #22A882; --teal-faint: #0D2E25;
+  --amber: #D4870A; --amber-light: #F0A020; --amber-faint: #2E1E05;
+  --text: #EDF2F7; --text-muted: #94A3B8; --text-dim: #64748B;
+  --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
+}
+html, body { min-height: 100vh; background: var(--navy); color: var(--text); font-family: 'Inter', sans-serif; font-size: 15px; }
+
+.page { max-width: 780px; margin: 0 auto; padding: 2.5rem 2rem 4rem; }
+.page-title { font-family: 'Barlow Condensed', sans-serif; font-size: 32px; font-weight: 800; margin-bottom: .4rem; }
+.page-sub { font-size: 14px; color: var(--text-dim); margin-bottom: 2.5rem; }
+
+/* Quick actions bar */
+.quick-bar {
+  display: flex; gap: 10px; margin-bottom: 2.5rem; flex-wrap: wrap;
+}
+.quick-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border-strong);
+  background: var(--navy-mid); color: var(--text-muted); font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: 'Inter', sans-serif; transition: border-color .2s, color .2s;
+}
+.quick-btn:hover { border-color: var(--teal); color: var(--text); }
+.quick-btn.primary { background: var(--teal); border-color: var(--teal); color: #fff; }
+.quick-btn.primary:hover { background: var(--teal-light); border-color: var(--teal-light); }
+
+/* Section */
+.help-section { margin-bottom: 2.5rem; }
+.section-title {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 800;
+  color: var(--text); margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;
+}
+.section-icon {
+  width: 28px; height: 28px; border-radius: 7px; background: var(--teal-faint);
+  border: 1px solid rgba(27,138,107,.3); display: flex; align-items: center; justify-content: center;
+  font-size: 13px; flex-shrink: 0;
+}
+
+/* Step cards */
+.steps { display: flex; flex-direction: column; gap: 10px; }
+.step {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 1.1rem 1.25rem; display: flex; gap: 14px; align-items: flex-start;
+}
+.step-num {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; margin-top: 1px;
+  background: var(--teal-faint); border: 1px solid rgba(27,138,107,.35);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: var(--teal-light);
+  font-family: 'Barlow Condensed', sans-serif;
+}
+.step-body { flex: 1; }
+.step-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.step-desc { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+.step-desc code {
+  background: var(--navy); border: 1px solid var(--border-strong);
+  border-radius: 4px; padding: 1px 6px; font-family: monospace; font-size: 12px; color: var(--teal-light);
+}
+.step-tag {
+  display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; padding: 2px 7px; border-radius: 3px; margin-left: 8px; vertical-align: middle;
+}
+.tag-admin  { background: rgba(212,135,10,.2);  color: #F0A020; }
+.tag-coach  { background: rgba(27,138,107,.2);  color: #22A882; }
+
+/* FAQ */
+.faq { display: flex; flex-direction: column; gap: 8px; }
+.faq-item {
+  background: var(--navy-mid); border: 1px solid var(--border-strong); border-radius: 10px; overflow: hidden;
+}
+.faq-q {
+  padding: 1rem 1.25rem; font-size: 14px; font-weight: 600; cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center;
+  transition: background .15s; user-select: none;
+}
+.faq-q:hover { background: var(--navy-light); }
+.faq-q .arrow { color: var(--text-dim); transition: transform .2s; font-size: 12px; }
+.faq-item.open .arrow { transform: rotate(180deg); }
+.faq-a {
+  display: none; padding: 0 1.25rem 1rem; font-size: 13px; color: var(--text-muted); line-height: 1.7;
+}
+.faq-item.open .faq-a { display: block; }
+
+/* CSV format box */
+.code-block {
+  background: var(--navy); border: 1px solid var(--border-strong); border-radius: 8px;
+  padding: 1rem 1.25rem; font-family: monospace; font-size: 13px; color: var(--teal-light);
+  line-height: 1.8; overflow-x: auto; margin-top: 8px;
+}
+.code-comment { color: var(--text-dim); }
+
+/* Tour restart */
+.tour-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.tour-card {
+  background: var(--navy-mid); border: 1px solid var(--border-strong); border-radius: 10px;
+  padding: 1.1rem; cursor: pointer; transition: border-color .2s;
+}
+.tour-card:hover { border-color: var(--teal); }
+.tour-card-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+.tour-card-desc  { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+.tour-card-btn {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 10px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--teal-light); font-family: 'Barlow Condensed', sans-serif;
+}
+</style>
+</head>
+<body>
+<div id="sidebarMount"></div>
+<div class="main-content">
+<div class="page">
+  <div class="page-title">Help &amp; How-To</div>
+  <div class="page-sub">Everything you need to get the most out of Player IDP.</div>
+
+  <div class="quick-bar">
+    <button class="quick-btn primary" onclick="window.location.href='/dashboard.html'">
+      ← Back to Dashboard
+    </button>
+    <button class="quick-btn" onclick="document.getElementById('tourSection').scrollIntoView({behavior:'smooth'})">
+      🎯 Restart Tour
+    </button>
+    <button class="quick-btn" onclick="document.getElementById('faqSection').scrollIntoView({behavior:'smooth'})">
+      ❓ FAQ
+    </button>
+    <button class="quick-btn" onclick="document.getElementById('csvSection').scrollIntoView({behavior:'smooth'})">
+      📋 CSV Format
+    </button>
+  </div>
+
+  <!-- ── GETTING STARTED ── -->
+  <div class="help-section">
+    <div class="section-title">
+      <div class="section-icon">🚀</div>
+      Getting Started
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Set up your club <span class="step-tag tag-admin">Admin</span></div>
+          <div class="step-desc">Go to <strong>Settings</strong> in the sidebar. Add your club name, upload a logo, and paste your Anthropic API key. This only needs to be done once.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Create your teams <span class="step-tag tag-coach">Coach</span></div>
+          <div class="step-desc">From the <strong>Dashboard</strong>, click <strong>+ Add Team</strong>. Give it a name (e.g. "U14 Boys Blue") and an optional season.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Add your players <span class="step-tag tag-coach">Coach</span></div>
+          <div class="step-desc">Click into a team and use <strong>+ Add Player</strong> to add individually, or <strong>⬆ Import CSV</strong> to bulk-upload your entire roster from a spreadsheet. You can also use <strong>All Players</strong> to manage the full club roster at once.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Generate an IDP <span class="step-tag tag-coach">Coach</span></div>
+          <div class="step-desc">Click <strong>✦ Generate IDP</strong> next to a player. Record or paste your coaching notes in the transcript area. Hit <strong>Clean &amp; Generate</strong> to have Claude AI build a professional development plan. You can edit any section inline before publishing.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <div class="step-title">Share with parents <span class="step-tag tag-coach">Coach</span></div>
+          <div class="step-desc">Once you've reviewed the IDP, click <strong>⬆ Save &amp; Publish</strong>. Then click <strong>⤴ Invite Parent</strong> on the team page to generate a unique link for the player's parent. They'll create an account and see all published IDPs for their child.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CSV IMPORT ── -->
+  <div class="help-section" id="csvSection">
+    <div class="section-title">
+      <div class="section-icon">📋</div>
+      CSV Import Format
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">→</div>
+        <div class="step-body">
+          <div class="step-title">Supported format</div>
+          <div class="step-desc">
+            Your CSV must have a <code>Name</code> column. A <code>Position</code> column is optional.
+            The first row can be a header or data — the importer detects it automatically.
+          </div>
+          <div class="code-block"><span class="code-comment"># With headers (recommended)</span>
+Name,Position
+John Smith,Central Midfielder
+Jane Doe,Forward
+Alex Turner,Goalkeeper
+
+<span class="code-comment"># Without headers also works</span>
+John Smith,Central Midfielder
+Jane Doe,Forward</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">→</div>
+        <div class="step-body">
+          <div class="step-title">Exporting from Excel or Google Sheets</div>
+          <div class="step-desc">In Excel: <strong>File → Save As → CSV (Comma delimited)</strong><br>In Google Sheets: <strong>File → Download → Comma-separated values (.csv)</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LINEUP MANAGER ── -->
+  <div class="help-section">
+    <div class="section-title">
+      <div class="section-icon">⚽</div>
+      Lineup Manager
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">→</div>
+        <div class="step-body">
+          <div class="step-title">What is it?</div>
+          <div class="step-desc">The Lineup Manager is a built-in soccer formation tool powered by Coach Assist. Use it to plan formations, assign players to positions, and prepare for matches — all from within the portal.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">→</div>
+        <div class="step-body">
+          <div class="step-title">How to access it</div>
+          <div class="step-desc">Click <strong>Lineup Manager</strong> in the sidebar. Your session stays active — no separate login required.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ROLES ── -->
+  <div class="help-section">
+    <div class="section-title">
+      <div class="section-icon">🔐</div>
+      Roles &amp; Permissions
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">A</div>
+        <div class="step-body">
+          <div class="step-title">Admin</div>
+          <div class="step-desc">Full access to everything including Settings, user role management, API key, and club branding. Typically the club director or head administrator.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">C</div>
+        <div class="step-body">
+          <div class="step-title">Coach</div>
+          <div class="step-desc">Can create and manage teams, add/edit/remove players, generate and publish IDPs, and invite parents. Cannot access Settings.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">P</div>
+        <div class="step-body">
+          <div class="step-title">Parent</div>
+          <div class="step-desc">Read-only access to published IDPs for their linked child. Parents join via an invite link generated by a coach. They cannot edit any data.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── FAQ ── -->
+  <div class="help-section" id="faqSection">
+    <div class="section-title">
+      <div class="section-icon">❓</div>
+      Frequently Asked Questions
+    </div>
+    <div class="faq">
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Where do I get a Claude API key? <span class="arrow">▼</span>
+        </div>
+        <div class="faq-a">Go to <strong>console.anthropic.com</strong>, sign in or create an account, navigate to <strong>API Keys</strong>, and create a new key. Paste it in Settings → AI Settings. You'll need to add billing credits to your Anthropic account for the key to work.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Can multiple coaches use the same account? <span class="arrow">▼</span>
+        </div>
+        <div class="faq-a">No — each coach should have their own account. Have them sign up at the login page. An admin can then set their role to "Coach" in Settings → User Management.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          How do parents access their child's IDP? <span class="arrow">▼</span>
+        </div>
+        <div class="faq-a">Go to the team page, click <strong>⤴ Invite Parent</strong> next to the player, and copy the unique invite link. Send it to the parent — they'll sign up and be automatically linked to see all published IDPs for that player.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Can I edit the IDP after generating it? <span class="arrow">▼</span>
+        </div>
+        <div class="faq-a">Yes! On the IDP page, click the <strong>✏ Edit</strong> button. All text sections become editable inline — click any text to modify it. When you're happy, click <strong>⬆ Save &amp; Publish</strong> to save and make it visible to the parent.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          What if I have 50+ teams? <span class="arrow">▼</span>
+        </div>
+        <div class="faq-a">Use the <strong>All Players</strong> page for a club-wide roster view. You can search by name, filter by team, edit player details, and reassign players between teams from one central location.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Is player data secure? <span class="arrow">▼</span>
+        </div>
+        <div class="faq-a">Yes. All data is stored in a private Supabase database with row-level security. Coaches only see their own teams, and parents only see their linked child's published IDPs. The Claude API key is stored encrypted server-side.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RESTART TOURS ── -->
+  <div class="help-section" id="tourSection">
+    <div class="section-title">
+      <div class="section-icon">🎯</div>
+      Interactive Tours
+    </div>
+    <div class="tour-grid">
+      <div class="tour-card" onclick="goTour('dashboard')">
+        <div class="tour-card-title">Dashboard Tour</div>
+        <div class="tour-card-desc">Overview of your teams and how to navigate the portal.</div>
+        <div class="tour-card-btn">▶ Start Tour</div>
+      </div>
+      <div class="tour-card" onclick="goTour('players')">
+        <div class="tour-card-title">All Players Tour</div>
+        <div class="tour-card-desc">Learn the club-wide roster view, search, and CSV import.</div>
+        <div class="tour-card-btn">▶ Start Tour</div>
+      </div>
+      <div class="tour-card" onclick="goTour('settings')">
+        <div class="tour-card-title">Settings Tour</div>
+        <div class="tour-card-desc">How to configure your club, API key, and manage users.</div>
+        <div class="tour-card-btn">▶ Start Tour</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+(async () => {
+  const ctx = await requireCoach();
+  if (!ctx) return;
+  await renderSidebar('help');
+})();
+
+function toggleFaq(el) {
+  el.parentElement.classList.toggle('open');
+}
+
+function goTour(page) {
+  const destinations = {
+    dashboard: '/dashboard.html',
+    players:   '/players.html',
+    settings:  '/settings.html',
+  };
+  // Clear the tour flag so it shows on next visit
+  localStorage.removeItem('idp_tour_v1_' + page);
+  window.location.href = destinations[page] || '/dashboard.html';
+}
+</script>
+</body>
+</html>

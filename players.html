@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/js/auth.js"></script>
+<script src="/js/nav.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -214,16 +215,8 @@ input::placeholder { color: var(--text-dim); }
 </head>
 <body>
 
-<nav class="topnav">
-  <a class="nav-brand" href="/dashboard.html">Player <span>IDP</span></a>
-  <div class="nav-links">
-    <a href="/dashboard.html" class="nav-link">My Teams</a>
-    <a href="/players.html" class="nav-link active">All Players</a>
-    <a href="/lineup.html" class="nav-link">Lineup Manager</a>
-  </div>
-  <button class="nav-btn" onclick="signOut()">Sign Out</button>
-</nav>
-
+<div id="sidebarMount"></div>
+<div class="main-content">
 <div class="page">
   <div class="page-header">
     <div class="page-title">All Players</div>
@@ -254,6 +247,7 @@ input::placeholder { color: var(--text-dim); }
       <p>Loading players…</p>
     </div>
   </div>
+</div>
 </div>
 
 <!-- ─── ADD / EDIT PLAYER MODAL ─── -->
@@ -341,6 +335,7 @@ let csvRows     = [];
 (async () => {
   const ctx = await requireCoach();
   if (!ctx) return;
+  await renderSidebar('players');
   await loadData();
 })();
 
