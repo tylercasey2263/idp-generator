@@ -195,7 +195,10 @@ input::placeholder { color: var(--text-dim); }
       <div class="page-title" id="teamTitle">Loading…</div>
       <div class="page-season" id="teamSeason"></div>
     </div>
-    <button class="btn btn-primary" onclick="openAddPlayer()">+ Add Player</button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-ghost" onclick="openCsvImport()" style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">⬆ Import CSV</button>
+      <button class="btn btn-primary" onclick="openAddPlayer()">+ Add Player</button>
+    </div>
   </div>
 
   <div id="playerContent">
@@ -225,6 +228,70 @@ input::placeholder { color: var(--text-dim); }
       <button class="btn btn-primary" id="savePlayerBtn" onclick="savePlayer()">Add Player</button>
     </div>
     <div class="modal-status" id="addPlayerStatus"></div>
+  </div>
+</div>
+
+<!-- EDIT PLAYER MODAL -->
+<div class="overlay" id="editPlayerModal">
+  <div class="modal">
+    <h2>Edit Player</h2>
+    <div class="field">
+      <label>Player Name</label>
+      <input type="text" id="editPlayerName" placeholder="First Last" />
+    </div>
+    <div class="field">
+      <label>Position(s)</label>
+      <input type="text" id="editPlayerPositions" placeholder="e.g. Central Midfielder" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeEditPlayer()">Cancel</button>
+      <button class="btn btn-primary" id="saveEditPlayerBtn" onclick="saveEditPlayer()">Save Changes</button>
+    </div>
+    <div class="modal-status" id="editPlayerStatus"></div>
+  </div>
+</div>
+
+<!-- CSV IMPORT MODAL -->
+<div class="overlay" id="csvModal">
+  <div class="modal" style="max-width:560px;">
+    <h2>Import Players from CSV</h2>
+    <div style="font-size:12px;color:var(--text-muted);line-height:1.7;">
+      CSV must have a <strong>Name</strong> column. <strong>Position</strong> is optional.<br>
+      Example: <code style="background:var(--navy);padding:1px 5px;border-radius:3px;font-family:monospace;">Name,Position</code>
+    </div>
+
+    <div id="csvUploadZone"
+         style="border:2px dashed var(--border-strong);border-radius:10px;padding:1.8rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;"
+         onclick="document.getElementById('csvInput').click()"
+         ondragover="event.preventDefault();this.style.borderColor='var(--teal)'"
+         ondrop="handleCsvDrop(event)" ondragleave="this.style.borderColor=''">
+      <div style="font-size:14px;color:var(--text-muted);font-weight:600;" id="csvUploadLabel">
+        Click to choose file or drag &amp; drop
+      </div>
+      <div style="font-size:12px;color:var(--text-dim);margin-top:4px;">.csv files only</div>
+      <input type="file" id="csvInput" accept=".csv,text/csv" style="display:none"
+             onchange="handleCsvSelect(event)" />
+    </div>
+
+    <div id="csvPreviewSection" style="display:none;">
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px;" id="csvPreviewLabel"></div>
+      <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border-strong);border-radius:8px;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;" id="csvPreviewTable"></table>
+      </div>
+    </div>
+
+    <div id="csvProgressSection" style="display:none;">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;" id="csvProgressLabel">Importing…</div>
+      <div style="height:4px;background:var(--border-strong);border-radius:2px;overflow:hidden;">
+        <div style="height:100%;background:var(--teal-light);border-radius:2px;transition:width .3s;width:0%" id="csvProgressFill"></div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeCsvModal()">Cancel</button>
+      <button class="btn btn-primary" id="csvImportBtn" disabled onclick="runCsvImport()">Import Players</button>
+    </div>
+    <div class="modal-status" id="csvStatus"></div>
   </div>
 </div>
 
@@ -331,6 +398,8 @@ async function loadPlayers() {
                   <button class="btn-action btn-generate"
                     onclick="generateIDP('${p.id}')">✦ Generate IDP</button>
                   <button class="btn-action btn-invite"
+                    onclick="openEditPlayer('${p.id}', '${esc(p.name)}', '${esc(p.positions||'')}')">Edit</button>
+                  <button class="btn-action btn-invite"
                     onclick="openInvite('${p.id}')">⤴ Invite Parent</button>
                   <button class="btn-action btn-danger"
                     onclick="deletePlayer('${p.id}', '${esc(p.name)}')">Remove</button>
@@ -428,6 +497,162 @@ async function deletePlayer(playerId, name) {
   if (!confirm(`Remove ${name} from this team? Their IDPs will also be deleted.`)) return;
   await sb.from('players').delete().eq('id', playerId);
   loadPlayers();
+}
+
+// ─── EDIT PLAYER ──────────────────────────────
+let editingPlayerId = null;
+function openEditPlayer(id, name, positions) {
+  editingPlayerId = id;
+  document.getElementById('editPlayerName').value = name;
+  document.getElementById('editPlayerPositions').value = positions;
+  document.getElementById('editPlayerStatus').textContent = '';
+  document.getElementById('editPlayerModal').classList.add('open');
+  setTimeout(() => document.getElementById('editPlayerName').focus(), 80);
+}
+function closeEditPlayer() {
+  document.getElementById('editPlayerModal').classList.remove('open');
+}
+document.getElementById('editPlayerModal').addEventListener('click', function(e) {
+  if (e.target === this) closeEditPlayer();
+});
+async function saveEditPlayer() {
+  const name = document.getElementById('editPlayerName').value.trim();
+  const pos  = document.getElementById('editPlayerPositions').value.trim();
+  const st   = document.getElementById('editPlayerStatus');
+  if (!name) { st.textContent = 'Name is required.'; st.className = 'modal-status error'; return; }
+  const btn = document.getElementById('saveEditPlayerBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  const { error } = await sb.from('players')
+    .update({ name, positions: pos || null })
+    .eq('id', editingPlayerId);
+  btn.disabled = false; btn.textContent = 'Save Changes';
+  if (error) {
+    st.textContent = 'Error: ' + error.message; st.className = 'modal-status error';
+  } else {
+    closeEditPlayer(); loadPlayers();
+  }
+}
+
+// ─── CSV IMPORT ───────────────────────────────
+let csvRows = [];
+function openCsvImport() {
+  csvRows = [];
+  document.getElementById('csvInput').value = '';
+  document.getElementById('csvUploadLabel').textContent = 'Click to choose file or drag & drop';
+  document.getElementById('csvPreviewSection').style.display = 'none';
+  document.getElementById('csvProgressSection').style.display = 'none';
+  document.getElementById('csvStatus').textContent = '';
+  document.getElementById('csvImportBtn').disabled = true;
+  document.getElementById('csvImportBtn').textContent = 'Import Players';
+  document.getElementById('csvModal').classList.add('open');
+}
+function closeCsvModal() { document.getElementById('csvModal').classList.remove('open'); }
+document.getElementById('csvModal').addEventListener('click', function(e) {
+  if (e.target === this) closeCsvModal();
+});
+function handleCsvDrop(e) {
+  e.preventDefault();
+  document.getElementById('csvUploadZone').style.borderColor = '';
+  const file = e.dataTransfer.files[0];
+  if (file) parseCSVFile(file);
+}
+function handleCsvSelect(e) {
+  const file = e.target.files[0];
+  if (file) parseCSVFile(file);
+}
+function splitCSVLine(line) {
+  const result = []; let cur = ''; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { inQ = !inQ; }
+    else if (ch === ',' && !inQ) { result.push(cur); cur = ''; }
+    else { cur += ch; }
+  }
+  result.push(cur);
+  return result.map(c => c.replace(/^"|"$/g, '').trim());
+}
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (!lines.length) return [];
+  const first = splitCSVLine(lines[0]);
+  const hasHeader = first.some(c => /^(name|player|pos)/i.test(c));
+  let nameCol = 0, posCol = first.length > 1 ? 1 : -1;
+  if (hasHeader) {
+    first.forEach((h, i) => {
+      if (/^(name|player)/i.test(h)) nameCol = i;
+      if (/^(pos)/i.test(h)) posCol = i;
+    });
+  }
+  const rows = [];
+  for (let i = hasHeader ? 1 : 0; i < lines.length; i++) {
+    const cols = splitCSVLine(lines[i]);
+    const name = (cols[nameCol] || '').trim();
+    if (name) rows.push({ name, positions: posCol >= 0 ? (cols[posCol]||'').trim()||null : null });
+  }
+  return rows;
+}
+function parseCSVFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    csvRows = parseCSV(e.target.result);
+    document.getElementById('csvUploadLabel').textContent =
+      `✓ ${file.name} — ${csvRows.length} player${csvRows.length!==1?'s':''} found`;
+    showCSVPreview();
+    document.getElementById('csvImportBtn').disabled = csvRows.length === 0;
+    document.getElementById('csvImportBtn').textContent =
+      `Import ${csvRows.length} Player${csvRows.length!==1?'s':''}`;
+  };
+  reader.readAsText(file);
+}
+function showCSVPreview() {
+  const section = document.getElementById('csvPreviewSection');
+  if (!csvRows.length) { section.style.display = 'none'; return; }
+  const preview = csvRows.slice(0, 8);
+  document.getElementById('csvPreviewLabel').textContent =
+    `Preview (${preview.length} of ${csvRows.length}):`;
+  document.getElementById('csvPreviewTable').innerHTML = `
+    <thead style="background:var(--navy-light)">
+      <tr><th style="padding:7px 10px;font-size:11px;color:var(--text-dim);text-align:left">#</th>
+          <th style="padding:7px 10px;font-size:11px;color:var(--text-dim);text-align:left">Name</th>
+          <th style="padding:7px 10px;font-size:11px;color:var(--text-dim);text-align:left">Position</th></tr>
+    </thead>
+    <tbody>
+      ${preview.map((r,i) => `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:7px 10px;color:var(--text-dim)">${i+1}</td>
+        <td style="padding:7px 10px">${esc(r.name)}</td>
+        <td style="padding:7px 10px;color:var(--text-dim)">${esc(r.positions||'—')}</td>
+      </tr>`).join('')}
+      ${csvRows.length > 8 ? `<tr><td colspan="3" style="padding:7px 10px;color:var(--text-dim);text-align:center">
+        … and ${csvRows.length-8} more</td></tr>` : ''}
+    </tbody>`;
+  section.style.display = 'block';
+}
+async function runCsvImport() {
+  const btn = document.getElementById('csvImportBtn');
+  const st  = document.getElementById('csvStatus');
+  const fill = document.getElementById('csvProgressFill');
+  btn.disabled = true;
+  document.getElementById('csvProgressSection').style.display = 'block';
+  st.textContent = '';
+  let done = 0, errors = 0;
+  const batchSize = 20;
+  for (let i = 0; i < csvRows.length; i += batchSize) {
+    const batch = csvRows.slice(i, i+batchSize).map(r => ({
+      name: r.name, positions: r.positions, team_id: teamId
+    }));
+    const { error } = await sb.from('players').insert(batch);
+    if (error) errors += batch.length;
+    done += batch.length;
+    fill.style.width = Math.round((done/csvRows.length)*100) + '%';
+    document.getElementById('csvProgressLabel').textContent = `Importing… ${done} / ${csvRows.length}`;
+  }
+  btn.disabled = false;
+  st.textContent = errors
+    ? `Done with ${errors} error(s).`
+    : `✓ ${done} player${done!==1?'s':''} imported!`;
+  st.className = 'modal-status' + (errors ? '' : ' success');
+  loadPlayers();
+  setTimeout(() => closeCsvModal(), 1800);
 }
 
 function showToast(msg) {

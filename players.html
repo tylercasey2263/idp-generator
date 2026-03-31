@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Players — Player IDP</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/auth.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0D1B2A; --navy-mid: #1A2E44; --navy-light: #243B55;
+  --teal: #1B8A6B; --teal-light: #22A882; --teal-faint: #0D2E25;
+  --amber: #D4870A; --amber-light: #F0A020; --amber-faint: #2E1E05;
+  --text: #EDF2F7; --text-muted: #94A3B8; --text-dim: #64748B;
+  --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
+  --red-light: #E05050;
+}
+html, body { min-height: 100vh; background: var(--navy); color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 15px; }
+
+/* ─── NAV ─── */
+.topnav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem; height: 56px;
+  border-bottom: 1px solid var(--border); background: var(--navy);
+  position: sticky; top: 0; z-index: 100;
+}
+.nav-brand { font-family: 'Barlow Condensed', sans-serif; font-size: 20px;
+  font-weight: 800; color: var(--text); text-decoration: none; }
+.nav-brand span { color: var(--teal-light); }
+.nav-links { display: flex; align-items: center; gap: 6px; }
+.nav-link {
+  font-size: 12px; font-weight: 600; color: var(--text-dim);
+  text-decoration: none; background: none; border: 1px solid transparent;
+  border-radius: 6px; padding: 5px 11px; cursor: pointer;
+  font-family: 'Inter', sans-serif; transition: color 0.2s, border-color 0.2s;
+}
+.nav-link:hover { color: var(--text-muted); border-color: var(--border); }
+.nav-link.active { color: var(--teal-light); border-color: rgba(34,168,130,0.3); }
+.nav-btn {
+  font-size: 12px; font-weight: 600; color: var(--text-dim);
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 11px; cursor: pointer; font-family: 'Inter', sans-serif;
+  transition: color 0.2s, border-color 0.2s;
+}
+.nav-btn:hover { color: var(--text-muted); border-color: var(--border-strong); }
+
+/* ─── PAGE ─── */
+.page { max-width: 1100px; margin: 0 auto; padding: 2.5rem 2rem; }
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap;
+}
+.page-title { font-family: 'Barlow Condensed', sans-serif;
+  font-size: 32px; font-weight: 800; }
+.header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+/* ─── TOOLBAR ─── */
+.toolbar {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+.search-wrap { position: relative; flex: 1; min-width: 180px; max-width: 320px; }
+.search-wrap svg { position: absolute; left: 10px; top: 50%;
+  transform: translateY(-50%); opacity: 0.4; pointer-events: none; }
+input.search-input {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 8px; color: var(--text); font-family: 'Inter', sans-serif;
+  font-size: 13px; padding: 8px 12px 8px 32px; width: 100%; outline: none;
+  transition: border-color 0.2s;
+}
+input.search-input:focus { border-color: var(--teal); }
+input.search-input::placeholder { color: var(--text-dim); }
+select.filter-select {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 8px; color: var(--text); font-family: 'Inter', sans-serif;
+  font-size: 13px; padding: 8px 12px; outline: none; cursor: pointer;
+  transition: border-color 0.2s; min-width: 160px;
+}
+select.filter-select:focus { border-color: var(--teal); }
+.toolbar-count { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+
+/* ─── BUTTONS ─── */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 18px; border-radius: 8px; border: none;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 13px;
+  font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; transition: opacity 0.2s, background 0.15s; white-space: nowrap;
+}
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover { background: var(--teal-light); }
+.btn-ghost { background: transparent; color: var(--text-dim);
+  border: 1px solid var(--border-strong); }
+.btn-ghost:hover { color: var(--text-muted); }
+.btn-amber { background: var(--amber-faint); color: var(--amber-light);
+  border: 1px solid rgba(212,135,10,0.3); }
+.btn-amber:hover { border-color: var(--amber); }
+
+/* ─── TABLE ─── */
+.player-table-wrap { overflow-x: auto; }
+.player-table { width: 100%; border-collapse: collapse; min-width: 600px; }
+.player-table th {
+  text-align: left; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim);
+  padding: 0 14px 10px; border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
+}
+.player-table th.sort-col { cursor: pointer; user-select: none; }
+.player-table th.sort-col:hover { color: var(--text-muted); }
+.player-row { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+.player-row:hover { background: rgba(255,255,255,0.02); }
+.player-row td { padding: 12px 14px; vertical-align: middle; }
+.player-name { font-weight: 600; font-size: 15px; }
+.player-pos { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.team-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--navy-light); border: 1px solid var(--border-strong);
+  border-radius: 5px; padding: 3px 9px; font-size: 12px; color: var(--text-muted);
+  white-space: nowrap;
+}
+.team-chip.unassigned { color: var(--text-dim); border-style: dashed; }
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.btn-action {
+  padding: 5px 11px; border-radius: 6px; border: none;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 11px;
+  font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; white-space: nowrap; transition: opacity 0.15s;
+}
+.btn-edit { background: var(--navy-light); color: var(--text-muted);
+  border: 1px solid var(--border-strong); }
+.btn-edit:hover { color: var(--text); }
+.btn-idp { background: var(--teal-faint); color: var(--teal-light);
+  border: 1px solid rgba(27,138,107,0.35); }
+.btn-idp:hover { border-color: var(--teal); }
+.btn-danger { background: transparent; color: #E05050;
+  border: 1px solid rgba(224,80,80,0.25); }
+.btn-danger:hover { border-color: rgba(224,80,80,0.5); }
+
+/* ─── EMPTY ─── */
+.empty { text-align: center; padding: 4rem 2rem; color: var(--text-dim); }
+.empty-icon { font-family: 'Barlow Condensed', sans-serif; font-size: 48px;
+  font-weight: 800; opacity: 0.2; margin-bottom: 1rem; }
+.empty p { font-size: 14px; line-height: 1.6; max-width: 280px;
+  margin: 0 auto 1.5rem; }
+
+/* ─── MODAL ─── */
+.overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75); z-index: 200;
+  align-items: center; justify-content: center; padding: 1rem;
+}
+.overlay.open { display: flex; }
+.modal {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 2rem; width: 100%; max-width: 480px;
+  display: flex; flex-direction: column; gap: 16px; max-height: 90vh;
+  overflow-y: auto;
+}
+.modal.wide { max-width: 680px; }
+.modal h2 { font-family: 'Barlow Condensed', sans-serif;
+  font-size: 22px; font-weight: 800; }
+.modal p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12px; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.08em; }
+input[type="text"], select.modal-select {
+  background: var(--navy); border: 1px solid var(--border-strong);
+  border-radius: 8px; color: var(--text); font-family: 'Inter', sans-serif;
+  font-size: 14px; padding: 10px 13px; width: 100%; outline: none;
+  transition: border-color 0.2s;
+}
+input[type="text"]:focus, select.modal-select:focus { border-color: var(--teal); }
+input::placeholder { color: var(--text-dim); }
+.modal-actions { display: flex; gap: 10px; }
+.modal-actions .btn { flex: 1; padding: 11px 16px; }
+.modal-status { font-size: 12px; min-height: 16px; color: var(--red-light); }
+.modal-status.success { color: var(--teal-light); }
+
+/* ─── CSV MODAL ─── */
+.upload-zone {
+  border: 2px dashed var(--border-strong); border-radius: 10px;
+  padding: 2rem; text-align: center; cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.upload-zone:hover, .upload-zone.drag { border-color: var(--teal);
+  background: var(--teal-faint); }
+.upload-zone p { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
+.upload-zone strong { font-size: 14px; color: var(--text-muted); }
+#csvFileInput { display: none; }
+.csv-preview-wrap { max-height: 220px; overflow-y: auto;
+  border: 1px solid var(--border-strong); border-radius: 8px; }
+.csv-preview { width: 100%; border-collapse: collapse; font-size: 12px; }
+.csv-preview th { background: var(--navy-light); color: var(--text-dim);
+  padding: 7px 10px; text-align: left; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.08em; position: sticky; top: 0; }
+.csv-preview td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+.csv-preview tr:last-child td { border-bottom: none; }
+.csv-hint { font-size: 11px; color: var(--text-dim); line-height: 1.6; }
+.csv-hint code { background: var(--navy); padding: 1px 5px; border-radius: 3px;
+  font-family: monospace; color: var(--text-muted); }
+.progress-bar { height: 4px; background: var(--border-strong);
+  border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--teal-light);
+  border-radius: 2px; transition: width 0.3s; width: 0%; }
+
+.spinner { display: inline-block; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+  border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <a class="nav-brand" href="/dashboard.html">Player <span>IDP</span></a>
+  <div class="nav-links">
+    <a href="/dashboard.html" class="nav-link">My Teams</a>
+    <a href="/players.html" class="nav-link active">All Players</a>
+    <a href="/lineup.html" class="nav-link">Lineup Manager</a>
+  </div>
+  <button class="nav-btn" onclick="signOut()">Sign Out</button>
+</nav>
+
+<div class="page">
+  <div class="page-header">
+    <div class="page-title">All Players</div>
+    <div class="header-actions">
+      <button class="btn btn-amber" onclick="openCsvImport()">⬆ Import CSV</button>
+      <button class="btn btn-primary" onclick="openAddPlayer()">+ Add Player</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <circle cx="6" cy="6" r="4.5" stroke="#94A3B8" stroke-width="1.5"/>
+        <path d="M9.5 9.5L12 12" stroke="#94A3B8" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <input type="text" class="search-input" id="searchInput"
+             placeholder="Search players…" oninput="filterPlayers()" />
+    </div>
+    <select class="filter-select" id="teamFilter" onchange="filterPlayers()">
+      <option value="">All Teams</option>
+    </select>
+    <span class="toolbar-count" id="playerCount"></span>
+  </div>
+
+  <div class="player-table-wrap" id="playerContent">
+    <div class="empty">
+      <div class="empty-icon">IDP</div>
+      <p>Loading players…</p>
+    </div>
+  </div>
+</div>
+
+<!-- ─── ADD / EDIT PLAYER MODAL ─── -->
+<div class="overlay" id="playerModal">
+  <div class="modal">
+    <h2 id="playerModalTitle">Add Player</h2>
+    <div class="field">
+      <label>Player Name</label>
+      <input type="text" id="playerName" placeholder="First Last" />
+    </div>
+    <div class="field">
+      <label>Position(s)</label>
+      <input type="text" id="playerPositions" placeholder="e.g. Central Midfielder" />
+    </div>
+    <div class="field">
+      <label>Team</label>
+      <select class="modal-select" id="playerTeamSelect">
+        <option value="">— Unassigned —</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closePlayerModal()">Cancel</button>
+      <button class="btn btn-primary" id="savePlayerBtn" onclick="savePlayer()">Save Player</button>
+    </div>
+    <div class="modal-status" id="playerStatus"></div>
+  </div>
+</div>
+
+<!-- ─── CSV IMPORT MODAL ─── -->
+<div class="overlay" id="csvModal">
+  <div class="modal wide">
+    <h2>Import Players from CSV</h2>
+
+    <div class="field">
+      <label>Assign to Team</label>
+      <select class="modal-select" id="csvTeamSelect">
+        <option value="">— Select a team —</option>
+      </select>
+    </div>
+
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('csvFileInput').click()"
+         ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)">
+      <strong id="uploadLabel">Click to choose CSV file or drag &amp; drop</strong>
+      <p>Accepted format: <code>Name</code> column required, <code>Position</code> optional</p>
+      <input type="file" id="csvFileInput" accept=".csv,text/csv" onchange="handleFileSelect(event)" />
+    </div>
+
+    <div class="csv-hint">
+      CSV format example:<br>
+      <code>Name,Position</code><br>
+      <code>John Smith,Central Midfielder</code><br>
+      <code>Jane Doe,Forward</code>
+    </div>
+
+    <div id="csvPreviewWrap" style="display:none;">
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px;"
+           id="csvPreviewLabel"></div>
+      <div class="csv-preview-wrap">
+        <table class="csv-preview" id="csvPreviewTable"></table>
+      </div>
+    </div>
+
+    <div id="csvProgress" style="display:none;">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;"
+           id="csvProgressLabel">Importing…</div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeCsvModal()">Cancel</button>
+      <button class="btn btn-primary" id="csvImportBtn" onclick="runCsvImport()" disabled>
+        Import Players
+      </button>
+    </div>
+    <div class="modal-status" id="csvStatus"></div>
+  </div>
+</div>
+
+<script>
+let allPlayers  = [];
+let allTeams    = [];
+let editingId   = null;
+let csvRows     = [];
+
+(async () => {
+  const ctx = await requireCoach();
+  if (!ctx) return;
+  await loadData();
+})();
+
+async function loadData() {
+  // Load all teams
+  const { data: teams } = await sb.from('teams').select('id, name, season').order('name');
+  allTeams = teams || [];
+
+  // Populate team filter + selects
+  populateTeamSelects();
+
+  // Load all players with team info
+  const { data: players } = await sb
+    .from('players')
+    .select('id, name, positions, team_id, teams(id, name)')
+    .order('name');
+  allPlayers = players || [];
+
+  renderTable(allPlayers);
+}
+
+function populateTeamSelects() {
+  const opts = allTeams.map(t =>
+    `<option value="${t.id}">${esc(t.name)}${t.season ? ' — ' + esc(t.season) : ''}</option>`
+  ).join('');
+
+  document.getElementById('teamFilter').innerHTML =
+    '<option value="">All Teams</option>' + opts;
+  document.getElementById('playerTeamSelect').innerHTML =
+    '<option value="">— Unassigned —</option>' + opts;
+  document.getElementById('csvTeamSelect').innerHTML =
+    '<option value="">— Select a team —</option>' + opts;
+}
+
+function filterPlayers() {
+  const q      = document.getElementById('searchInput').value.toLowerCase().trim();
+  const teamId = document.getElementById('teamFilter').value;
+
+  let filtered = allPlayers;
+  if (q)      filtered = filtered.filter(p => p.name.toLowerCase().includes(q) ||
+                                              (p.positions||'').toLowerCase().includes(q));
+  if (teamId) filtered = filtered.filter(p => p.team_id === teamId);
+
+  renderTable(filtered);
+}
+
+function renderTable(players) {
+  const container = document.getElementById('playerContent');
+  const countEl   = document.getElementById('playerCount');
+  countEl.textContent = `${players.length} player${players.length !== 1 ? 's' : ''}`;
+
+  if (players.length === 0) {
+    container.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">IDP</div>
+        <p>No players found. Add players or import a CSV.</p>
+        <button class="btn btn-primary" onclick="openAddPlayer()">+ Add Player</button>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="player-table-wrap">
+      <table class="player-table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>Position</th>
+            <th>Team</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${players.map(p => {
+            const teamName = p.teams?.name || null;
+            return `
+              <tr class="player-row">
+                <td><div class="player-name">${esc(p.name)}</div></td>
+                <td><div class="player-pos">${esc(p.positions || '—')}</div></td>
+                <td>
+                  ${teamName
+                    ? `<span class="team-chip">${esc(teamName)}</span>`
+                    : `<span class="team-chip unassigned">Unassigned</span>`}
+                </td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn-action btn-edit" onclick="openEditPlayer('${p.id}')">Edit</button>
+                    <button class="btn-action btn-idp" onclick="goIDP('${p.id}', '${p.team_id||''}')">✦ IDP</button>
+                    <button class="btn-action btn-danger" onclick="deletePlayer('${p.id}', '${esc(p.name)}')">Remove</button>
+                  </div>
+                </td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function goIDP(playerId, teamId) {
+  window.location.href = `/generate.html?player=${playerId}${teamId ? '&team=' + teamId : ''}`;
+}
+
+// ─── ADD PLAYER ───────────────────────────────
+function openAddPlayer() {
+  editingId = null;
+  document.getElementById('playerModalTitle').textContent = 'Add Player';
+  document.getElementById('playerName').value = '';
+  document.getElementById('playerPositions').value = '';
+  document.getElementById('playerTeamSelect').value = '';
+  document.getElementById('playerStatus').textContent = '';
+  document.getElementById('savePlayerBtn').textContent = 'Add Player';
+  document.getElementById('playerModal').classList.add('open');
+  setTimeout(() => document.getElementById('playerName').focus(), 80);
+}
+
+// ─── EDIT PLAYER ──────────────────────────────
+function openEditPlayer(id) {
+  const p = allPlayers.find(x => x.id === id);
+  if (!p) return;
+  editingId = id;
+  document.getElementById('playerModalTitle').textContent = 'Edit Player';
+  document.getElementById('playerName').value = p.name;
+  document.getElementById('playerPositions').value = p.positions || '';
+  document.getElementById('playerTeamSelect').value = p.team_id || '';
+  document.getElementById('playerStatus').textContent = '';
+  document.getElementById('savePlayerBtn').textContent = 'Save Changes';
+  document.getElementById('playerModal').classList.add('open');
+  setTimeout(() => document.getElementById('playerName').focus(), 80);
+}
+
+function closePlayerModal() {
+  document.getElementById('playerModal').classList.remove('open');
+}
+document.getElementById('playerModal').addEventListener('click', function(e) {
+  if (e.target === this) closePlayerModal();
+});
+
+async function savePlayer() {
+  const name      = document.getElementById('playerName').value.trim();
+  const positions = document.getElementById('playerPositions').value.trim();
+  const team_id   = document.getElementById('playerTeamSelect').value || null;
+  const statusEl  = document.getElementById('playerStatus');
+
+  if (!name) { statusEl.textContent = 'Player name is required.'; return; }
+
+  const btn = document.getElementById('savePlayerBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+
+  const payload = { name, positions: positions || null, team_id };
+
+  let error;
+  if (editingId) {
+    ({ error } = await sb.from('players').update(payload).eq('id', editingId));
+  } else {
+    ({ error } = await sb.from('players').insert(payload));
+  }
+
+  btn.disabled = false;
+  btn.textContent = editingId ? 'Save Changes' : 'Add Player';
+
+  if (error) {
+    statusEl.textContent = 'Error: ' + error.message;
+  } else {
+    closePlayerModal();
+    await loadData();
+  }
+}
+
+// ─── DELETE PLAYER ────────────────────────────
+async function deletePlayer(id, name) {
+  if (!confirm(`Remove ${name}? Their IDPs will also be deleted.`)) return;
+  await sb.from('players').delete().eq('id', id);
+  await loadData();
+}
+
+// ─── CSV IMPORT ───────────────────────────────
+function openCsvImport() {
+  csvRows = [];
+  document.getElementById('csvFileInput').value = '';
+  document.getElementById('uploadLabel').textContent = 'Click to choose CSV file or drag & drop';
+  document.getElementById('csvPreviewWrap').style.display = 'none';
+  document.getElementById('csvProgress').style.display = 'none';
+  document.getElementById('csvStatus').textContent = '';
+  document.getElementById('csvImportBtn').disabled = true;
+  document.getElementById('csvImportBtn').textContent = 'Import Players';
+  document.getElementById('csvModal').classList.add('open');
+}
+
+function closeCsvModal() {
+  document.getElementById('csvModal').classList.remove('open');
+}
+document.getElementById('csvModal').addEventListener('click', function(e) {
+  if (e.target === this) closeCsvModal();
+});
+
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.add('drag');
+}
+function handleDragLeave(e) {
+  document.getElementById('uploadZone').classList.remove('drag');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) parseCSVFile(file);
+}
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) parseCSVFile(file);
+}
+
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (!lines.length) return [];
+
+  // Detect if first row is a header
+  const firstRow = lines[0].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+  const hasHeader = firstRow.some(c => /^(name|player|position|pos)/i.test(c));
+  const startIdx  = hasHeader ? 1 : 0;
+
+  // Map header columns
+  let nameCol = 0, posCol = -1;
+  if (hasHeader) {
+    firstRow.forEach((h, i) => {
+      if (/^(name|player)/i.test(h)) nameCol = i;
+      if (/^(pos|position)/i.test(h)) posCol  = i;
+    });
+  } else {
+    posCol = firstRow.length > 1 ? 1 : -1;
+  }
+
+  const rows = [];
+  for (let i = startIdx; i < lines.length; i++) {
+    const cols = splitCSVLine(lines[i]);
+    const name = (cols[nameCol] || '').trim();
+    const pos  = posCol >= 0 ? (cols[posCol] || '').trim() : '';
+    if (name) rows.push({ name, positions: pos || null });
+  }
+  return rows;
+}
+
+function splitCSVLine(line) {
+  const result = []; let cur = ''; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { inQ = !inQ; }
+    else if (ch === ',' && !inQ) { result.push(cur); cur = ''; }
+    else { cur += ch; }
+  }
+  result.push(cur);
+  return result.map(c => c.replace(/^"|"$/g, '').trim());
+}
+
+function parseCSVFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    csvRows = parseCSV(e.target.result);
+    document.getElementById('uploadLabel').textContent = `✓ ${file.name} — ${csvRows.length} player${csvRows.length!==1?'s':''} found`;
+    showCSVPreview();
+    document.getElementById('csvImportBtn').disabled = csvRows.length === 0;
+    document.getElementById('csvImportBtn').textContent =
+      `Import ${csvRows.length} Player${csvRows.length!==1?'s':''}`;
+  };
+  reader.readAsText(file);
+}
+
+function showCSVPreview() {
+  const wrap = document.getElementById('csvPreviewWrap');
+  if (!csvRows.length) { wrap.style.display = 'none'; return; }
+
+  const preview = csvRows.slice(0, 8);
+  const hasMore = csvRows.length > 8;
+
+  document.getElementById('csvPreviewLabel').textContent =
+    `Preview (${preview.length} of ${csvRows.length} rows):`;
+
+  document.getElementById('csvPreviewTable').innerHTML = `
+    <thead><tr><th>#</th><th>Name</th><th>Position</th></tr></thead>
+    <tbody>
+      ${preview.map((r, i) => `
+        <tr>
+          <td style="color:var(--text-dim)">${i+1}</td>
+          <td>${esc(r.name)}</td>
+          <td style="color:var(--text-dim)">${esc(r.positions || '—')}</td>
+        </tr>`).join('')}
+      ${hasMore ? `<tr><td colspan="3" style="color:var(--text-dim);text-align:center">
+        … and ${csvRows.length - 8} more</td></tr>` : ''}
+    </tbody>`;
+
+  wrap.style.display = 'block';
+}
+
+async function runCsvImport() {
+  const teamId   = document.getElementById('csvTeamSelect').value || null;
+  const statusEl = document.getElementById('csvStatus');
+  const btn      = document.getElementById('csvImportBtn');
+  const progWrap = document.getElementById('csvProgress');
+  const fill     = document.getElementById('progressFill');
+  const progLbl  = document.getElementById('csvProgressLabel');
+
+  if (!csvRows.length) { statusEl.textContent = 'No rows to import.'; return; }
+
+  btn.disabled = true;
+  progWrap.style.display = 'block';
+  statusEl.textContent = '';
+
+  const batchSize = 20;
+  let done = 0;
+  let errors = 0;
+
+  for (let i = 0; i < csvRows.length; i += batchSize) {
+    const batch = csvRows.slice(i, i + batchSize).map(r => ({
+      name: r.name,
+      positions: r.positions || null,
+      team_id: teamId
+    }));
+
+    const { error } = await sb.from('players').insert(batch);
+    if (error) errors += batch.length;
+    done += batch.length;
+
+    const pct = Math.round((done / csvRows.length) * 100);
+    fill.style.width = pct + '%';
+    progLbl.textContent = `Importing… ${done} / ${csvRows.length}`;
+  }
+
+  if (errors > 0) {
+    statusEl.textContent = `Import complete with ${errors} error(s).`;
+    statusEl.className = 'modal-status';
+  } else {
+    statusEl.textContent = `✓ ${done} player${done!==1?'s':''} imported successfully!`;
+    statusEl.className = 'modal-status success';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Import Players';
+  await loadData();
+  setTimeout(() => closeCsvModal(), 1800);
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
+</body>
+</html>

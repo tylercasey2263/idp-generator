@@ -150,6 +150,11 @@ input::placeholder { color: var(--text-dim); }
 
 <nav class="topnav">
   <div class="nav-brand">Player <span>IDP</span></div>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <a href="/dashboard.html" class="nav-btn" style="text-decoration:none;color:var(--teal-light);border-color:rgba(34,168,130,0.3);">My Teams</a>
+    <a href="/players.html" class="nav-btn" style="text-decoration:none;">All Players</a>
+    <a href="/lineup.html" class="nav-btn" style="text-decoration:none;">Lineup Manager</a>
+  </div>
   <div class="nav-right">
     <span class="nav-name" id="navName"></span>
     <button class="nav-btn" onclick="signOut()">Sign Out</button>
