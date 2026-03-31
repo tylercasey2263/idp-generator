@@ -159,7 +159,10 @@ input::placeholder { color: var(--text-dim); }
 <div class="page">
   <div class="page-header">
     <div class="page-title">My Teams</div>
-    <button class="btn btn-primary" onclick="openAddTeam()">+ Add Team</button>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <a href="/lineup.html" class="btn btn-ghost" style="text-decoration:none;">⚽ Lineup Manager</a>
+      <button class="btn btn-primary" onclick="openAddTeam()">+ Add Team</button>
+    </div>
   </div>
 
   <div class="team-grid" id="teamGrid">

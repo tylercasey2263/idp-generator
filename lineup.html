@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lineup Manager — Player IDP</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/auth.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0D1B2A; --navy-mid: #1A2E44;
+  --teal-light: #22A882;
+  --text: #EDF2F7; --text-muted: #94A3B8; --text-dim: #64748B;
+  --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
+}
+html, body { height: 100vh; overflow: hidden; background: var(--navy);
+  color: var(--text); font-family: 'Inter', sans-serif; }
+
+/* ─── NAV ─── */
+.topnav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem; height: 56px; border-bottom: 1px solid var(--border);
+  background: var(--navy); position: relative; z-index: 10;
+  flex-shrink: 0;
+}
+.nav-left { display: flex; align-items: center; gap: 14px; }
+.nav-back {
+  font-size: 12px; font-weight: 600; color: var(--text-dim);
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 11px; cursor: pointer; font-family: 'Inter', sans-serif;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 5px;
+  transition: color 0.2s, border-color 0.2s;
+}
+.nav-back:hover { color: var(--text-muted); border-color: var(--border-strong); }
+.nav-brand { font-family: 'Barlow Condensed', sans-serif; font-size: 20px;
+  font-weight: 800; color: var(--text); }
+.nav-brand span { color: var(--teal-light); }
+.nav-center {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 6px;
+}
+.nav-title { font-family: 'Barlow Condensed', sans-serif; font-size: 16px;
+  font-weight: 700; color: var(--text-muted); letter-spacing: 0.06em;
+  text-transform: uppercase; }
+.nav-right { display: flex; align-items: center; gap: 10px; }
+.nav-name { font-size: 13px; color: var(--text-muted); }
+.nav-btn {
+  font-size: 12px; font-weight: 600; color: var(--text-dim);
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 11px; cursor: pointer; font-family: 'Inter', sans-serif;
+  transition: color 0.2s, border-color 0.2s;
+}
+.nav-btn:hover { color: var(--text-muted); border-color: var(--border-strong); }
+
+/* ─── IFRAME WRAPPER ─── */
+.frame-wrap {
+  width: 100%;
+  height: calc(100vh - 56px);
+  display: flex; flex-direction: column;
+}
+iframe {
+  width: 100%; flex: 1; border: none;
+  display: block;
+}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="nav-left">
+    <a class="nav-back" href="/dashboard.html">← Dashboard</a>
+    <div class="nav-brand">Player <span>IDP</span></div>
+  </div>
+  <div class="nav-center">
+    <span class="nav-title">⚽ Lineup Manager</span>
+  </div>
+  <div class="nav-right">
+    <span class="nav-name" id="navName"></span>
+    <button class="nav-btn" onclick="signOut()">Sign Out</button>
+  </div>
+</nav>
+
+<div class="frame-wrap">
+  <iframe
+    src="https://coach-assist.barcahome.com/"
+    title="Coach Assist — Lineup Manager"
+    allow="microphone"
+  ></iframe>
+</div>
+
+<script>
+(async () => {
+  const ctx = await requireCoach();
+  if (!ctx) return;
+  document.getElementById('navName').textContent = ctx.profile.full_name || ctx.session.user.email;
+})();
+</script>
+</body>
+</html>
