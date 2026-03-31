@@ -138,6 +138,37 @@
 
   textarea { min-height: 200px; line-height: 1.5; }
 
+  /* ─── TRANSCRIPT TOOLBAR ─── */
+  .transcript-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .transcript-tool-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 11px; border-radius: 5px; font-size: 12px;
+    border: 1px solid var(--border-strong); background: transparent;
+    color: var(--text-muted); cursor: pointer;
+    font-family: 'Inter', sans-serif; font-weight: 500;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+    line-height: 1.6;
+  }
+  .transcript-tool-btn:hover { border-color: var(--teal); color: var(--teal-light); }
+  .transcript-tool-btn.recording {
+    border-color: rgba(220,60,60,0.5); color: #e05555;
+    background: rgba(220,60,60,0.07);
+  }
+  .mic-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: #e05555;
+    flex-shrink: 0; animation: mic-pulse 1s ease-in-out infinite;
+  }
+  @keyframes mic-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.35; transform: scale(0.75); }
+  }
+  .interim-display {
+    min-height: 18px; font-size: 12px; color: var(--text-dim);
+    font-style: italic; padding: 2px 4px; line-height: 1.5;
+  }
+
   /* ─── TAG INPUT ─── */
   .tag-input-wrap {
     position: relative;
@@ -592,9 +623,16 @@
 
       <!-- Transcript -->
       <div>
-        <div class="panel-section-label">Transcript</div>
-        <div class="input-group">
-          <textarea id="transcript" placeholder="Paste the raw voice memo transcript here..."></textarea>
+        <div class="transcript-toolbar">
+          <div class="panel-section-label" style="margin-bottom:0;">Transcript</div>
+          <div style="display:flex;gap:6px;">
+            <button class="transcript-tool-btn" id="micBtn" onclick="toggleMic()" title="Speak into transcript">🎙 Record</button>
+            <button class="transcript-tool-btn" onclick="downloadTranscript()" title="Download transcript as .txt">⬇ Download</button>
+          </div>
+        </div>
+        <div class="input-group" style="margin-top:6px;">
+          <textarea id="transcript" placeholder="Paste or type your transcript here — or hit Record to speak it..."></textarea>
+          <div class="interim-display" id="interimDisplay"></div>
         </div>
       </div>
 
@@ -1203,6 +1241,99 @@ function getInfographicCSS() {
 .parent-note .plabel{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#64748B;margin-bottom:6px;}
 .parent-note p{font-size:13px;color:#94A3B8;line-height:1.6;font-style:italic;}
   `;
+}
+
+// ─── SPEECH TO TEXT ───
+let recognition  = null;
+let isRecording  = false;
+
+function initSpeechRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+  const r       = new SR();
+  r.continuous      = true;
+  r.interimResults  = true;
+  r.lang            = 'en-US';
+
+  r.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        const ta   = document.getElementById('transcript');
+        const word = e.results[i][0].transcript.trim();
+        const sep  = ta.value && !ta.value.endsWith('\n') ? ' ' : '';
+        ta.value  += sep + word;
+        ta.scrollTop = ta.scrollHeight;
+      } else {
+        interim += e.results[i][0].transcript;
+      }
+    }
+    document.getElementById('interimDisplay').textContent = interim;
+  };
+
+  r.onerror = e => {
+    stopRecording();
+    if (e.error === 'not-allowed')
+      alert('Microphone access was denied. Please allow it in your browser settings and try again.');
+  };
+
+  // Auto-restart so recording stays on until the user stops it
+  r.onend = () => { if (isRecording) r.start(); };
+
+  return r;
+}
+
+function toggleMic() {
+  isRecording ? stopRecording() : startRecording();
+}
+
+function startRecording() {
+  if (!recognition) recognition = initSpeechRecognition();
+  if (!recognition) {
+    alert('Speech recognition is not supported in your browser. Use Chrome or Edge for this feature.');
+    return;
+  }
+  isRecording = true;
+  recognition.start();
+  updateMicBtn();
+}
+
+function stopRecording() {
+  isRecording = false;
+  if (recognition) { try { recognition.stop(); } catch(_) {} }
+  document.getElementById('interimDisplay').textContent = '';
+  updateMicBtn();
+}
+
+function updateMicBtn() {
+  const btn = document.getElementById('micBtn');
+  if (!btn) return;
+  if (isRecording) {
+    btn.classList.add('recording');
+    btn.innerHTML = '<span class="mic-dot"></span> Stop';
+  } else {
+    btn.classList.remove('recording');
+    btn.innerHTML = '🎙 Record';
+  }
+}
+
+// Hide mic button if speech recognition isn't available
+document.addEventListener('DOMContentLoaded', () => {
+  if (!window.SpeechRecognition && !window.webkitSpeechRecognition)
+    document.getElementById('micBtn').style.display = 'none';
+});
+
+// ─── DOWNLOAD TRANSCRIPT ───
+function downloadTranscript() {
+  const text = document.getElementById('transcript').value.trim();
+  if (!text) { alert('The transcript is empty — nothing to download.'); return; }
+  const name = (document.getElementById('playerName').value.trim() || 'Player').replace(/\s+/g, '_');
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `${name}_transcript.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 </script>
 </body>
