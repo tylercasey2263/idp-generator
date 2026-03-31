@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Player IDP</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/auth.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0D1B2A; --navy-mid: #1A2E44; --navy-light: #243B55;
+  --teal: #1B8A6B; --teal-light: #22A882; --teal-faint: #0D2E25;
+  --text: #EDF2F7; --text-muted: #94A3B8; --text-dim: #64748B;
+  --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
+  --red-light: #E05050;
+}
+html, body { min-height: 100vh; background: var(--navy); color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 15px; }
+
+/* ─── NAV ─── */
+.topnav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem; height: 56px;
+  border-bottom: 1px solid var(--border); background: var(--navy);
+  position: sticky; top: 0; z-index: 100;
+}
+.nav-brand { font-family: 'Barlow Condensed', sans-serif; font-size: 20px;
+  font-weight: 800; color: var(--text); }
+.nav-brand span { color: var(--teal-light); }
+.nav-right { display: flex; align-items: center; gap: 14px; }
+.nav-name { font-size: 13px; color: var(--text-muted); }
+.nav-btn {
+  font-size: 12px; font-weight: 600; color: var(--text-dim);
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 11px; cursor: pointer; font-family: 'Inter', sans-serif;
+  transition: color 0.2s, border-color 0.2s;
+}
+.nav-btn:hover { color: var(--text-muted); border-color: var(--border-strong); }
+
+/* ─── PAGE ─── */
+.page { max-width: 900px; margin: 0 auto; padding: 2.5rem 2rem; }
+
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 2rem;
+}
+.page-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 32px; font-weight: 800;
+}
+.page-title span { color: var(--text-dim); font-weight: 600; font-size: 24px; margin-left: 10px; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 18px; border-radius: 8px; border: none;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 13px;
+  font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; transition: opacity 0.2s;
+}
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover { background: var(--teal-light); }
+.btn-ghost { background: transparent; color: var(--text-dim);
+  border: 1px solid var(--border-strong); }
+.btn-ghost:hover { color: var(--text-muted); border-color: var(--border-strong); }
+
+/* ─── TEAM GRID ─── */
+.team-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.team-card {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 12px; padding: 1.4rem;
+  display: flex; flex-direction: column; gap: 14px;
+  transition: border-color 0.2s;
+}
+.team-card:hover { border-color: rgba(34,168,130,0.35); }
+
+.team-card-header { display: flex; flex-direction: column; gap: 4px; }
+.team-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 20px; font-weight: 800; color: var(--text);
+}
+.team-season { font-size: 12px; color: var(--text-dim); }
+.team-meta { font-size: 12px; color: var(--text-muted); }
+
+.team-card-footer { display: flex; gap: 8px; align-items: center; }
+.btn-sm {
+  padding: 6px 14px; border-radius: 6px; border: none;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 12px;
+  font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; transition: opacity 0.2s;
+}
+.btn-sm-primary { background: var(--teal-faint); color: var(--teal-light);
+  border: 1px solid rgba(27,138,107,0.35); }
+.btn-sm-primary:hover { border-color: var(--teal); }
+.btn-sm-ghost { background: transparent; color: var(--text-dim);
+  border: 1px solid var(--border); }
+.btn-sm-ghost:hover { color: var(--text-muted); }
+
+/* ─── EMPTY STATE ─── */
+.empty { text-align: center; padding: 4rem 2rem; color: var(--text-dim); }
+.empty-icon {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 48px; font-weight: 800; opacity: 0.2; margin-bottom: 1rem;
+}
+.empty p { font-size: 14px; line-height: 1.6; max-width: 280px; margin: 0 auto 1.5rem; }
+
+/* ─── MODAL ─── */
+.overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7); z-index: 200;
+  align-items: center; justify-content: center;
+}
+.overlay.open { display: flex; }
+.modal {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 2rem; width: 100%; max-width: 420px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.modal h2 { font-family: 'Barlow Condensed', sans-serif;
+  font-size: 22px; font-weight: 800; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12px; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.08em; }
+input[type="text"] {
+  background: var(--navy); border: 1px solid var(--border-strong);
+  border-radius: 8px; color: var(--text); font-family: 'Inter', sans-serif;
+  font-size: 14px; padding: 10px 13px; width: 100%; outline: none;
+  transition: border-color 0.2s;
+}
+input:focus { border-color: var(--teal); }
+input::placeholder { color: var(--text-dim); }
+.modal-actions { display: flex; gap: 10px; }
+.modal-actions .btn { flex: 1; padding: 11px 16px; }
+.modal-status { font-size: 12px; color: var(--text-dim); min-height: 16px; }
+
+.spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="nav-brand">Player <span>IDP</span></div>
+  <div class="nav-right">
+    <span class="nav-name" id="navName"></span>
+    <button class="nav-btn" onclick="signOut()">Sign Out</button>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-header">
+    <div class="page-title">My Teams</div>
+    <button class="btn btn-primary" onclick="openAddTeam()">+ Add Team</button>
+  </div>
+
+  <div class="team-grid" id="teamGrid">
+    <div class="empty" id="loadingState">
+      <div class="empty-icon">IDP</div>
+      <p>Loading your teams…</p>
+    </div>
+  </div>
+</div>
+
+<!-- ADD TEAM MODAL -->
+<div class="overlay" id="addTeamModal">
+  <div class="modal">
+    <h2>Add Team</h2>
+    <div class="field">
+      <label>Team Name</label>
+      <input type="text" id="teamName" placeholder="e.g. U14 Boys Blue"
+             onkeydown="if(event.key==='Enter') saveTeam()" />
+    </div>
+    <div class="field">
+      <label>Season (optional)</label>
+      <input type="text" id="teamSeason" placeholder="e.g. Fall 2026"
+             onkeydown="if(event.key==='Enter') saveTeam()" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeAddTeam()">Cancel</button>
+      <button class="btn btn-primary" id="saveTeamBtn" onclick="saveTeam()">Create Team</button>
+    </div>
+    <div class="modal-status" id="addTeamStatus"></div>
+  </div>
+</div>
+
+<script>
+let coachId = null;
+
+(async () => {
+  const ctx = await requireCoach();
+  if (!ctx) return;
+  coachId = ctx.session.user.id;
+  document.getElementById('navName').textContent = ctx.profile.full_name || ctx.session.user.email;
+  loadTeams();
+})();
+
+async function loadTeams() {
+  const { data: rows, error } = await sb
+    .from('coach_teams')
+    .select('team_id, teams(id, name, season)')
+    .eq('coach_id', coachId);
+
+  const grid = document.getElementById('teamGrid');
+
+  if (error || !rows || rows.length === 0) {
+    grid.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">IDP</div>
+        <p>No teams yet. Add your first team to get started.</p>
+        <button class="btn btn-primary" onclick="openAddTeam()">+ Add Team</button>
+      </div>`;
+    return;
+  }
+
+  // Fetch player counts per team
+  const teamIds = rows.map(r => r.team_id);
+  const { data: players } = await sb
+    .from('players')
+    .select('team_id')
+    .in('team_id', teamIds);
+
+  const countMap = {};
+  (players || []).forEach(p => { countMap[p.team_id] = (countMap[p.team_id] || 0) + 1; });
+
+  grid.innerHTML = rows.map(r => {
+    const t = r.teams;
+    const count = countMap[t.id] || 0;
+    return `
+      <div class="team-card">
+        <div class="team-card-header">
+          <div class="team-name">${esc(t.name)}</div>
+          ${t.season ? `<div class="team-season">${esc(t.season)}</div>` : ''}
+        </div>
+        <div class="team-meta">${count} player${count !== 1 ? 's' : ''}</div>
+        <div class="team-card-footer">
+          <button class="btn-sm btn-sm-primary" onclick="viewTeam('${t.id}')">View Team →</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function viewTeam(id) {
+  window.location.href = `/team.html?team=${id}`;
+}
+
+function openAddTeam() {
+  document.getElementById('teamName').value = '';
+  document.getElementById('teamSeason').value = '';
+  document.getElementById('addTeamStatus').textContent = '';
+  document.getElementById('addTeamModal').classList.add('open');
+  setTimeout(() => document.getElementById('teamName').focus(), 80);
+}
+
+function closeAddTeam() {
+  document.getElementById('addTeamModal').classList.remove('open');
+}
+
+document.getElementById('addTeamModal').addEventListener('click', function(e) {
+  if (e.target === this) closeAddTeam();
+});
+
+async function saveTeam() {
+  const name   = document.getElementById('teamName').value.trim();
+  const season = document.getElementById('teamSeason').value.trim();
+  if (!name) { document.getElementById('addTeamStatus').textContent = 'Team name is required.'; return; }
+
+  const btn = document.getElementById('saveTeamBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  // Insert team
+  const { data: team, error: teamErr } = await sb
+    .from('teams')
+    .insert({ name, season: season || null })
+    .select().single();
+
+  if (teamErr) {
+    document.getElementById('addTeamStatus').textContent = 'Error: ' + teamErr.message;
+    btn.disabled = false; btn.textContent = 'Create Team';
+    return;
+  }
+
+  // Assign this coach to the team
+  await sb.from('coach_teams').insert({ coach_id: coachId, team_id: team.id });
+
+  btn.disabled = false; btn.textContent = 'Create Team';
+  closeAddTeam();
+  loadTeams();
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
+</body>
+</html>

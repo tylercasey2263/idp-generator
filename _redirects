@@ -1,0 +1,7 @@
+# Netlify redirect rules
+# Clean URLs (optional — lets /dashboard work as well as /dashboard.html)
+/login      /login.html      200
+/dashboard  /dashboard.html  200
+/team       /team.html       200
+/generate   /generate.html   200
+/parent     /parent.html     200

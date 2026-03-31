@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generate IDP — Player IDP</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/auth.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #0D1B2A; --navy-mid: #1A2E44; --navy-light: #243B55;
+    --teal: #1B8A6B; --teal-light: #22A882; --teal-faint: #0D2E25;
+    --amber: #D4870A; --amber-light: #F0A020; --amber-faint: #2E1E05;
+    --green: #2D7A3E; --green-light: #38A050; --green-faint: #0D2214;
+    --purple: #5A3FA0; --purple-light: #7357C8; --purple-faint: #1A1230;
+    --red: #B33030; --red-light: #E05050;
+    --text: #EDF2F7; --text-muted: #94A3B8; --text-dim: #64748B;
+    --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
+  }
+
+  html, body { min-height: 100vh; }
+  body { background: var(--navy); color: var(--text); font-family: 'Inter', sans-serif;
+    font-size: 15px; line-height: 1.6; }
+  .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* ─── TOP NAV ─── */
+  .topnav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2rem; height: 56px; border-bottom: 1px solid var(--border);
+    background: var(--navy); position: sticky; top: 0; z-index: 100;
+  }
+  .nav-left { display: flex; align-items: center; gap: 14px; }
+  .nav-back {
+    font-size: 12px; font-weight: 600; color: var(--text-dim);
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 11px; cursor: pointer; font-family: 'Inter', sans-serif;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 5px;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .nav-back:hover { color: var(--text-muted); border-color: var(--border-strong); }
+  .topnav-brand { font-family: 'Barlow Condensed', sans-serif; font-size: 20px;
+    font-weight: 800; letter-spacing: 0.02em; color: var(--text); }
+  .topnav-brand span { color: var(--teal-light); }
+  .nav-right { display: flex; align-items: center; gap: 10px; }
+  .nav-name { font-size: 13px; color: var(--text-muted); }
+  .nav-btn {
+    font-size: 12px; font-weight: 600; color: var(--text-dim);
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 11px; cursor: pointer; font-family: 'Inter', sans-serif;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .nav-btn:hover { color: var(--text-muted); border-color: var(--border-strong); }
+
+  /* ─── MAIN PANELS ─── */
+  .main { display: grid; grid-template-columns: 400px 1fr; flex: 1;
+    min-height: calc(100vh - 56px); }
+
+  /* ─── LEFT PANEL ─── */
+  .left-panel {
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    padding: 1.5rem; gap: 1rem; overflow-y: auto;
+    max-height: calc(100vh - 56px); position: sticky; top: 56px;
+  }
+  .panel-section-label { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 6px; }
+  .input-group { display: flex; flex-direction: column; gap: 6px; }
+  input[type="text"], textarea {
+    background: var(--navy-mid); border: 1px solid var(--border-strong);
+    border-radius: 7px; color: var(--text); font-family: 'Inter', sans-serif;
+    font-size: 14px; padding: 10px 12px; width: 100%;
+    transition: border-color 0.2s; resize: vertical;
+  }
+  input[type="text"]:focus, textarea:focus { outline: none; border-color: var(--teal); }
+  input[type="text"]::placeholder, textarea::placeholder { color: var(--text-dim); }
+  textarea { min-height: 200px; line-height: 1.5; }
+
+  /* ─── TRANSCRIPT TOOLBAR ─── */
+  .transcript-toolbar { display: flex; align-items: center; justify-content: space-between; }
+  .transcript-tool-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 11px; border-radius: 5px; font-size: 12px;
+    border: 1px solid var(--border-strong); background: transparent;
+    color: var(--text-muted); cursor: pointer; font-family: 'Inter', sans-serif;
+    font-weight: 500; transition: border-color 0.2s, color 0.2s; line-height: 1.6;
+  }
+  .transcript-tool-btn:hover { border-color: var(--teal); color: var(--teal-light); }
+  .transcript-tool-btn.recording { border-color: rgba(220,60,60,0.5); color: #e05555;
+    background: rgba(220,60,60,0.07); }
+  .mic-dot { width: 8px; height: 8px; border-radius: 50%; background: #e05555;
+    flex-shrink: 0; animation: mic-pulse 1s ease-in-out infinite; }
+  @keyframes mic-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.35;transform:scale(0.75)} }
+  .interim-display { min-height: 18px; font-size: 12px; color: var(--text-dim);
+    font-style: italic; padding: 2px 4px; line-height: 1.5; }
+
+  /* ─── TAG INPUT ─── */
+  .tag-input-wrap {
+    position: relative; background: var(--navy-mid); border: 1px solid var(--border-strong);
+    border-radius: 7px; padding: 6px 8px; display: flex; flex-wrap: wrap;
+    gap: 5px; align-items: center; cursor: text; min-height: 42px; transition: border-color 0.2s;
+  }
+  .tag-input-wrap:focus-within { border-color: var(--teal); }
+  .tag { display: inline-flex; align-items: center; gap: 4px;
+    background: var(--teal-faint); border: 1px solid rgba(27,138,107,0.45);
+    color: var(--teal-light); border-radius: 4px; padding: 2px 8px 2px 9px;
+    font-size: 12px; font-weight: 500; white-space: nowrap; line-height: 1.6; }
+  .tag-remove { cursor: pointer; color: var(--teal); font-size: 15px; line-height: 1;
+    opacity: 0.7; margin-left: 1px; }
+  .tag-remove:hover { opacity: 1; }
+  .tag-text-input { border: none; background: transparent; color: var(--text);
+    font-size: 14px; font-family: 'Inter', sans-serif; outline: none;
+    flex: 1; min-width: 90px; padding: 2px 4px; }
+  .tag-text-input::placeholder { color: var(--text-dim); }
+  .tag-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--navy-mid); border: 1px solid var(--border-strong);
+    border-radius: 7px; z-index: 200; max-height: 210px; overflow-y: auto;
+    display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.45); }
+  .tag-dropdown.open { display: block; }
+  .tag-option { padding: 8px 12px; cursor: pointer; font-size: 13px; color: var(--text-muted);
+    display: flex; align-items: center; justify-content: space-between; transition: background 0.1s; }
+  .tag-option:hover { background: rgba(27,138,107,0.12); color: var(--text); }
+  .tag-option.added { color: var(--text-dim); cursor: default; }
+  .tag-option.added::after { content: '✓'; color: var(--teal); font-size: 12px; }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .btn { display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 11px 16px; border-radius: 7px;
+    font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; border: none;
+    transition: opacity 0.2s, transform 0.1s; width: 100%; }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: var(--teal); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--teal-light); }
+  .btn-secondary { background: var(--navy-light); color: var(--text-muted);
+    border: 1px solid var(--border-strong); }
+  .btn-secondary:hover:not(:disabled) { background: var(--navy-mid); color: var(--text); }
+
+  .divider-line { height: 1px; background: var(--border); margin: 2px 0; }
+
+  .status-bar { font-size: 12px; color: var(--text-dim);
+    font-family: 'Barlow Condensed', sans-serif; min-height: 18px; transition: color 0.3s; }
+  .status-bar.loading { color: var(--teal-light); }
+  .status-bar.error   { color: var(--red-light); }
+  .status-bar.success { color: var(--green-light); }
+
+  .spinner { display: inline-block; width: 12px; height: 12px;
+    border: 2px solid var(--border-strong); border-top-color: var(--teal-light);
+    border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─── RIGHT PANEL ─── */
+  .right-panel { overflow-y: auto; max-height: calc(100vh - 56px); position: relative; }
+
+  .empty-state { display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 100%; min-height: 400px; gap: 12px;
+    color: var(--text-dim); text-align: center; padding: 2rem; }
+  .empty-state .big-icon { font-size: 48px; opacity: 0.3;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 800;
+    letter-spacing: -2px; color: var(--teal-light); }
+  .empty-state p { font-size: 14px; color: var(--text-dim); max-width: 280px; line-height: 1.6; }
+
+  /* ─── DOWNLOAD / ACTION BAR ─── */
+  .download-bar { display: none; position: sticky; top: 0; z-index: 50;
+    background: var(--navy-mid); border-bottom: 1px solid var(--border-strong);
+    padding: 10px 1.5rem; gap: 10px; align-items: center; }
+  .download-bar.visible { display: flex; }
+  .download-bar .dl-label { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-dim); flex: 1; }
+  .btn-dl { display: flex; align-items: center; gap: 6px; padding: 7px 14px;
+    border-radius: 6px; font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: pointer; border: none; transition: opacity 0.2s; }
+  .btn-dl-save   { background: var(--teal-faint); color: var(--teal-light);
+    border: 1px solid rgba(34,168,130,0.4); }
+  .btn-dl-save:hover   { border-color: var(--teal); }
+  .btn-dl-save.saved   { background: var(--green-faint); color: var(--green-light);
+    border-color: rgba(56,160,80,0.4); cursor: default; }
+  .btn-dl-edit  { background: var(--navy-light); color: var(--text-muted);
+    border: 1px solid var(--border-strong); }
+  .btn-dl-edit:hover  { color: var(--text); }
+  .btn-dl-edit.active { background: rgba(250,204,21,0.1); color: #FACC15;
+    border-color: rgba(250,204,21,0.4); }
+  .btn-dl-html  { background: var(--navy-light); color: var(--text-muted);
+    border: 1px solid var(--border-strong); }
+  .btn-dl-html:hover  { color: var(--text); }
+  .btn-dl-print { background: var(--navy-light); color: var(--text-muted);
+    border: 1px solid var(--border-strong); }
+  .btn-dl-print:hover { color: var(--text); }
+
+  /* ─── EDIT MODE ─── */
+  #infographic.edit-mode [contenteditable] { border-radius: 3px; cursor: text; outline: none;
+    transition: background 0.15s, box-shadow 0.15s; }
+  #infographic.edit-mode [contenteditable]:hover { background: rgba(34,168,130,0.08);
+    box-shadow: 0 0 0 1px rgba(34,168,130,0.3); }
+  #infographic.edit-mode [contenteditable]:focus { background: rgba(34,168,130,0.13);
+    box-shadow: 0 0 0 2px rgba(34,168,130,0.5); }
+  #edit-mode-banner { display: none; align-items: center; gap: 8px;
+    background: rgba(250,204,21,0.08); border: 1px solid rgba(250,204,21,0.3);
+    border-radius: 6px; padding: 7px 13px; margin-bottom: 14px;
+    font-size: 12px; color: #FACC15; font-family: 'Inter', sans-serif; }
+  #edit-mode-banner.visible { display: flex; }
+  #edit-mode-banner strong { font-weight: 600; }
+
+  #preview-container { padding: 1.5rem; }
+
+  /* ─── INFOGRAPHIC ─── */
+  #infographic { font-family: 'Barlow', sans-serif; font-size: 15px;
+    color: #EDF2F7; background: #0D1B2A; border-radius: 10px; padding: 2rem;
+    animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  #infographic .ig-header { display: grid; grid-template-columns: 1fr auto;
+    align-items: end; gap: 1rem; padding-bottom: 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,0.15); margin-bottom: 1.5rem; }
+  #infographic .ig-header h1 { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 42px; font-weight: 800; line-height: 1; color: #EDF2F7; }
+  #infographic .ig-header h1 span { color: #22A882; }
+  #infographic .ig-header .sub { font-size: 12px; color: #64748B; margin-top: 5px;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase; }
+  #infographic .ig-header .pos-badge { display: inline-block; background: #0D2E25;
+    border: 1px solid #1B8A6B; color: #22A882; font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 5px 12px; border-radius: 4px; }
+  #infographic .ig-header .phase { display: block; font-size: 11px; color: #64748B;
+    font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.08em;
+    text-transform: uppercase; margin-top: 6px; text-align: right; }
+  #infographic .stats-row { display: grid; grid-template-columns: repeat(4,1fr);
+    gap: 8px; margin-bottom: 1.5rem; }
+  #infographic .stat-card { background: #1A2E44; border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px; padding: 12px 14px; }
+  #infographic .stat-card .val { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 17px; font-weight: 700; color: #EDF2F7; line-height: 1.2; }
+  #infographic .stat-card .lbl { font-size: 10px; color: #64748B;
+    text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 500; }
+  #infographic .sec-label { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #64748B; margin-bottom: 8px; margin-top: 1.5rem; }
+  #infographic .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  #infographic .card { border-radius: 8px; padding: 12px 14px;
+    border: 1px solid rgba(255,255,255,0.08); }
+  #infographic .card.green { background: #0D2214; border-color: rgba(56,160,80,0.2); }
+  #infographic .card.amber { background: #2E1E05; border-color: rgba(212,135,10,0.2); }
+  #infographic .card h4 { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px; font-weight: 700; color: #EDF2F7; margin-bottom: 4px;
+    display: flex; align-items: center; gap: 6px; }
+  #infographic .card .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  #infographic .card p { font-size: 12px; color: #94A3B8; line-height: 1.5; }
+  #infographic .divider { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 1.5rem 0 0; }
+  #infographic .plan-list { display: flex; flex-direction: column; gap: 6px; }
+  #infographic .plan-item { display: grid; grid-template-columns: 100px 1fr;
+    border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); }
+  #infographic .plan-badge { display: flex; align-items: center; justify-content: center;
+    text-align: center; font-family: 'Barlow Condensed', sans-serif; font-size: 10px;
+    font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 10px 7px; line-height: 1.3; }
+  #infographic .plan-badge.purple { background: #1A1230; color: #7357C8; border-right: 1px solid rgba(115,87,200,0.2); }
+  #infographic .plan-badge.amber  { background: #2E1E05; color: #F0A020; border-right: 1px solid rgba(212,135,10,0.2); }
+  #infographic .plan-badge.teal   { background: #0D2E25; color: #22A882; border-right: 1px solid rgba(27,138,107,0.2); }
+  #infographic .plan-badge.blue   { background: #0D1E2E; color: #60A5FA; border-right: 1px solid rgba(96,165,250,0.2); }
+  #infographic .plan-content { background: #1A2E44; padding: 10px 14px; }
+  #infographic .plan-content h4 { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px; font-weight: 700; color: #EDF2F7; margin-bottom: 5px; }
+  #infographic .plan-content ul { list-style: none; display: flex; flex-direction: column; gap: 3px; }
+  #infographic .plan-content ul li { font-size: 12px; color: #94A3B8;
+    display: flex; gap: 7px; align-items: flex-start; line-height: 1.45; }
+  #infographic .plan-content ul li::before { content: '—'; color: #64748B; flex-shrink: 0; }
+  #infographic .micro-label { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: #60A5FA; display: flex; align-items: center; gap: 6px;
+    margin-bottom: 8px; margin-top: 1.5rem; }
+  #infographic .micro-label::after { content: ''; flex: 1; height: 1px; background: rgba(96,165,250,0.2); }
+  #infographic .micro-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; }
+  #infographic .micro-card { background: #0D1E2E; border: 1px solid rgba(96,165,250,0.2);
+    border-radius: 8px; padding: 12px 14px; text-align: center; }
+  #infographic .micro-card .num { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 28px; font-weight: 800; color: #60A5FA; line-height: 1; }
+  #infographic .micro-card .desc { font-size: 11px; color: #94A3B8; margin-top: 4px; line-height: 1.4; }
+  #infographic .gameday { background: #1A2E44; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px; padding: 12px 16px; display: flex; align-items: center;
+    gap: 12px; margin-top: 8px; }
+  #infographic .gameday .gd-label { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: #64748B; white-space: nowrap; }
+  #infographic .gameday .gd-text { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px; font-weight: 700; color: #EDF2F7; }
+  #infographic .gameday .gd-text span { color: #22A882; }
+  #infographic .goal-banner { background: #0D2E25; border: 1px solid rgba(27,138,107,0.35);
+    border-radius: 10px; padding: 16px 18px; margin-top: 8px;
+    display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+  #infographic .goal-banner .timeline { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 700; color: #22A882; text-transform: uppercase;
+    letter-spacing: 0.1em; white-space: nowrap; }
+  #infographic .goal-banner p { font-size: 13px; color: #94A3B8; line-height: 1.55; }
+  #infographic .parent-note { margin-top: 1.5rem; border-left: 3px solid rgba(255,255,255,0.15);
+    padding: 10px 16px; background: #1A2E44; border-radius: 0 8px 8px 0; }
+  #infographic .parent-note .plabel { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #64748B; margin-bottom: 6px; }
+  #infographic .parent-note p { font-size: 12px; color: #94A3B8; line-height: 1.6; font-style: italic; }
+
+  @media print {
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .topnav, .left-panel, .download-bar { display: none !important; }
+    .main { display: block; }
+    .right-panel { max-height: none; overflow: visible; }
+    #preview-container { padding: 0; }
+    #infographic { border-radius: 0; padding: 1rem; }
+    body { background: #0D1B2A; }
+  }
+  @media (max-width: 768px) {
+    .main { grid-template-columns: 1fr; }
+    .left-panel { max-height: none; position: static; border-right: none; border-bottom: 1px solid var(--border); }
+    .right-panel { max-height: none; }
+    #infographic .stats-row { grid-template-columns: 1fr 1fr; }
+    #infographic .card-grid { grid-template-columns: 1fr; }
+    #infographic .micro-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <nav class="topnav">
+    <div class="nav-left">
+      <a class="nav-back" id="backBtn" href="/dashboard.html">← Back</a>
+      <div class="topnav-brand">Player <span>IDP</span></div>
+    </div>
+    <div class="nav-right">
+      <span class="nav-name" id="navName"></span>
+      <button class="nav-btn" onclick="signOut()">Sign Out</button>
+    </div>
+  </nav>
+
+  <div class="main">
+
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+      <div>
+        <div class="panel-section-label">Player info</div>
+        <div class="input-group">
+          <div class="row">
+            <input type="text" id="playerName" placeholder="Player name" />
+            <div class="tag-input-wrap" id="playerPosWrap" onclick="document.getElementById('playerPosInput').focus()">
+              <div id="playerPosTags"></div>
+              <input class="tag-text-input" id="playerPosInput" placeholder="Position(s)" autocomplete="off" />
+              <div class="tag-dropdown" id="playerPosDropdown"></div>
+            </div>
+          </div>
+          <div class="row">
+            <input type="text" id="planDuration" placeholder="Plan duration" list="durationOptions" />
+            <datalist id="durationOptions">
+              <option value="3 months"><option value="6 months">
+              <option value="12 months"><option value="18 months"><option value="2 years">
+            </datalist>
+            <div class="tag-input-wrap" id="planFocusWrap" onclick="document.getElementById('planFocusInput').focus()">
+              <div id="planFocusTags"></div>
+              <input class="tag-text-input" id="planFocusInput" placeholder="Focus area(s)" autocomplete="off" />
+              <div class="tag-dropdown" id="planFocusDropdown"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider-line"></div>
+
+      <div>
+        <div class="transcript-toolbar">
+          <div class="panel-section-label" style="margin-bottom:0;">Transcript</div>
+          <div style="display:flex;gap:6px;">
+            <button class="transcript-tool-btn" id="micBtn" onclick="toggleMic()" title="Record">🎙 Record</button>
+            <button class="transcript-tool-btn" onclick="downloadTranscript()" title="Download .txt">⬇ Download</button>
+          </div>
+        </div>
+        <div class="input-group" style="margin-top:6px;">
+          <textarea id="transcript" placeholder="Paste or speak your transcript here…"></textarea>
+          <div class="interim-display" id="interimDisplay"></div>
+        </div>
+      </div>
+
+      <div class="input-group" style="gap:8px;">
+        <button class="btn btn-primary" id="btnClean" onclick="handleGenerate(true)">
+          <span>✦</span> Clean &amp; Generate
+        </button>
+        <button class="btn btn-secondary" id="btnRaw" onclick="handleGenerate(false)">
+          Generate As-Is
+        </button>
+        <div class="status-bar" id="statusBar"></div>
+      </div>
+
+      <div class="divider-line"></div>
+
+      <div style="font-size:12px; color:var(--text-dim); line-height:1.6;">
+        <strong style="color:var(--text-muted);font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">How it works</strong><br><br>
+        <strong style="color:var(--text-muted);">Clean &amp; Generate</strong> — sends your transcript to Claude to clean up grammar and build the IDP. Uses the team Claude API key from settings.<br><br>
+        <strong style="color:var(--text-muted);">Generate As-Is</strong> — builds directly from your raw text without AI.<br><br>
+        Hit <strong style="color:var(--text-muted);">Save &amp; Publish</strong> once the preview looks good to push it to the parent portal.
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel" id="rightPanel">
+      <div class="download-bar" id="downloadBar">
+        <div class="dl-label">Preview ready</div>
+        <button class="btn-dl btn-dl-save" id="btnSavePublish" onclick="saveAndPublish()">⬆ Save &amp; Publish</button>
+        <button class="btn-dl btn-dl-edit" id="editToggleBtn" onclick="toggleEditMode()">✏ Edit</button>
+        <button class="btn-dl btn-dl-html" onclick="downloadHTML()">⬇ Download HTML</button>
+        <button class="btn-dl btn-dl-print" onclick="window.print()">⬒ Save as PDF</button>
+      </div>
+
+      <div id="preview-container">
+        <div class="empty-state" id="emptyState">
+          <div class="big-icon">IDP</div>
+          <p>Fill in the player details and paste a transcript, then hit <strong>Clean &amp; Generate</strong>.</p>
+        </div>
+        <div id="edit-mode-banner">
+          <span>✏</span>
+          <span><strong>Edit mode on</strong> — click any text to edit directly. Changes are reflected in downloads.</span>
+        </div>
+        <div id="infographic" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── AUTH + INIT ───────────────────────────────────────
+const urlParams = new URLSearchParams(window.location.search);
+const playerId  = urlParams.get('player');
+const teamId    = urlParams.get('team');
+let coachId     = null;
+let lastIDPData = null;
+
+(async () => {
+  const ctx = await requireCoach();
+  if (!ctx) return;
+  coachId = ctx.session.user.id;
+  document.getElementById('navName').textContent = ctx.profile.full_name || ctx.session.user.email;
+
+  // Set back button to team if we know it
+  if (teamId) document.getElementById('backBtn').href = `/team.html?team=${teamId}`;
+
+  // Pre-fill player info from DB if player param present
+  if (playerId) {
+    const { data: player } = await sb.from('players').select('*').eq('id', playerId).single();
+    if (player) {
+      document.getElementById('playerName').value = player.name;
+      if (player.positions) {
+        player.positions.split('/').map(p => p.trim()).filter(Boolean).forEach(p => tagAdd('playerPos', p));
+      }
+    }
+  }
+
+  // Load existing draft IDP if one exists for this player
+  if (playerId) {
+    const { data: existing } = await sb
+      .from('idps')
+      .select('*')
+      .eq('player_id', playerId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existing) {
+      lastIDPData = existing.data;
+      renderInfographic(existing.data);
+      setStatus(existing.published ? 'Showing published IDP — regenerate to update.' : 'Showing draft IDP — regenerate or save when ready.', '');
+    }
+  }
+})();
+
+// ─── TAG INPUT ─────────────────────────────────────────
+const TAG_OPTIONS = {
+  playerPos: ['Goalkeeper','Defender','Center Back','Right Back','Left Back',
+              'Midfielder','Defensive Midfielder','Central Midfielder',
+              'Attacking Midfielder','Winger','Right Winger','Left Winger',
+              'Forward','Striker','GK / Field Player'],
+  planFocus: ['Assert & Progress','Technical Development','Physical Development',
+              'Tactical Awareness','Decision Making','1v1 Defending',
+              'Attacking Play','First Touch & Control',
+              'Leadership & Communication','Set Pieces','Positioning & Shape']
+};
+const tagValues = { playerPos: [], planFocus: [] };
+
+function tagInit(id) {
+  const input    = document.getElementById(id + 'Input');
+  const dropdown = document.getElementById(id + 'Dropdown');
+  const wrap     = document.getElementById(id + 'Wrap');
+  input.addEventListener('focus', () => { renderTagDropdown(id); dropdown.classList.add('open'); });
+  input.addEventListener('input', () => renderTagDropdown(id));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); const v = input.value.trim();
+      if (v) { tagAdd(id, v); input.value = ''; renderTagDropdown(id); }
+    } else if (e.key === 'Backspace' && !input.value && tagValues[id].length) {
+      tagRemove(id, tagValues[id][tagValues[id].length - 1]);
+    }
+  });
+  wrap.addEventListener('focusout', e => { if (!wrap.contains(e.relatedTarget)) dropdown.classList.remove('open'); });
+}
+function tagAdd(id, value) {
+  if (!tagValues[id].includes(value)) { tagValues[id].push(value); renderTagChips(id); renderTagDropdown(id); }
+}
+function tagRemove(id, value) {
+  tagValues[id] = tagValues[id].filter(v => v !== value); renderTagChips(id); renderTagDropdown(id);
+}
+function renderTagChips(id) {
+  document.getElementById(id + 'Tags').innerHTML = tagValues[id].map(v =>
+    `<span class="tag">${esc(v)}<span class="tag-remove" onmousedown="event.preventDefault();tagRemove('${id}','${v.replace(/'/g,"\\'")}')">&times;</span></span>`
+  ).join('');
+}
+function renderTagDropdown(id) {
+  const filter = document.getElementById(id + 'Input').value.toLowerCase();
+  const opts   = TAG_OPTIONS[id].filter(o => o.toLowerCase().includes(filter));
+  document.getElementById(id + 'Dropdown').innerHTML = opts.map(o => {
+    const added = tagValues[id].includes(o);
+    return `<div class="tag-option${added ? ' added' : ''}"
+      onmousedown="event.preventDefault();${added ? '' : `tagAdd('${id}','${o.replace(/'/g,"\\'")}');document.getElementById('${id}Input').value='';renderTagDropdown('${id}')`}"
+    >${esc(o)}</div>`;
+  }).join('') || '<div class="tag-option" style="color:var(--text-dim);cursor:default;">No matches — press Enter to add</div>';
+}
+function getTagString(id) {
+  const typed = document.getElementById(id + 'Input').value.trim();
+  const all   = typed ? [...tagValues[id], typed] : tagValues[id];
+  return all.join(' / ');
+}
+tagInit('playerPos');
+tagInit('planFocus');
+
+// ─── STATUS ────────────────────────────────────────────
+function setStatus(msg, type = '') {
+  const el = document.getElementById('statusBar');
+  el.className = 'status-bar' + (type ? ' ' + type : '');
+  el.innerHTML = type === 'loading'
+    ? `<span style="display:flex;align-items:center;gap:6px;"><span class="spinner"></span>${msg}</span>`
+    : msg;
+}
+
+// ─── GENERATE ──────────────────────────────────────────
+async function handleGenerate(useAI) {
+  const name = document.getElementById('playerName').value.trim() || 'Player';
+  const pos  = getTagString('playerPos') || 'Field Player';
+  const dur  = document.getElementById('planDuration').value.trim() || '12 months';
+  const foc  = getTagString('planFocus') || 'Development';
+  const raw  = document.getElementById('transcript').value.trim();
+  if (!raw) { setStatus('Please paste a transcript first.', 'error'); return; }
+
+  // Reset save button state
+  const saveBtn = document.getElementById('btnSavePublish');
+  saveBtn.textContent = '⬆ Save & Publish';
+  saveBtn.classList.remove('saved');
+  saveBtn.disabled = false;
+
+  if (useAI) {
+    setStatus('Fetching API key…', 'loading');
+    const key = await getClaudeApiKey();
+    if (!key) { setStatus('No Claude API key found in settings. Ask your admin to add one.', 'error'); return; }
+    setStatus('Sending to Claude…', 'loading');
+    try {
+      const data = await callClaude(key, name, pos, dur, foc, raw);
+      lastIDPData = data;
+      renderInfographic(data);
+      setStatus('Generated successfully.', 'success');
+    } catch(e) {
+      setStatus('Error: ' + e.message, 'error');
+    }
+  } else {
+    setStatus('Building from raw transcript…', 'loading');
+    const data = parseRaw(name, pos, dur, foc, raw);
+    lastIDPData = data;
+    renderInfographic(data);
+    setStatus('Generated from raw transcript.', 'success');
+  }
+}
+
+// ─── CLAUDE API ────────────────────────────────────────
+async function callClaude(key, name, pos, dur, foc, transcript) {
+  const systemPrompt = `You are a youth soccer development expert. Given a raw voice memo transcript of a player IDP (Individual Development Plan), extract and structure the information into a clean JSON object. Return ONLY valid JSON, no markdown, no explanation.
+
+JSON structure:
+{
+  "playerName": "string",
+  "position": "string",
+  "duration": "string",
+  "focus": "string",
+  "mantra": "short 3-5 word game day focus phrase",
+  "strengths": [{ "title": "short title", "body": "1-2 sentence description" }],
+  "improvements": [{ "title": "short title", "body": "1-2 sentence description" }],
+  "plan": [
+    { "badge": "Next 30 days", "badgeType": "purple", "title": "Technical — ...", "bullets": ["bullet 1", "bullet 2", "bullet 3"] },
+    { "badge": "In training", "badgeType": "amber", "title": "...", "bullets": ["..."] },
+    { "badge": "12-month goal", "badgeType": "teal", "title": "...", "bullets": ["..."] }
+  ],
+  "microHabits": [
+    { "num": "15", "desc": "description of habit" },
+    { "num": "10", "desc": "description of habit" },
+    { "num": "20", "desc": "description of habit" }
+  ],
+  "gameDayFocus": "Short sentence with key action highlighted — the key phrase goes after a dash",
+  "goalVision": "2-3 sentence paragraph describing the 12-month vision for this player",
+  "parentNote": "2-3 sentence note to parents about how to support the player"
+}
+
+Fill in playerName, position, duration, and focus using the provided values unless the transcript overrides them.
+Keep titles short (3-5 words). Keep bullet points concise (one clear idea each).
+badgeType must be one of: purple, amber, teal, blue`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: `Player name: ${name}\nPosition: ${pos}\nDuration: ${dur}\nFocus: ${foc}\n\nTRANSCRIPT:\n${transcript}` }]
+    })
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API error ${response.status}`);
+  }
+  const result = await response.json();
+  const text   = result.content[0].text.trim();
+  return JSON.parse(text.replace(/```json|```/g, '').trim());
+}
+
+// ─── RAW PARSE ─────────────────────────────────────────
+function parseRaw(name, pos, dur, foc, transcript) {
+  const paras  = transcript.split(/\n+/).map(s => s.trim()).filter(s => s.length > 20);
+  const chunk  = (arr, size) => Array.from({ length: Math.ceil(arr.length/size) }, (_, i) => arr.slice(i*size, i*size+size));
+  const chunks = chunk(paras, Math.max(1, Math.floor(paras.length / 6)));
+  return {
+    playerName: name, position: pos, duration: dur, focus: foc, mantra: 'Play with intent',
+    strengths:    (chunks[0]||[]).slice(0,6).map((p,i) => ({ title: ['Passing','Physical tools','Movement','Effort','Character','Preparation'][i]||`Strength ${i+1}`, body: p.slice(0,120) })),
+    improvements: (chunks[1]||[]).slice(0,6).map((p,i) => ({ title: ['Decision speed','First touch','Assertiveness','Transition','Weak foot','Line-breaking'][i]||`Area ${i+1}`, body: p.slice(0,120) })),
+    plan: [
+      { badge: 'Next 30 days', badgeType: 'purple', title: 'Technical priorities', bullets: (chunks[2]||paras).slice(0,4).map(p => p.slice(0,100)) },
+      { badge: 'In training',  badgeType: 'amber',  title: 'Training focus',       bullets: (chunks[3]||paras).slice(0,3).map(p => p.slice(0,100)) },
+      { badge: '12-month goal',badgeType: 'teal',   title: 'Long-term vision',     bullets: (chunks[4]||paras).slice(0,3).map(p => p.slice(0,100)) },
+    ],
+    microHabits: [{ num:'15',desc:'Directional first touches daily' },{ num:'10',desc:'Short acceleration sprints' },{ num:'20',desc:'Passes with weaker foot' }],
+    gameDayFocus: 'Can I go forward? — Take the first touch into space.',
+    goalVision:   (chunks[5]||paras).slice(0,2).join(' ').slice(0,300) || 'Become a more assertive, impactful player who plays with intent.',
+    parentNote:   paras[paras.length-1]?.slice(0,300) || 'Continue to encourage confidence and allow ownership within the game.'
+  };
+}
+
+// ─── RENDER ────────────────────────────────────────────
+function renderInfographic(d) {
+  const ig = document.getElementById('infographic');
+  const strengthCards = (d.strengths||[]).map(s => `<div class="card green"><h4><span class="dot" style="background:#38A050;"></span>${esc(s.title)}</h4><p>${esc(s.body)}</p></div>`).join('');
+  const improvCards   = (d.improvements||[]).map(s => `<div class="card amber"><h4><span class="dot" style="background:#F0A020;"></span>${esc(s.title)}</h4><p>${esc(s.body)}</p></div>`).join('');
+  const planRows      = (d.plan||[]).map(p => `<div class="plan-item"><div class="plan-badge ${p.badgeType||'purple'}">${esc(p.badge)}</div><div class="plan-content"><h4>${esc(p.title)}</h4><ul>${(p.bullets||[]).map(b=>`<li>${esc(b)}</li>`).join('')}</ul></div></div>`).join('');
+  const microCards    = (d.microHabits||[]).map(m => `<div class="micro-card"><div class="num">${esc(m.num)}</div><div class="desc">${esc(m.desc)}</div></div>`).join('');
+  const gdParts = (d.gameDayFocus||'').split('—');
+  const gdText  = gdParts.length > 1 ? `<span>${esc(gdParts[0].trim())}</span> — ${esc(gdParts[1].trim())}` : esc(d.gameDayFocus||'');
+
+  ig.innerHTML = `
+    <div class="ig-header">
+      <div><h1>${esc(d.playerName||'Player')} <span>IDP</span></h1><div class="sub">Individual Development Plan · 2026 · Coaching Staff</div></div>
+      <div style="text-align:right;"><div class="pos-badge">${esc(d.position||'Field Player')}</div><span class="phase">Phase: ${esc(d.focus||'Development')}</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="val">Development</div><div class="lbl">Current phase</div></div>
+      <div class="stat-card"><div class="val">${esc(d.focus||'—')}</div><div class="lbl">Focus</div></div>
+      <div class="stat-card"><div class="val">${esc(d.duration||'12 months')}</div><div class="lbl">Plan duration</div></div>
+      <div class="stat-card"><div class="val">${esc(d.mantra||'Play with intent')}</div><div class="lbl">Mantra</div></div>
+    </div>
+    <div class="sec-label">Keep doing — strengths to build on</div>
+    <div class="card-grid">${strengthCards}</div>
+    <hr class="divider">
+    <div class="sec-label">Areas to improve</div>
+    <div class="card-grid">${improvCards}</div>
+    <hr class="divider">
+    <div class="sec-label">Development plan</div>
+    <div class="plan-list">${planRows}</div>
+    <div class="micro-label">Home micro-habits — daily</div>
+    <div class="micro-grid">${microCards}</div>
+    <div class="gameday" style="margin-top:8px;">
+      <div class="gd-label">Game day focus</div>
+      <div class="gd-text">${gdText}</div>
+    </div>
+    <div class="sec-label" style="margin-top:1.5rem;">12-month goal</div>
+    <div class="goal-banner">
+      <div class="timeline">12-month<br>vision</div>
+      <p>${esc(d.goalVision||'')}</p>
+    </div>
+    <div class="parent-note">
+      <div class="plabel">Note for parents</div>
+      <p>${esc(d.parentNote||'')}</p>
+    </div>`;
+
+  document.getElementById('emptyState').style.display = 'none';
+  ig.style.display = 'block';
+  document.getElementById('downloadBar').classList.add('visible');
+  ig.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ─── SAVE & PUBLISH ────────────────────────────────────
+async function saveAndPublish() {
+  if (!lastIDPData) return;
+  const btn = document.getElementById('btnSavePublish');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="border-top-color:var(--teal-light);"></span>';
+
+  const payload = {
+    player_id:  playerId || null,
+    created_by: coachId,
+    data:       lastIDPData,
+    published:  true,
+    updated_at: new Date().toISOString()
+  };
+
+  // Upsert: update if IDP exists for this player, otherwise insert
+  let error;
+  if (playerId) {
+    const { data: existing } = await sb.from('idps').select('id').eq('player_id', playerId)
+      .order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (existing) {
+      ({ error } = await sb.from('idps').update({ data: lastIDPData, published: true, updated_at: payload.updated_at }).eq('id', existing.id));
+    } else {
+      ({ error } = await sb.from('idps').insert(payload));
+    }
+  } else {
+    ({ error } = await sb.from('idps').insert(payload));
+  }
+
+  if (error) {
+    setStatus('Save error: ' + error.message, 'error');
+    btn.disabled = false;
+    btn.textContent = '⬆ Save & Publish';
+  } else {
+    btn.classList.add('saved');
+    btn.textContent = '✓ Published';
+    setStatus('IDP saved and published to parent portal.', 'success');
+  }
+}
+
+// ─── EDIT MODE ─────────────────────────────────────────
+const EDITABLE_SELECTORS = [
+  '.ig-header h1','.pos-badge','.phase','.sub','.stat-card .val','.stat-card .lbl',
+  '.card h4','.card p','.plan-badge','.plan-content h4','.plan-content li',
+  '.micro-card .num','.micro-card .desc','.gd-label','.gd-text',
+  '.goal-banner p','.parent-note p','.sec-label','.micro-label','.plabel',
+];
+let editModeActive = false;
+function toggleEditMode() { editModeActive ? disableEditMode() : enableEditMode(); }
+function enableEditMode() {
+  const ig = document.getElementById('infographic');
+  const btn = document.getElementById('editToggleBtn');
+  if (!ig || ig.style.display === 'none') return;
+  EDITABLE_SELECTORS.forEach(sel => {
+    ig.querySelectorAll(sel).forEach(el => { el.contentEditable = 'true'; el.addEventListener('keydown', preventEnterInsert); });
+  });
+  ig.classList.add('edit-mode');
+  btn.classList.add('active'); btn.textContent = '✓ Done Editing';
+  document.getElementById('edit-mode-banner').classList.add('visible');
+  editModeActive = true;
+}
+function disableEditMode() {
+  const ig  = document.getElementById('infographic');
+  const btn = document.getElementById('editToggleBtn');
+  ig.querySelectorAll('[contenteditable]').forEach(el => { el.removeAttribute('contenteditable'); el.removeEventListener('keydown', preventEnterInsert); });
+  ig.classList.remove('edit-mode');
+  btn.classList.remove('active'); btn.textContent = '✏ Edit';
+  document.getElementById('edit-mode-banner').classList.remove('visible');
+  editModeActive = false;
+}
+function preventEnterInsert(e) { if (e.key === 'Enter') e.preventDefault(); }
+
+// ─── DOWNLOAD HTML ─────────────────────────────────────
+function downloadHTML() {
+  const ig   = document.getElementById('infographic');
+  if (!ig || ig.style.display === 'none') return;
+  const name = document.getElementById('playerName').value.trim() || 'Player';
+  const clone = ig.cloneNode(true);
+  clone.classList.remove('edit-mode');
+  clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${name} — IDP 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}body{background:#0D1B2A;color:#EDF2F7;font-family:'Inter',sans-serif;font-size:15px;line-height:1.6;padding:2rem 1.5rem 3rem;max-width:900px;margin:0 auto;}@media print{*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}}${getInfographicCSS()}</style>
+</head><body>${clone.outerHTML}</body></html>`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+  a.download = `${name.replace(/\s+/g,'_')}_IDP_2026.html`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function getInfographicCSS() {
+  return `#infographic{font-family:'Inter',sans-serif;font-size:15px;color:#EDF2F7;background:#0D1B2A;border-radius:10px;padding:2rem;}.ig-header{display:grid;grid-template-columns:1fr auto;align-items:end;gap:1rem;padding-bottom:1.25rem;border-bottom:1px solid rgba(255,255,255,0.15);margin-bottom:1.5rem;}.ig-header h1{font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:800;line-height:1;color:#EDF2F7;}.ig-header h1 span{color:#22A882;}.ig-header .sub{font-size:12px;color:#64748B;margin-top:5px;font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;}.ig-header .pos-badge{display:inline-block;background:#0D2E25;border:1px solid #1B8A6B;color:#22A882;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:5px 12px;border-radius:4px;}.ig-header .phase{display:block;font-size:11px;color:#64748B;font-family:'Barlow Condensed',sans-serif;letter-spacing:0.08em;text-transform:uppercase;margin-top:6px;text-align:right;}.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1.5rem;}.stat-card{background:#1A2E44;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px 14px;}.stat-card .val{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;color:#EDF2F7;line-height:1.2;}.stat-card .lbl{font-size:10px;color:#64748B;text-transform:uppercase;letter-spacing:0.08em;margin-top:3px;font-family:'Barlow Condensed',sans-serif;font-weight:500;}.sec-label{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#64748B;margin-bottom:8px;margin-top:1.5rem;}.card-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}.card{border-radius:8px;padding:12px 14px;border:1px solid rgba(255,255,255,0.08);}.card.green{background:#0D2214;border-color:rgba(56,160,80,0.2);}.card.amber{background:#2E1E05;border-color:rgba(212,135,10,0.2);}.card h4{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:#EDF2F7;margin-bottom:4px;display:flex;align-items:center;gap:6px;}.card .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}.card p{font-size:12px;color:#94A3B8;line-height:1.5;}.divider{border:none;border-top:1px solid rgba(255,255,255,0.08);margin:1.5rem 0 0;}.plan-list{display:flex;flex-direction:column;gap:6px;}.plan-item{display:grid;grid-template-columns:100px 1fr;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);}.plan-badge{display:flex;align-items:center;justify-content:center;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:10px 7px;line-height:1.3;}.plan-badge.purple{background:#1A1230;color:#7357C8;border-right:1px solid rgba(115,87,200,0.2);}.plan-badge.amber{background:#2E1E05;color:#F0A020;border-right:1px solid rgba(212,135,10,0.2);}.plan-badge.teal{background:#0D2E25;color:#22A882;border-right:1px solid rgba(27,138,107,0.2);}.plan-badge.blue{background:#0D1E2E;color:#60A5FA;border-right:1px solid rgba(96,165,250,0.2);}.plan-content{background:#1A2E44;padding:10px 14px;}.plan-content h4{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:#EDF2F7;margin-bottom:5px;}.plan-content ul{list-style:none;display:flex;flex-direction:column;gap:3px;}.plan-content ul li{font-size:12px;color:#94A3B8;display:flex;gap:7px;align-items:flex-start;line-height:1.45;}.plan-content ul li::before{content:'—';color:#64748B;flex-shrink:0;}.micro-label{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#60A5FA;display:flex;align-items:center;gap:6px;margin-bottom:8px;margin-top:1.5rem;}.micro-label::after{content:'';flex:1;height:1px;background:rgba(96,165,250,0.2);}.micro-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}.micro-card{background:#0D1E2E;border:1px solid rgba(96,165,250,0.2);border-radius:8px;padding:12px 14px;text-align:center;}.micro-card .num{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:#60A5FA;line-height:1;}.micro-card .desc{font-size:11px;color:#94A3B8;margin-top:4px;line-height:1.4;}.gameday{background:#1A2E44;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-top:8px;}.gameday .gd-label{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#64748B;white-space:nowrap;}.gameday .gd-text{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:#EDF2F7;}.gameday .gd-text span{color:#22A882;}.goal-banner{background:#0D2E25;border:1px solid rgba(27,138,107,0.35);border-radius:10px;padding:16px 18px;margin-top:8px;display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;}.goal-banner .timeline{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:#22A882;text-transform:uppercase;letter-spacing:0.1em;white-space:nowrap;}.goal-banner p{font-size:13px;color:#94A3B8;line-height:1.55;}.parent-note{margin-top:1.5rem;border-left:3px solid rgba(255,255,255,0.15);padding:10px 16px;background:#1A2E44;border-radius:0 8px 8px 0;}.parent-note .plabel{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#64748B;margin-bottom:6px;}.parent-note p{font-size:12px;color:#94A3B8;line-height:1.6;font-style:italic;}`;
+}
+
+// ─── SPEECH TO TEXT ────────────────────────────────────
+let recognition = null; let isRecording = false;
+function toggleMic() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('Speech recognition is not supported in this browser. Try Chrome.'); return;
+  }
+  if (isRecording) { recognition?.stop(); return; }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.continuous = true; recognition.interimResults = true; recognition.lang = 'en-US';
+  recognition.onstart = () => {
+    isRecording = true;
+    const btn = document.getElementById('micBtn');
+    btn.classList.add('recording');
+    btn.innerHTML = '<span class="mic-dot"></span> Stop';
+  };
+  recognition.onresult = (e) => {
+    let interim = '', final = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    if (final) {
+      const ta = document.getElementById('transcript');
+      ta.value += (ta.value && !ta.value.endsWith(' ') ? ' ' : '') + final;
+    }
+    document.getElementById('interimDisplay').textContent = interim;
+  };
+  recognition.onend = () => {
+    isRecording = false;
+    const btn = document.getElementById('micBtn');
+    btn.classList.remove('recording'); btn.innerHTML = '🎙 Record';
+    document.getElementById('interimDisplay').textContent = '';
+  };
+  recognition.start();
+}
+
+function downloadTranscript() {
+  const text = document.getElementById('transcript').value;
+  if (!text.trim()) return;
+  const name = document.getElementById('playerName').value.trim() || 'transcript';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+  a.download = `${name.replace(/\s+/g,'_')}_transcript.txt`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In — Player IDP</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/auth.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0D1B2A; --navy-mid: #1A2E44; --navy-light: #243B55;
+  --teal: #1B8A6B; --teal-light: #22A882; --teal-faint: #0D2E25;
+  --text: #EDF2F7; --text-muted: #94A3B8; --text-dim: #64748B;
+  --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
+  --red-light: #E05050;
+}
+html, body { min-height: 100vh; background: var(--navy); color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 15px; }
+
+.page {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 2rem;
+}
+
+.brand {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 28px; font-weight: 800; letter-spacing: 0.02em;
+  color: var(--text); margin-bottom: 2rem; text-align: center;
+}
+.brand span { color: var(--teal-light); }
+
+.card {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 2rem; width: 100%; max-width: 400px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+
+.card-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 22px; font-weight: 800; color: var(--text);
+}
+
+.tabs {
+  display: flex; gap: 0;
+  border: 1px solid var(--border-strong); border-radius: 8px;
+  overflow: hidden;
+}
+.tab {
+  flex: 1; padding: 8px 12px; text-align: center;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  background: transparent; color: var(--text-dim);
+  border: none; font-family: 'Inter', sans-serif;
+  transition: background 0.15s, color 0.15s;
+}
+.tab.active { background: var(--teal-faint); color: var(--teal-light); }
+.tab:first-child { border-right: 1px solid var(--border-strong); }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12px; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.08em; }
+input[type="text"], input[type="email"], input[type="password"] {
+  background: var(--navy); border: 1px solid var(--border-strong);
+  border-radius: 8px; color: var(--text); font-family: 'Inter', sans-serif;
+  font-size: 14px; padding: 10px 13px; width: 100%;
+  transition: border-color 0.2s; outline: none;
+}
+input:focus { border-color: var(--teal); }
+input::placeholder { color: var(--text-dim); }
+
+.btn {
+  width: 100%; padding: 12px 16px; border-radius: 8px; border: none;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 15px;
+  font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; transition: opacity 0.2s; display: flex;
+  align-items: center; justify-content: center; gap: 8px;
+}
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover { background: var(--teal-light); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.status { font-size: 13px; min-height: 18px; text-align: center; }
+.status.error { color: var(--red-light); }
+.status.success { color: var(--teal-light); }
+
+.footer-link {
+  font-size: 13px; color: var(--text-dim); text-align: center;
+}
+.footer-link a { color: var(--teal-light); text-decoration: none; cursor: pointer; }
+.footer-link a:hover { text-decoration: underline; }
+
+.spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="brand">Player <span>IDP</span></div>
+
+  <div class="card">
+    <div class="card-title" id="cardTitle">Sign In</div>
+
+    <div class="tabs" id="modeTabs">
+      <button class="tab active" onclick="setMode('signin')">Sign In</button>
+      <button class="tab" onclick="setMode('signup')">Create Account</button>
+    </div>
+
+    <div class="field" id="nameField" style="display:none;">
+      <label>Full Name</label>
+      <input type="text" id="fullName" placeholder="Your name" autocomplete="name" />
+    </div>
+
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="email" placeholder="you@example.com" autocomplete="email"
+             onkeydown="if(event.key==='Enter') submit()" />
+    </div>
+
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="Password" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter') submit()" />
+    </div>
+
+    <button class="btn btn-primary" id="submitBtn" onclick="submit()">Sign In</button>
+
+    <div class="status" id="statusMsg"></div>
+
+    <div class="footer-link" id="switchLink">
+      Don't have an account? <a onclick="setMode('signup')">Create one</a>
+    </div>
+  </div>
+</div>
+
+<script>
+let mode = 'signin';
+
+// If already logged in, redirect away
+(async () => {
+  const session = await getSession();
+  if (session) redirectAfterLogin(session);
+})();
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('nameField').style.display = m === 'signup' ? 'flex' : 'none';
+  document.getElementById('cardTitle').textContent = m === 'signin' ? 'Sign In' : 'Create Account';
+  document.getElementById('submitBtn').textContent = m === 'signin' ? 'Sign In' : 'Create Account';
+  document.getElementById('switchLink').innerHTML = m === 'signin'
+    ? 'Don\'t have an account? <a onclick="setMode(\'signup\')">Create one</a>'
+    : 'Already have an account? <a onclick="setMode(\'signin\')">Sign in</a>';
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && m === 'signin') || (i === 1 && m === 'signup'));
+  });
+  setStatus('');
+}
+
+function setStatus(msg, type = '') {
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = 'status' + (type ? ' ' + type : '');
+}
+
+async function submit() {
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const btn = document.getElementById('submitBtn');
+
+  if (!email || !password) { setStatus('Please fill in all fields.', 'error'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  if (mode === 'signin') {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) {
+      setStatus(error.message, 'error');
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+    } else {
+      redirectAfterLogin(data.session);
+    }
+  } else {
+    const fullName = document.getElementById('fullName').value.trim();
+    if (!fullName) { setStatus('Please enter your name.', 'error'); btn.disabled = false; btn.textContent = 'Create Account'; return; }
+    const { data, error } = await sb.auth.signUp({
+      email, password,
+      options: { data: { full_name: fullName, role: 'coach' } }
+    });
+    if (error) {
+      setStatus(error.message, 'error');
+      btn.disabled = false;
+      btn.textContent = 'Create Account';
+    } else if (data.session) {
+      redirectAfterLogin(data.session);
+    } else {
+      setStatus('Account created! Check your email to confirm, then sign in.', 'success');
+      btn.disabled = false;
+      btn.textContent = 'Create Account';
+    }
+  }
+}
+
+async function redirectAfterLogin(session) {
+  // Check ?next= param first
+  const params = new URLSearchParams(window.location.search);
+  const next = params.get('next');
+  if (next) { window.location.href = next; return; }
+
+  // Otherwise redirect based on role
+  const profile = await getProfile(session.user.id);
+  if (profile?.role === 'parent') {
+    window.location.href = '/parent.html';
+  } else {
+    window.location.href = '/dashboard.html';
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team — Player IDP</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/auth.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0D1B2A; --navy-mid: #1A2E44; --navy-light: #243B55;
+  --teal: #1B8A6B; --teal-light: #22A882; --teal-faint: #0D2E25;
+  --amber: #D4870A; --amber-light: #F0A020; --amber-faint: #2E1E05;
+  --green-faint: #0D2214; --green-light: #38A050;
+  --text: #EDF2F7; --text-muted: #94A3B8; --text-dim: #64748B;
+  --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
+  --red-light: #E05050;
+}
+html, body { min-height: 100vh; background: var(--navy); color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 15px; }
+
+/* ─── NAV ─── */
+.topnav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem; height: 56px;
+  border-bottom: 1px solid var(--border); background: var(--navy);
+  position: sticky; top: 0; z-index: 100;
+}
+.nav-brand { font-family: 'Barlow Condensed', sans-serif; font-size: 20px;
+  font-weight: 800; color: var(--text); text-decoration: none; }
+.nav-brand span { color: var(--teal-light); }
+.nav-right { display: flex; align-items: center; gap: 10px; }
+.nav-btn {
+  font-size: 12px; font-weight: 600; color: var(--text-dim);
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 11px; cursor: pointer; font-family: 'Inter', sans-serif;
+  transition: color 0.2s, border-color 0.2s; text-decoration: none;
+  display: inline-flex; align-items: center;
+}
+.nav-btn:hover { color: var(--text-muted); border-color: var(--border-strong); }
+
+/* ─── PAGE ─── */
+.page { max-width: 900px; margin: 0 auto; padding: 2.5rem 2rem; }
+
+.breadcrumb { font-size: 13px; color: var(--text-dim); margin-bottom: 1.5rem; }
+.breadcrumb a { color: var(--teal-light); text-decoration: none; }
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb span { margin: 0 6px; }
+
+.page-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 2rem; gap: 1rem;
+}
+.page-title-group { display: flex; flex-direction: column; gap: 4px; }
+.page-title { font-family: 'Barlow Condensed', sans-serif; font-size: 34px; font-weight: 800; }
+.page-season { font-size: 13px; color: var(--text-dim); }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 18px; border-radius: 8px; border: none;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 13px;
+  font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; transition: opacity 0.2s, background 0.15s;
+}
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover { background: var(--teal-light); }
+.btn-ghost { background: transparent; color: var(--text-dim);
+  border: 1px solid var(--border-strong); }
+.btn-ghost:hover { color: var(--text-muted); }
+
+/* ─── PLAYER TABLE ─── */
+.player-table { width: 100%; border-collapse: collapse; }
+.player-table th {
+  text-align: left; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim);
+  padding: 0 14px 10px; border-bottom: 1px solid var(--border-strong);
+}
+.player-row {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.player-row:hover { background: rgba(255,255,255,0.02); }
+.player-row td { padding: 14px; vertical-align: middle; }
+.player-name { font-weight: 600; color: var(--text); font-size: 15px; }
+.player-pos { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.idp-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 4px;
+}
+.idp-badge.published { background: var(--teal-faint); color: var(--teal-light);
+  border: 1px solid rgba(27,138,107,0.3); }
+.idp-badge.draft { background: var(--amber-faint); color: var(--amber-light);
+  border: 1px solid rgba(212,135,10,0.25); }
+.idp-badge.none { background: transparent; color: var(--text-dim);
+  border: 1px solid var(--border); }
+.player-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.btn-action {
+  padding: 5px 12px; border-radius: 6px; border: none;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 11px;
+  font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; white-space: nowrap; transition: opacity 0.15s;
+}
+.btn-generate { background: var(--teal-faint); color: var(--teal-light);
+  border: 1px solid rgba(27,138,107,0.35); }
+.btn-generate:hover { border-color: var(--teal); }
+.btn-invite { background: transparent; color: var(--text-dim);
+  border: 1px solid var(--border-strong); }
+.btn-invite:hover { color: var(--text-muted); }
+.btn-danger { background: transparent; color: #E05050;
+  border: 1px solid rgba(224,80,80,0.25); }
+.btn-danger:hover { border-color: rgba(224,80,80,0.5); }
+
+/* ─── EMPTY STATE ─── */
+.empty { text-align: center; padding: 4rem 2rem; color: var(--text-dim); }
+.empty-icon { font-family: 'Barlow Condensed', sans-serif; font-size: 48px;
+  font-weight: 800; opacity: 0.2; margin-bottom: 1rem; }
+.empty p { font-size: 14px; line-height: 1.6; max-width: 280px;
+  margin: 0 auto 1.5rem; }
+
+/* ─── MODAL ─── */
+.overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7); z-index: 200;
+  align-items: center; justify-content: center;
+}
+.overlay.open { display: flex; }
+.modal {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 2rem; width: 100%; max-width: 440px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.modal h2 { font-family: 'Barlow Condensed', sans-serif;
+  font-size: 22px; font-weight: 800; }
+.modal p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12px; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.08em; }
+input[type="text"] {
+  background: var(--navy); border: 1px solid var(--border-strong);
+  border-radius: 8px; color: var(--text); font-family: 'Inter', sans-serif;
+  font-size: 14px; padding: 10px 13px; width: 100%; outline: none;
+  transition: border-color 0.2s;
+}
+input:focus { border-color: var(--teal); }
+input::placeholder { color: var(--text-dim); }
+.modal-actions { display: flex; gap: 10px; }
+.modal-actions .btn { flex: 1; padding: 11px 16px; }
+.modal-status { font-size: 12px; min-height: 16px; }
+.modal-status.error { color: var(--red-light); }
+.modal-status.success { color: var(--teal-light); }
+
+/* ─── INVITE LINK BOX ─── */
+.invite-box {
+  background: var(--navy); border: 1px solid var(--border-strong);
+  border-radius: 8px; padding: 10px 13px;
+  font-size: 12px; color: var(--text-muted); word-break: break-all;
+  font-family: 'Inter', monospace; line-height: 1.5;
+}
+
+.spinner { display: inline-block; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+  border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.toast {
+  position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 8px; padding: 10px 20px; font-size: 13px;
+  color: var(--teal-light); z-index: 999; opacity: 0;
+  transition: opacity 0.2s; pointer-events: none;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <a class="nav-brand" href="/dashboard.html">Player <span>IDP</span></a>
+  <div class="nav-right">
+    <button class="nav-btn" onclick="signOut()">Sign Out</button>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="breadcrumb">
+    <a href="/dashboard.html">My Teams</a>
+    <span>›</span>
+    <span id="breadTeam">…</span>
+  </div>
+
+  <div class="page-header">
+    <div class="page-title-group">
+      <div class="page-title" id="teamTitle">Loading…</div>
+      <div class="page-season" id="teamSeason"></div>
+    </div>
+    <button class="btn btn-primary" onclick="openAddPlayer()">+ Add Player</button>
+  </div>
+
+  <div id="playerContent">
+    <div class="empty">
+      <div class="empty-icon">IDP</div>
+      <p>Loading players…</p>
+    </div>
+  </div>
+</div>
+
+<!-- ADD PLAYER MODAL -->
+<div class="overlay" id="addPlayerModal">
+  <div class="modal">
+    <h2>Add Player</h2>
+    <div class="field">
+      <label>Player Name</label>
+      <input type="text" id="playerName" placeholder="First Last"
+             onkeydown="if(event.key==='Enter') savePlayer()" />
+    </div>
+    <div class="field">
+      <label>Position(s) (optional)</label>
+      <input type="text" id="playerPositions" placeholder="e.g. Central Midfielder"
+             onkeydown="if(event.key==='Enter') savePlayer()" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeAddPlayer()">Cancel</button>
+      <button class="btn btn-primary" id="savePlayerBtn" onclick="savePlayer()">Add Player</button>
+    </div>
+    <div class="modal-status" id="addPlayerStatus"></div>
+  </div>
+</div>
+
+<!-- INVITE MODAL -->
+<div class="overlay" id="inviteModal">
+  <div class="modal">
+    <h2>Invite Parent</h2>
+    <p>Share this link with the player's parent. When they open it, they'll create an account and be linked to this player's IDPs.</p>
+    <div class="invite-box" id="inviteLink"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeInvite()">Close</button>
+      <button class="btn btn-primary" onclick="copyInviteLink()">Copy Link</button>
+    </div>
+    <div class="modal-status success" id="inviteStatus"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const params  = new URLSearchParams(window.location.search);
+const teamId  = params.get('team');
+let coachId   = null;
+let currentInviteLink = '';
+
+if (!teamId) window.location.href = '/dashboard.html';
+
+(async () => {
+  const ctx = await requireCoach();
+  if (!ctx) return;
+  coachId = ctx.session.user.id;
+  loadTeam();
+  loadPlayers();
+})();
+
+async function loadTeam() {
+  const { data } = await sb.from('teams').select('*').eq('id', teamId).single();
+  if (!data) { window.location.href = '/dashboard.html'; return; }
+  document.getElementById('teamTitle').textContent = data.name;
+  document.getElementById('breadTeam').textContent = data.name;
+  document.title = `${data.name} — Player IDP`;
+  if (data.season) document.getElementById('teamSeason').textContent = data.season;
+}
+
+async function loadPlayers() {
+  const { data: players } = await sb
+    .from('players')
+    .select('*')
+    .eq('team_id', teamId)
+    .order('name');
+
+  const container = document.getElementById('playerContent');
+
+  if (!players || players.length === 0) {
+    container.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">IDP</div>
+        <p>No players yet. Add your first player to get started.</p>
+        <button class="btn btn-primary" onclick="openAddPlayer()">+ Add Player</button>
+      </div>`;
+    return;
+  }
+
+  // Fetch latest IDP per player
+  const playerIds = players.map(p => p.id);
+  const { data: idps } = await sb
+    .from('idps')
+    .select('player_id, published, created_at')
+    .in('player_id', playerIds)
+    .order('created_at', { ascending: false });
+
+  const idpMap = {};
+  (idps || []).forEach(i => {
+    if (!idpMap[i.player_id]) idpMap[i.player_id] = i;
+  });
+
+  container.innerHTML = `
+    <table class="player-table">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th>Latest IDP</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${players.map(p => {
+          const idp = idpMap[p.id];
+          let badge = '<span class="idp-badge none">No IDP yet</span>';
+          if (idp) {
+            badge = idp.published
+              ? '<span class="idp-badge published">✓ Published</span>'
+              : '<span class="idp-badge draft">Draft</span>';
+          }
+          return `
+            <tr class="player-row">
+              <td>
+                <div class="player-name">${esc(p.name)}</div>
+                ${p.positions ? `<div class="player-pos">${esc(p.positions)}</div>` : ''}
+              </td>
+              <td>${badge}</td>
+              <td>
+                <div class="player-actions">
+                  <button class="btn-action btn-generate"
+                    onclick="generateIDP('${p.id}')">✦ Generate IDP</button>
+                  <button class="btn-action btn-invite"
+                    onclick="openInvite('${p.id}')">⤴ Invite Parent</button>
+                  <button class="btn-action btn-danger"
+                    onclick="deletePlayer('${p.id}', '${esc(p.name)}')">Remove</button>
+                </div>
+              </td>
+            </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+function generateIDP(playerId) {
+  window.location.href = `/generate.html?player=${playerId}&team=${teamId}`;
+}
+
+async function openInvite(playerId) {
+  // Get or create a parent_players row for this player to get the invite token
+  let { data: existing } = await sb
+    .from('parent_players')
+    .select('invite_token')
+    .eq('player_id', playerId)
+    .is('parent_id', null)
+    .maybeSingle();
+
+  if (!existing) {
+    // Create a new invite row with no parent yet
+    const { data: created } = await sb
+      .from('parent_players')
+      .insert({ player_id: playerId, parent_id: null, accepted: false })
+      .select('invite_token').single();
+    existing = created;
+  }
+
+  const token = existing?.invite_token;
+  const link  = `${window.location.origin}/parent.html?token=${token}`;
+  currentInviteLink = link;
+
+  document.getElementById('inviteLink').textContent = link;
+  document.getElementById('inviteStatus').textContent = '';
+  document.getElementById('inviteModal').classList.add('open');
+}
+
+function closeInvite() {
+  document.getElementById('inviteModal').classList.remove('open');
+}
+document.getElementById('inviteModal').addEventListener('click', function(e) {
+  if (e.target === this) closeInvite();
+});
+
+function copyInviteLink() {
+  navigator.clipboard.writeText(currentInviteLink).then(() => {
+    document.getElementById('inviteStatus').textContent = 'Link copied to clipboard!';
+  });
+}
+
+function openAddPlayer() {
+  document.getElementById('playerName').value = '';
+  document.getElementById('playerPositions').value = '';
+  document.getElementById('addPlayerStatus').textContent = '';
+  document.getElementById('addPlayerModal').classList.add('open');
+  setTimeout(() => document.getElementById('playerName').focus(), 80);
+}
+
+function closeAddPlayer() {
+  document.getElementById('addPlayerModal').classList.remove('open');
+}
+document.getElementById('addPlayerModal').addEventListener('click', function(e) {
+  if (e.target === this) closeAddPlayer();
+});
+
+async function savePlayer() {
+  const name = document.getElementById('playerName').value.trim();
+  const pos  = document.getElementById('playerPositions').value.trim();
+  const statusEl = document.getElementById('addPlayerStatus');
+  if (!name) { statusEl.textContent = 'Player name is required.'; statusEl.className = 'modal-status error'; return; }
+
+  const btn = document.getElementById('savePlayerBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+
+  const { error } = await sb.from('players').insert({
+    name, positions: pos || null, team_id: teamId
+  });
+
+  btn.disabled = false; btn.textContent = 'Add Player';
+  if (error) {
+    statusEl.textContent = 'Error: ' + error.message;
+    statusEl.className = 'modal-status error';
+  } else {
+    closeAddPlayer();
+    loadPlayers();
+  }
+}
+
+async function deletePlayer(playerId, name) {
+  if (!confirm(`Remove ${name} from this team? Their IDPs will also be deleted.`)) return;
+  await sb.from('players').delete().eq('id', playerId);
+  loadPlayers();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parent Portal — Player IDP</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/auth.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0D1B2A; --navy-mid: #1A2E44; --navy-light: #243B55;
+  --teal: #1B8A6B; --teal-light: #22A882; --teal-faint: #0D2E25;
+  --amber-light: #F0A020; --amber-faint: #2E1E05;
+  --green-light: #38A050; --green-faint: #0D2214;
+  --purple-light: #7357C8; --purple-faint: #1A1230;
+  --text: #EDF2F7; --text-muted: #94A3B8; --text-dim: #64748B;
+  --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
+  --red-light: #E05050;
+}
+html, body { min-height: 100vh; background: var(--navy); color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 15px; line-height: 1.6; }
+
+/* ─── NAV ─── */
+.topnav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem; height: 56px; border-bottom: 1px solid var(--border);
+  background: var(--navy); position: sticky; top: 0; z-index: 100;
+}
+.nav-brand { font-family: 'Barlow Condensed', sans-serif; font-size: 20px;
+  font-weight: 800; color: var(--text); }
+.nav-brand span { color: var(--teal-light); }
+.nav-right { display: flex; align-items: center; gap: 10px; }
+.nav-name { font-size: 13px; color: var(--text-muted); }
+.nav-btn {
+  font-size: 12px; font-weight: 600; color: var(--text-dim);
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 11px; cursor: pointer; font-family: 'Inter', sans-serif;
+  transition: color 0.2s, border-color 0.2s;
+}
+.nav-btn:hover { color: var(--text-muted); border-color: var(--border-strong); }
+
+/* ─── PAGE ─── */
+.page { max-width: 860px; margin: 0 auto; padding: 2.5rem 2rem; }
+
+.page-header { margin-bottom: 2rem; }
+.page-title { font-family: 'Barlow Condensed', sans-serif; font-size: 32px; font-weight: 800; }
+.page-subtitle { font-size: 14px; color: var(--text-dim); margin-top: 4px; }
+
+/* ─── STATUS MESSAGES ─── */
+.info-card {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 12px; padding: 2rem; text-align: center;
+}
+.info-card .icon { font-size: 36px; margin-bottom: 1rem; opacity: 0.6; }
+.info-card h2 { font-family: 'Barlow Condensed', sans-serif;
+  font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+.info-card p { font-size: 14px; color: var(--text-muted); line-height: 1.6; max-width: 380px; margin: 0 auto; }
+
+.spinner-wrap { display: flex; align-items: center; justify-content: center;
+  padding: 4rem; }
+.spinner-lg { width: 32px; height: 32px; border: 3px solid var(--border-strong);
+  border-top-color: var(--teal-light); border-radius: 50%;
+  animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── IDP CARD ─── */
+.idp-section { margin-bottom: 2.5rem; }
+.idp-meta {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1rem; flex-wrap: wrap; gap: 8px;
+}
+.idp-date { font-size: 12px; color: var(--text-dim); }
+.idp-badge {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 11px;
+  font-weight: 700; padding: 4px 10px; border-radius: 4px;
+  font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--teal-faint); color: var(--teal-light);
+  border: 1px solid rgba(27,138,107,0.3);
+}
+.btn-print {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 6px; border: 1px solid var(--border-strong);
+  background: var(--navy-mid); color: var(--text-muted);
+  font-family: 'Barlow Condensed', sans-serif; font-size: 12px;
+  font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; transition: color 0.2s;
+}
+.btn-print:hover { color: var(--text); }
+
+/* ─── INFOGRAPHIC (same scoped styles) ─── */
+#infographic {
+  font-family: 'Inter', sans-serif; font-size: 15px;
+  color: #EDF2F7; background: #0D1B2A; border-radius: 10px; padding: 2rem;
+}
+#infographic .ig-header { display: grid; grid-template-columns: 1fr auto;
+  align-items: end; gap: 1rem; padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(255,255,255,0.15); margin-bottom: 1.5rem; }
+#infographic .ig-header h1 { font-family: 'Barlow Condensed', sans-serif;
+  font-size: 42px; font-weight: 800; line-height: 1; color: #EDF2F7; }
+#infographic .ig-header h1 span { color: #22A882; }
+#infographic .ig-header .sub { font-size: 12px; color: #64748B; margin-top: 5px;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase; }
+#infographic .ig-header .pos-badge { display: inline-block; background: #0D2E25;
+  border: 1px solid #1B8A6B; color: #22A882; font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 5px 12px; border-radius: 4px; }
+#infographic .ig-header .phase { display: block; font-size: 11px; color: #64748B;
+  font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.08em;
+  text-transform: uppercase; margin-top: 6px; text-align: right; }
+#infographic .stats-row { display: grid; grid-template-columns: repeat(4,1fr);
+  gap: 8px; margin-bottom: 1.5rem; }
+#infographic .stat-card { background: #1A2E44; border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px; padding: 12px 14px; }
+#infographic .stat-card .val { font-family: 'Barlow Condensed', sans-serif;
+  font-size: 17px; font-weight: 700; color: #EDF2F7; line-height: 1.2; }
+#infographic .stat-card .lbl { font-size: 10px; color: #64748B;
+  text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 500; }
+#infographic .sec-label { font-family: 'Barlow Condensed', sans-serif;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: #64748B; margin-bottom: 8px; margin-top: 1.5rem; }
+#infographic .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+#infographic .card { border-radius: 8px; padding: 12px 14px; border: 1px solid rgba(255,255,255,0.08); }
+#infographic .card.green { background: #0D2214; border-color: rgba(56,160,80,0.2); }
+#infographic .card.amber { background: #2E1E05; border-color: rgba(212,135,10,0.2); }
+#infographic .card h4 { font-family: 'Barlow Condensed', sans-serif; font-size: 13px;
+  font-weight: 700; color: #EDF2F7; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+#infographic .card .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+#infographic .card p { font-size: 12px; color: #94A3B8; line-height: 1.5; }
+#infographic .divider { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 1.5rem 0 0; }
+#infographic .plan-list { display: flex; flex-direction: column; gap: 6px; }
+#infographic .plan-item { display: grid; grid-template-columns: 100px 1fr;
+  border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); }
+#infographic .plan-badge { display: flex; align-items: center; justify-content: center;
+  text-align: center; font-family: 'Barlow Condensed', sans-serif; font-size: 10px;
+  font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 10px 7px; line-height: 1.3; }
+#infographic .plan-badge.purple { background: #1A1230; color: #7357C8; border-right: 1px solid rgba(115,87,200,0.2); }
+#infographic .plan-badge.amber  { background: #2E1E05; color: #F0A020; border-right: 1px solid rgba(212,135,10,0.2); }
+#infographic .plan-badge.teal   { background: #0D2E25; color: #22A882; border-right: 1px solid rgba(27,138,107,0.2); }
+#infographic .plan-badge.blue   { background: #0D1E2E; color: #60A5FA; border-right: 1px solid rgba(96,165,250,0.2); }
+#infographic .plan-content { background: #1A2E44; padding: 10px 14px; }
+#infographic .plan-content h4 { font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px; font-weight: 700; color: #EDF2F7; margin-bottom: 5px; }
+#infographic .plan-content ul { list-style: none; display: flex; flex-direction: column; gap: 3px; }
+#infographic .plan-content ul li { font-size: 12px; color: #94A3B8;
+  display: flex; gap: 7px; align-items: flex-start; line-height: 1.45; }
+#infographic .plan-content ul li::before { content: '—'; color: #64748B; flex-shrink: 0; }
+#infographic .micro-label { font-family: 'Barlow Condensed', sans-serif;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: #60A5FA; display: flex; align-items: center; gap: 6px;
+  margin-bottom: 8px; margin-top: 1.5rem; }
+#infographic .micro-label::after { content: ''; flex: 1; height: 1px; background: rgba(96,165,250,0.2); }
+#infographic .micro-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; }
+#infographic .micro-card { background: #0D1E2E; border: 1px solid rgba(96,165,250,0.2);
+  border-radius: 8px; padding: 12px 14px; text-align: center; }
+#infographic .micro-card .num { font-family: 'Barlow Condensed', sans-serif;
+  font-size: 28px; font-weight: 800; color: #60A5FA; line-height: 1; }
+#infographic .micro-card .desc { font-size: 11px; color: #94A3B8; margin-top: 4px; line-height: 1.4; }
+#infographic .gameday { background: #1A2E44; border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+#infographic .gameday .gd-label { font-family: 'Barlow Condensed', sans-serif;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: #64748B; white-space: nowrap; }
+#infographic .gameday .gd-text { font-family: 'Barlow Condensed', sans-serif;
+  font-size: 16px; font-weight: 700; color: #EDF2F7; }
+#infographic .gameday .gd-text span { color: #22A882; }
+#infographic .goal-banner { background: #0D2E25; border: 1px solid rgba(27,138,107,0.35);
+  border-radius: 10px; padding: 16px 18px; margin-top: 8px;
+  display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+#infographic .goal-banner .timeline { font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12px; font-weight: 700; color: #22A882; text-transform: uppercase;
+  letter-spacing: 0.1em; white-space: nowrap; }
+#infographic .goal-banner p { font-size: 13px; color: #94A3B8; line-height: 1.55; }
+#infographic .parent-note { margin-top: 1.5rem; border-left: 3px solid rgba(255,255,255,0.15);
+  padding: 10px 16px; background: #1A2E44; border-radius: 0 8px 8px 0; }
+#infographic .parent-note .plabel { font-family: 'Barlow Condensed', sans-serif;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: #64748B; margin-bottom: 6px; }
+#infographic .parent-note p { font-size: 12px; color: #94A3B8; line-height: 1.6; font-style: italic; }
+
+@media print {
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .topnav, .idp-meta { display: none !important; }
+  body { background: #0D1B2A; }
+  #infographic { border-radius: 0; }
+}
+@media (max-width: 768px) {
+  #infographic .stats-row { grid-template-columns: 1fr 1fr; }
+  #infographic .card-grid  { grid-template-columns: 1fr; }
+  #infographic .micro-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="nav-brand">Player <span>IDP</span></div>
+  <div class="nav-right">
+    <span class="nav-name" id="navName"></span>
+    <button class="nav-btn" onclick="signOut()">Sign Out</button>
+  </div>
+</nav>
+
+<div class="page">
+  <div id="pageContent">
+    <div class="spinner-wrap"><div class="spinner-lg"></div></div>
+  </div>
+</div>
+
+<script>
+const token = new URLSearchParams(window.location.search).get('token');
+
+(async () => {
+  // Must be logged in (as any role — parent or coach)
+  const ctx = await requireParent();
+  if (!ctx) return;
+
+  const { session, profile } = ctx;
+  document.getElementById('navName').textContent = profile?.full_name || session.user.email;
+
+  // If a token is in the URL, process the invite first
+  if (token) {
+    await acceptInvite(session.user.id, token);
+    // Clean token from URL without reload
+    window.history.replaceState({}, '', '/parent.html');
+  }
+
+  loadIDPs(session.user.id);
+})();
+
+async function acceptInvite(userId, inviteToken) {
+  // Find the parent_players row with this token
+  const { data: row, error } = await sb
+    .from('parent_players')
+    .select('id, accepted, parent_id')
+    .eq('invite_token', inviteToken)
+    .maybeSingle();
+
+  if (!row) return; // Token not found — ignore silently
+
+  // If already accepted by someone else, don't overwrite
+  if (row.accepted && row.parent_id && row.parent_id !== userId) {
+    showMessage('This invite link has already been used.', 'warning');
+    return;
+  }
+
+  // Accept
+  await sb
+    .from('parent_players')
+    .update({ parent_id: userId, accepted: true })
+    .eq('id', row.id);
+}
+
+async function loadIDPs(userId) {
+  const container = document.getElementById('pageContent');
+
+  // Get all players this parent is linked to
+  const { data: links } = await sb
+    .from('parent_players')
+    .select('player_id, players(id, name, positions)')
+    .eq('parent_id', userId)
+    .eq('accepted', true);
+
+  if (!links || links.length === 0) {
+    container.innerHTML = `
+      <div class="page-header">
+        <div class="page-title">Parent Portal</div>
+      </div>
+      <div class="info-card">
+        <div class="icon">📋</div>
+        <h2>No players linked yet</h2>
+        <p>Your coach will send you an invite link to connect you to your player's development plan. Once you click the link, their IDP will appear here.</p>
+      </div>`;
+    return;
+  }
+
+  // Fetch published IDPs for all linked players
+  const playerIds = links.map(l => l.player_id);
+  const { data: idps } = await sb
+    .from('idps')
+    .select('*')
+    .in('player_id', playerIds)
+    .eq('published', true)
+    .order('updated_at', { ascending: false });
+
+  const idpByPlayer = {};
+  (idps || []).forEach(i => {
+    if (!idpByPlayer[i.player_id]) idpByPlayer[i.player_id] = i;
+  });
+
+  let html = `
+    <div class="page-header">
+      <div class="page-title">Player Development Plans</div>
+      <div class="page-subtitle">Published by your coaching staff</div>
+    </div>`;
+
+  links.forEach(link => {
+    const player = link.players;
+    const idp    = idpByPlayer[player.id];
+
+    if (!idp) {
+      html += `
+        <div class="idp-section">
+          <div class="idp-meta">
+            <div>
+              <strong style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;">${esc(player.name)}</strong>
+              ${player.positions ? `<span style="font-size:13px;color:var(--text-dim);margin-left:10px;">${esc(player.positions)}</span>` : ''}
+            </div>
+          </div>
+          <div class="info-card">
+            <div class="icon">⏳</div>
+            <h2>IDP coming soon</h2>
+            <p>Your coach hasn't published an IDP for ${esc(player.name)} yet. Check back after your next review session.</p>
+          </div>
+        </div>`;
+      return;
+    }
+
+    const date = new Date(idp.updated_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+    html += `
+      <div class="idp-section">
+        <div class="idp-meta">
+          <div>
+            <strong style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;">${esc(player.name)}</strong>
+            ${player.positions ? `<span style="font-size:13px;color:var(--text-dim);margin-left:10px;">${esc(player.positions)}</span>` : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="idp-date">Last updated ${date}</span>
+            <span class="idp-badge">✓ Published</span>
+            <button class="btn-print" onclick="window.print()">⬒ Save as PDF</button>
+          </div>
+        </div>
+        <div id="infographic">${buildInfographicHTML(idp.data)}</div>
+      </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function buildInfographicHTML(d) {
+  const strengthCards = (d.strengths||[]).map(s => `<div class="card green"><h4><span class="dot" style="background:#38A050;"></span>${esc(s.title)}</h4><p>${esc(s.body)}</p></div>`).join('');
+  const improvCards   = (d.improvements||[]).map(s => `<div class="card amber"><h4><span class="dot" style="background:#F0A020;"></span>${esc(s.title)}</h4><p>${esc(s.body)}</p></div>`).join('');
+  const planRows      = (d.plan||[]).map(p => `<div class="plan-item"><div class="plan-badge ${p.badgeType||'purple'}">${esc(p.badge)}</div><div class="plan-content"><h4>${esc(p.title)}</h4><ul>${(p.bullets||[]).map(b=>`<li>${esc(b)}</li>`).join('')}</ul></div></div>`).join('');
+  const microCards    = (d.microHabits||[]).map(m => `<div class="micro-card"><div class="num">${esc(m.num)}</div><div class="desc">${esc(m.desc)}</div></div>`).join('');
+  const gdParts = (d.gameDayFocus||'').split('—');
+  const gdText  = gdParts.length > 1 ? `<span>${esc(gdParts[0].trim())}</span> — ${esc(gdParts[1].trim())}` : esc(d.gameDayFocus||'');
+
+  return `
+    <div class="ig-header">
+      <div><h1>${esc(d.playerName||'Player')} <span>IDP</span></h1><div class="sub">Individual Development Plan · 2026 · Coaching Staff</div></div>
+      <div style="text-align:right;"><div class="pos-badge">${esc(d.position||'Field Player')}</div><span class="phase">Phase: ${esc(d.focus||'Development')}</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="val">Development</div><div class="lbl">Current phase</div></div>
+      <div class="stat-card"><div class="val">${esc(d.focus||'—')}</div><div class="lbl">Focus</div></div>
+      <div class="stat-card"><div class="val">${esc(d.duration||'12 months')}</div><div class="lbl">Plan duration</div></div>
+      <div class="stat-card"><div class="val">${esc(d.mantra||'Play with intent')}</div><div class="lbl">Mantra</div></div>
+    </div>
+    <div class="sec-label">Keep doing — strengths to build on</div>
+    <div class="card-grid">${strengthCards}</div>
+    <hr class="divider">
+    <div class="sec-label">Areas to improve</div>
+    <div class="card-grid">${improvCards}</div>
+    <hr class="divider">
+    <div class="sec-label">Development plan</div>
+    <div class="plan-list">${planRows}</div>
+    <div class="micro-label">Home micro-habits — daily</div>
+    <div class="micro-grid">${microCards}</div>
+    <div class="gameday" style="margin-top:8px;">
+      <div class="gd-label">Game day focus</div>
+      <div class="gd-text">${gdText}</div>
+    </div>
+    <div class="sec-label" style="margin-top:1.5rem;">12-month goal</div>
+    <div class="goal-banner">
+      <div class="timeline">12-month<br>vision</div>
+      <p>${esc(d.goalVision||'')}</p>
+    </div>
+    <div class="parent-note">
+      <div class="plabel">Note for parents</div>
+      <p>${esc(d.parentNote||'')}</p>
+    </div>`;
+}
+
+function showMessage(msg, type) {
+  console.log(`[${type}] ${msg}`);
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
+</body>
+</html>
