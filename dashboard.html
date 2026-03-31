@@ -101,6 +101,9 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text);
 .btn-sm-ghost { background: transparent; color: var(--text-dim);
   border: 1px solid var(--border); }
 .btn-sm-ghost:hover { color: var(--text-muted); }
+.btn-sm-danger { background: transparent; color: var(--red-light);
+  border: 1px solid rgba(224,80,80,0.25); margin-left: auto; }
+.btn-sm-danger:hover { background: rgba(224,80,80,0.08); border-color: rgba(224,80,80,0.5); }
 
 /* ─── EMPTY STATE ─── */
 .empty { text-align: center; padding: 4rem 2rem; color: var(--text-dim); }
@@ -268,6 +271,7 @@ function renderTeamCards(rows, countMap) {
         <div class="team-meta">${count} player${count !== 1 ? 's' : ''}</div>
         <div class="team-card-footer">
           <button class="btn-sm btn-sm-primary" onclick="viewTeam('${t.id}')">View Team →</button>
+          <button class="btn-sm btn-sm-danger" onclick="deleteTeam('${t.id}','${esc(t.name)}')">Delete</button>
         </div>
       </div>`;
   }).join('');
@@ -284,6 +288,17 @@ function filterTeams() {
 
 function viewTeam(id) {
   window.location.href = `/team.html?team=${id}`;
+}
+
+async function deleteTeam(id, name) {
+  if (!confirm(`Delete "${name}" and all its players? This cannot be undone.`)) return;
+  // Remove players, coach link, then the team itself
+  await sb.from('players').delete().eq('team_id', id);
+  await sb.from('coach_teams').delete().eq('team_id', id);
+  await sb.from('teams').delete().eq('id', id);
+  // Remove from local cache and re-render without a full reload
+  window._allTeamRows = (window._allTeamRows || []).filter(r => r.team_id !== id);
+  renderTeamCards(window._allTeamRows, window._countMap || {});
 }
 
 function openAddTeam() {
