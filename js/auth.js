@@ -1,8 +1,8 @@
 // ─── SUPABASE CONFIG ──────────────────────────────────
 // After creating your Supabase project, replace these two values.
 // Find them in: Supabase Dashboard → Settings → API
-const SUPABASE_URL      = 'YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_URL      = 'https://uarsodrarfnkodnfoclt.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhcnNvZHJhcmZua29kbmZvY2x0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MTc2MzAsImV4cCI6MjA5MDQ5MzYzMH0.MMJT6W4ffRT9NEnLTgCcGDueeYuVG6gFNVOaM3oqVd8';
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
