@@ -49,6 +49,12 @@ Both buttons in the nav turn teal with a ✓ when their respective key is active
 | **Clean & Generate** | Sends transcript to Claude to clean up grammar and extract structured data, then builds the infographic | Yes (handled by team key) |
 | **Generate As-Is** | Skips AI cleanup and builds directly from your raw text | No |
 
+### Editing the infographic
+
+Once the preview renders, click **✏ Edit** in the toolbar to enter edit mode. Every text element — player name, stats, card titles and bodies, plan badges and bullets, micro-habits, goal vision, parent note, and section labels — becomes directly editable in place. A teal highlight shows which field is active. Press **✓ Done Editing** to exit edit mode and lock the text back in.
+
+Downloads always reflect your edits, and the exported file is always clean (no `contenteditable` attributes).
+
 ### Downloading
 
 Once the preview renders:
