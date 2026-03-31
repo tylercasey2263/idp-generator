@@ -328,10 +328,36 @@
     cursor: pointer; border: none;
     transition: opacity 0.2s;
   }
-  .btn-dl-html { background: var(--navy-light); color: var(--text-muted); border: 1px solid var(--border-strong); }
-  .btn-dl-html:hover { color: var(--text); }
+  .btn-dl-html  { background: var(--navy-light); color: var(--text-muted); border: 1px solid var(--border-strong); }
+  .btn-dl-html:hover  { color: var(--text); }
   .btn-dl-print { background: var(--teal-faint); color: var(--teal-light); border: 1px solid rgba(34,168,130,0.3); }
   .btn-dl-print:hover { border-color: var(--teal); }
+  .btn-dl-edit  { background: var(--navy-light); color: var(--text-muted); border: 1px solid var(--border-strong); }
+  .btn-dl-edit:hover  { color: var(--text); }
+  .btn-dl-edit.active { background: rgba(250,204,21,0.1); color: #FACC15; border-color: rgba(250,204,21,0.4); }
+
+  /* ─── INFOGRAPHIC EDIT MODE ─── */
+  #infographic.edit-mode [contenteditable] {
+    border-radius: 3px; cursor: text; outline: none;
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+  #infographic.edit-mode [contenteditable]:hover {
+    background: rgba(34,168,130,0.08);
+    box-shadow: 0 0 0 1px rgba(34,168,130,0.3);
+  }
+  #infographic.edit-mode [contenteditable]:focus {
+    background: rgba(34,168,130,0.13);
+    box-shadow: 0 0 0 2px rgba(34,168,130,0.5);
+  }
+  /* Edit mode banner inside infographic */
+  #edit-mode-banner {
+    display: none; align-items: center; gap: 8px;
+    background: rgba(250,204,21,0.08); border: 1px solid rgba(250,204,21,0.3);
+    border-radius: 6px; padding: 7px 13px; margin-bottom: 14px;
+    font-size: 12px; color: #FACC15; font-family: 'Inter', sans-serif;
+  }
+  #edit-mode-banner.visible { display: flex; }
+  #edit-mode-banner strong { font-weight: 600; }
 
   #preview-container { padding: 1.5rem; }
 
@@ -664,6 +690,7 @@
 
       <div class="download-bar" id="downloadBar">
         <div class="dl-label">Preview ready</div>
+        <button class="btn-dl btn-dl-edit" id="editToggleBtn" onclick="toggleEditMode()">✏ Edit</button>
         <button class="btn-dl btn-dl-html" onclick="downloadHTML()">⬇ Download HTML</button>
         <button class="btn-dl btn-dl-print" onclick="window.print()">⬒ Save as PDF</button>
       </div>
@@ -672,6 +699,10 @@
         <div class="empty-state" id="emptyState">
           <div class="big-icon">IDP</div>
           <p>Fill in the player details and paste a transcript, then hit <strong>Clean &amp; Generate</strong> or <strong>Generate As-Is</strong>.</p>
+        </div>
+        <div id="edit-mode-banner">
+          <span>✏</span>
+          <span><strong>Edit mode on</strong> — click any text to edit it directly. Changes are reflected in downloads.</span>
         </div>
         <div id="infographic" style="display:none;"></div>
       </div>
@@ -1161,6 +1192,11 @@ function downloadHTML() {
   if (!ig || ig.style.display === 'none') return;
   const name = document.getElementById('playerName').value.trim() || 'Player';
 
+  // Clone and strip edit-mode attributes so the exported file is clean
+  const igClone = ig.cloneNode(true);
+  igClone.classList.remove('edit-mode');
+  igClone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1176,7 +1212,7 @@ ${getInfographicCSS()}
 </style>
 </head>
 <body>
-${ig.outerHTML}
+${igClone.outerHTML}
 </body>
 </html>`;
 
@@ -1241,6 +1277,78 @@ function getInfographicCSS() {
 .parent-note .plabel{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#64748B;margin-bottom:6px;}
 .parent-note p{font-size:13px;color:#94A3B8;line-height:1.6;font-style:italic;}
   `;
+}
+
+// ─── EDIT MODE ───
+const EDITABLE_SELECTORS = [
+  '.ig-header h1',
+  '.pos-badge',
+  '.phase',
+  '.sub',
+  '.stat-card .val',
+  '.stat-card .lbl',
+  '.card h4',
+  '.card p',
+  '.plan-badge',
+  '.plan-content h4',
+  '.plan-content li',
+  '.micro-card .num',
+  '.micro-card .desc',
+  '.gd-label',
+  '.gd-text',
+  '.goal-banner p',
+  '.parent-note p',
+  '.sec-label',
+  '.micro-label',
+  '.plabel',
+];
+
+let editModeActive = false;
+
+function toggleEditMode() {
+  editModeActive ? disableEditMode() : enableEditMode();
+}
+
+function enableEditMode() {
+  const ig  = document.getElementById('infographic');
+  const btn = document.getElementById('editToggleBtn');
+  const banner = document.getElementById('edit-mode-banner');
+  if (!ig || ig.style.display === 'none') return;
+
+  EDITABLE_SELECTORS.forEach(sel => {
+    ig.querySelectorAll(sel).forEach(el => {
+      el.contentEditable = 'true';
+      // Prevent Enter key from inserting <div> or <br> — keep text flat
+      el.addEventListener('keydown', preventEnterInsert);
+    });
+  });
+
+  ig.classList.add('edit-mode');
+  btn.classList.add('active');
+  btn.textContent = '✓ Done Editing';
+  banner.classList.add('visible');
+  editModeActive = true;
+}
+
+function disableEditMode() {
+  const ig  = document.getElementById('infographic');
+  const btn = document.getElementById('editToggleBtn');
+  const banner = document.getElementById('edit-mode-banner');
+
+  ig.querySelectorAll('[contenteditable]').forEach(el => {
+    el.removeAttribute('contenteditable');
+    el.removeEventListener('keydown', preventEnterInsert);
+  });
+
+  ig.classList.remove('edit-mode');
+  btn.classList.remove('active');
+  btn.textContent = '✏ Edit';
+  banner.classList.remove('visible');
+  editModeActive = false;
+}
+
+function preventEnterInsert(e) {
+  if (e.key === 'Enter') { e.preventDefault(); }
 }
 
 // ─── SPEECH TO TEXT ───
