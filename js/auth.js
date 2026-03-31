@@ -18,6 +18,17 @@ async function getProfile(userId) {
   return data;
 }
 
+// Ensures a profile row always exists for the current user.
+// Safe to call on every login — upserts so it never duplicates.
+async function ensureProfile(session) {
+  const { user } = session;
+  await sb.from('profiles').upsert({
+    id:        user.id,
+    full_name: user.user_metadata?.full_name || user.email,
+    role:      user.user_metadata?.role || 'coach',
+  }, { onConflict: 'id', ignoreDuplicates: true });
+}
+
 // Redirect to login if no active session. Returns session or null.
 async function requireAuth() {
   const session = await getSession();
@@ -33,6 +44,7 @@ async function requireAuth() {
 async function requireCoach() {
   const session = await requireAuth();
   if (!session) return null;
+  await ensureProfile(session);
   const profile = await getProfile(session.user.id);
   if (!profile || !['coach', 'admin'].includes(profile.role)) {
     window.location.href = '/login.html';
