@@ -66,6 +66,45 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text);
   border: 1px solid var(--border-strong); }
 .btn-ghost:hover { color: var(--text-muted); border-color: var(--border-strong); }
 
+/* ─── SEARCH ─── */
+.search-bar-wrap {
+  position: relative; margin-bottom: 1.5rem;
+}
+.search-bar-wrap svg {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  opacity: .4; pointer-events: none;
+}
+.search-bar-wrap input {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px; color: var(--text); font-family: 'Inter', sans-serif;
+  font-size: 14px; padding: 11px 14px 11px 38px; width: 100%; outline: none;
+  transition: border-color .2s;
+}
+.search-bar-wrap input:focus { border-color: var(--teal); }
+.search-bar-wrap input::placeholder { color: var(--text-dim); }
+
+/* ─── RESULTS SECTION LABEL ─── */
+.results-label {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim);
+  margin-bottom: 10px; margin-top: .25rem;
+}
+/* ─── PLAYER RESULT ROWS ─── */
+.player-results { display: flex; flex-direction: column; gap: 6px; margin-top: 1.75rem; }
+.player-result-row {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 12px 16px; text-decoration: none;
+  transition: border-color .15s;
+}
+.player-result-row:hover { border-color: rgba(34,168,130,.4); }
+.pr-name { font-size: 15px; font-weight: 600; color: var(--text); flex: 1; }
+.pr-pos  { font-size: 12px; color: var(--text-dim); }
+.pr-team { font-size: 12px; color: var(--text-muted);
+  background: var(--navy-light); border: 1px solid var(--border-strong);
+  border-radius: 4px; padding: 2px 8px; white-space: nowrap; }
+.pr-arrow { font-size: 12px; color: var(--text-dim); }
+
 /* ─── TEAM GRID ─── */
 .team-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -163,28 +202,24 @@ input::placeholder { color: var(--text-dim); }
     <button class="btn btn-primary" onclick="openAddTeam()">+ Add Team</button>
   </div>
 
-  <div style="display:flex;gap:10px;margin-bottom:1.5rem;flex-wrap:wrap;">
-    <div style="position:relative;flex:1;min-width:180px;max-width:340px;">
-      <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.4;pointer-events:none;" width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#94A3B8" stroke-width="1.5"/><path d="M9.5 9.5L12 12" stroke="#94A3B8" stroke-width="1.5" stroke-linecap="round"/></svg>
-      <input type="text" id="teamSearch" placeholder="Search teams…" oninput="filterTeams()"
-        style="background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:8px;
-        color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:8px 12px 8px 32px;
-        width:100%;outline:none;" />
-    </div>
-    <a href="/players.html" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;
-      border-radius:8px;background:var(--navy-mid);border:1px solid var(--border-strong);
-      color:var(--text-dim);font-size:13px;font-weight:600;text-decoration:none;transition:color .15s;"
-      onmouseover="this.style.color='#94A3B8'" onmouseout="this.style.color='#64748B'">
-      Search Players →
-    </a>
+  <div class="search-bar-wrap">
+    <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
+      <circle cx="6" cy="6" r="4.5" stroke="#94A3B8" stroke-width="1.5"/>
+      <path d="M9.5 9.5L12 12" stroke="#94A3B8" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <input type="text" id="globalSearch" placeholder="Search teams or players…" oninput="runSearch()" />
   </div>
 
-  <div class="team-grid" id="teamGrid">
-    <div class="empty" id="loadingState">
-      <div class="empty-icon">IDP</div>
-      <p>Loading your teams…</p>
+  <div id="teamsSection">
+    <div class="team-grid" id="teamGrid">
+      <div class="empty" id="loadingState">
+        <div class="empty-icon">IDP</div>
+        <p>Loading your teams…</p>
+      </div>
     </div>
   </div>
+
+  <div id="playerResults"></div>
 </div>
 </div>
 
@@ -224,7 +259,8 @@ input::placeholder { color: var(--text-dim); }
 </div>
 
 <script>
-let coachId = null;
+let coachId    = null;
+let allPlayers = [];   // populated after teams load for combined search
 
 (async () => {
   const ctx = await requireCoach();
@@ -232,7 +268,16 @@ let coachId = null;
   coachId = ctx.session.user.id;
   await renderSidebar('dashboard');
   loadTeams();
+  loadAllPlayers();   // background — no await
 })();
+
+async function loadAllPlayers() {
+  const { data } = await sb
+    .from('players')
+    .select('id, name, positions, team_id, teams(name)')
+    .order('name');
+  allPlayers = data || [];
+}
 
 async function loadTeams() {
   const { data: rows, error } = await sb
@@ -292,13 +337,59 @@ function renderTeamCards(rows, countMap) {
   }).join('');
 }
 
-function filterTeams() {
-  const q = document.getElementById('teamSearch').value.toLowerCase().trim();
-  if (!window._allTeamRows) return;
-  const filtered = q
-    ? window._allTeamRows.filter(r => r.teams.name.toLowerCase().includes(q) || (r.teams.season||'').toLowerCase().includes(q))
-    : window._allTeamRows;
-  renderTeamCards(filtered, window._countMap || {});
+function runSearch() {
+  const q = document.getElementById('globalSearch').value.toLowerCase().trim();
+
+  // ── Teams ──────────────────────────────────────────
+  if (window._allTeamRows) {
+    const filteredTeams = q
+      ? window._allTeamRows.filter(r =>
+          r.teams.name.toLowerCase().includes(q) ||
+          (r.teams.season||'').toLowerCase().includes(q))
+      : window._allTeamRows;
+
+    // Show/hide label only when searching
+    const teamsSection = document.getElementById('teamsSection');
+    if (q) {
+      if (!teamsSection.querySelector('.results-label')) {
+        teamsSection.insertAdjacentHTML('afterbegin',
+          '<div class="results-label" id="teamsLabel"></div>');
+      }
+      document.getElementById('teamsLabel').textContent =
+        `Teams (${filteredTeams.length})`;
+    } else {
+      const lbl = document.getElementById('teamsLabel');
+      if (lbl) lbl.remove();
+    }
+    renderTeamCards(filteredTeams, window._countMap || {});
+  }
+
+  // ── Players ────────────────────────────────────────
+  const prDiv = document.getElementById('playerResults');
+  if (!q) { prDiv.innerHTML = ''; return; }
+
+  const filteredPlayers = allPlayers.filter(p =>
+    p.name.toLowerCase().includes(q) ||
+    (p.positions||'').toLowerCase().includes(q) ||
+    (p.teams?.name||'').toLowerCase().includes(q)
+  );
+
+  if (filteredPlayers.length === 0) { prDiv.innerHTML = ''; return; }
+
+  prDiv.innerHTML = `
+    <div class="results-label">Players (${filteredPlayers.length})</div>
+    <div class="player-results">
+      ${filteredPlayers.map(p => {
+        const teamId = p.team_id || '';
+        return `
+          <a class="player-result-row" href="/view-idp.html?player=${p.id}&team=${teamId}">
+            <span class="pr-name">${esc(p.name)}</span>
+            ${p.positions ? `<span class="pr-pos">${esc(p.positions)}</span>` : ''}
+            ${p.teams?.name ? `<span class="pr-team">${esc(p.teams.name)}</span>` : ''}
+            <span class="pr-arrow">→</span>
+          </a>`;
+      }).join('')}
+    </div>`;
 }
 
 function viewTeam(id) {
