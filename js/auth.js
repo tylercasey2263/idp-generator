@@ -36,6 +36,7 @@ async function ensureProfile(session) {
 
 // If a coach pre-linked this email to any players, complete the association now.
 // Returns true if any new links were found (so redirectAfterLogin can route to /parent.html).
+// Never downgrades a coach or admin — highest permission always wins.
 async function checkPendingParentLinks(userId, email) {
   if (!email) return false;
   const normalised = email.toLowerCase();
@@ -49,8 +50,11 @@ async function checkPendingParentLinks(userId, email) {
   await sb.from('parent_players')
     .update({ parent_id: userId, accepted: true })
     .in('id', ids);
-  // Promote this user to the parent role
-  await sb.from('profiles').update({ role: 'parent' }).eq('id', userId);
+  // Only set role to parent if they aren't already a coach or admin
+  const { data: profile } = await sb.from('profiles').select('role').eq('id', userId).maybeSingle();
+  if (profile && !['coach', 'admin'].includes(profile.role)) {
+    await sb.from('profiles').update({ role: 'parent' }).eq('id', userId);
+  }
   return true;
 }
 
