@@ -227,13 +227,18 @@ input::placeholder { color: var(--text-dim); }
         </div>
       </div>
 
-      <div class="field">
-        <label>Anthropic (Claude) API Key</label>
-        <div class="key-row">
-          <input type="password" id="claudeKey" value="${esc(S.claude_api_key || '')}" placeholder="sk-ant-api03-…" />
-          <button class="toggle-key" onclick="toggleKeyVisibility()">Show</button>
+      ${S.claude_api_key ? `
+        <div style="background:var(--navy);border:1px solid var(--border-strong);border-radius:8px;padding:10px 13px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:13px;color:var(--text-muted);font-family:monospace;">
+            ••••••••••••••••••••${esc(S.claude_api_key.slice(-4))}
+          </span>
+          <span style="font-size:11px;color:var(--teal-light);font-weight:700;">Key saved ✓</span>
         </div>
-        <div class="field-hint">Get your key at <strong>console.anthropic.com</strong> → API Keys.</div>
+      ` : ''}
+      <div class="field">
+        <label>${S.claude_api_key ? 'Replace API Key' : 'Anthropic (Claude) API Key'}</label>
+        <input type="password" id="claudeKey" placeholder="sk-ant-api03-… (paste new key to replace)" />
+        <div class="field-hint">Get your key at <strong>console.anthropic.com</strong> → API Keys. Only the last 4 characters are shown for security.</div>
       </div>
 
       <div class="save-row">
@@ -341,7 +346,7 @@ async function saveClubInfo() {
 async function saveApiKey() {
   const key = document.getElementById('claudeKey').value.trim();
   const st  = document.getElementById('keyStatus');
-  if (!key) { st.textContent = 'Key cannot be empty.'; st.className = 'save-status err'; return; }
+  if (!key) { st.textContent = 'Paste a new key to replace the existing one.'; st.className = 'save-status err'; return; }
   const { error } = await sb.from('settings').upsert([{ key: 'claude_api_key', value: key }], { onConflict: 'key' });
   if (error) {
     st.textContent = 'Error: ' + error.message;
@@ -350,12 +355,6 @@ async function saveApiKey() {
     st.textContent = '✓ API key saved!';
     st.className = 'save-status ok';
   }
-}
-function toggleKeyVisibility() {
-  const input = document.getElementById('claudeKey');
-  const btn   = event.target;
-  if (input.type === 'password') { input.type = 'text';     btn.textContent = 'Hide'; }
-  else                           { input.type = 'password'; btn.textContent = 'Show'; }
 }
 
 // ── Role change ───────────────────────────────

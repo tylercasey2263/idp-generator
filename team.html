@@ -395,6 +395,8 @@ async function loadPlayers() {
                 <div class="player-actions">
                   <button class="btn-action btn-generate"
                     onclick="generateIDP('${p.id}')">✦ Generate IDP</button>
+                  <button class="btn-action btn-generate" style="background:rgba(96,165,250,.08);color:#60A5FA;border-color:rgba(96,165,250,.3);"
+                    onclick="window.location.href='/view-idp.html?player=${p.id}&team=${teamId}'">👁 View IDP</button>
                   <button class="btn-action btn-invite"
                     onclick="openEditPlayer('${p.id}', '${esc(p.name)}', '${esc(p.positions||'')}')">Edit</button>
                   <button class="btn-action btn-invite"

@@ -257,12 +257,18 @@ async function acceptInvite(userId, inviteToken) {
 async function loadIDPs(userId) {
   const container = document.getElementById('pageContent');
 
-  // Get all players this parent is linked to
-  const { data: links } = await sb
+  // Get all players this parent is linked to (deduplicate by player_id)
+  const { data: rawLinks } = await sb
     .from('parent_players')
     .select('player_id, players(id, name, positions)')
     .eq('parent_id', userId)
     .eq('accepted', true);
+  // Deduplicate — same player may have multiple invite rows
+  const seen = new Set();
+  const links = (rawLinks || []).filter(l => {
+    if (seen.has(l.player_id)) return false;
+    seen.add(l.player_id); return true;
+  });
 
   if (!links || links.length === 0) {
     container.innerHTML = `
@@ -286,9 +292,11 @@ async function loadIDPs(userId) {
     .eq('published', true)
     .order('updated_at', { ascending: false });
 
-  const idpByPlayer = {};
+  // Group ALL IDPs per player (sorted newest first — already ordered by updated_at desc)
+  const idpsByPlayer = {};
   (idps || []).forEach(i => {
-    if (!idpByPlayer[i.player_id]) idpByPlayer[i.player_id] = i;
+    if (!idpsByPlayer[i.player_id]) idpsByPlayer[i.player_id] = [];
+    idpsByPlayer[i.player_id].push(i);
   });
 
   let html = `
@@ -297,29 +305,41 @@ async function loadIDPs(userId) {
       <div class="page-subtitle">Published by your coaching staff</div>
     </div>`;
 
-  links.forEach(link => {
-    const player = link.players;
-    const idp    = idpByPlayer[player.id];
+  links.forEach((link, playerIdx) => {
+    const player   = link.players;
+    const playerIDPs = idpsByPlayer[player.id] || [];
 
-    if (!idp) {
+    if (playerIDPs.length === 0) {
       html += `
         <div class="idp-section">
           <div class="idp-meta">
-            <div>
-              <strong style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;">${esc(player.name)}</strong>
-              ${player.positions ? `<span style="font-size:13px;color:var(--text-dim);margin-left:10px;">${esc(player.positions)}</span>` : ''}
-            </div>
+            <strong style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;">${esc(player.name)}</strong>
+            ${player.positions ? `<span style="font-size:13px;color:var(--text-dim);margin-left:10px;">${esc(player.positions)}</span>` : ''}
           </div>
           <div class="info-card">
             <div class="icon">⏳</div>
             <h2>IDP coming soon</h2>
-            <p>Your coach hasn't published an IDP for ${esc(player.name)} yet. Check back after your next review session.</p>
+            <p>Your coach hasn't published an IDP for ${esc(player.name)} yet.</p>
           </div>
         </div>`;
       return;
     }
 
-    const date = new Date(idp.updated_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const firstIDP = playerIDPs[0];
+    const firstDate = new Date(firstIDP.updated_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+    // Build date tabs if multiple IDPs
+    const tabsHTML = playerIDPs.length > 1 ? `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;">
+        ${playerIDPs.map((idp, i) => `
+          <button onclick="switchIDP(${playerIdx}, ${i})" id="ptab-${playerIdx}-${i}"
+            style="padding:6px 12px;border-radius:7px;border:1px solid ${i===0?'rgba(27,138,107,.5)':'rgba(255,255,255,.12)'};
+            background:${i===0?'rgba(27,138,107,.12)':'#1A2E44'};color:${i===0?'#22A882':'#94A3B8'};
+            font-size:11px;font-weight:700;cursor:pointer;font-family:'Barlow Condensed',sans-serif;
+            letter-spacing:.06em;text-transform:uppercase;">
+            ${new Date(idp.updated_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+          </button>`).join('')}
+      </div>` : '';
 
     html += `
       <div class="idp-section">
@@ -329,16 +349,42 @@ async function loadIDPs(userId) {
             ${player.positions ? `<span style="font-size:13px;color:var(--text-dim);margin-left:10px;">${esc(player.positions)}</span>` : ''}
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
-            <span class="idp-date">Last updated ${date}</span>
+            <span class="idp-date" id="pdate-${playerIdx}">Last updated ${firstDate}</span>
             <span class="idp-badge">✓ Published</span>
             <button class="btn-print" onclick="window.print()">⬒ Save as PDF</button>
           </div>
         </div>
-        <div id="infographic">${buildInfographicHTML(idp.data)}</div>
+        ${tabsHTML}
+        <div id="pidp-${playerIdx}" id="infographic">${buildInfographicHTML(firstIDP.data)}</div>
       </div>`;
   });
 
   container.innerHTML = html;
+
+  // Store IDP data for tab switching
+  window._parentIDPs = links.map(l => idpsByPlayer[l.player_id] || []);
+}
+
+function switchIDP(playerIdx, idpIdx) {
+  const playerIDPs = window._parentIDPs[playerIdx];
+  if (!playerIDPs) return;
+  const idp = playerIDPs[idpIdx];
+  if (!idp) return;
+
+  // Update display
+  document.getElementById(`pidp-${playerIdx}`).innerHTML = buildInfographicHTML(idp.data);
+  const date = new Date(idp.updated_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const dateEl = document.getElementById(`pdate-${playerIdx}`);
+  if (dateEl) dateEl.textContent = `Last updated ${date}`;
+
+  // Update tab styles
+  playerIDPs.forEach((_, i) => {
+    const tab = document.getElementById(`ptab-${playerIdx}-${i}`);
+    if (!tab) return;
+    tab.style.borderColor   = i === idpIdx ? 'rgba(27,138,107,.5)' : 'rgba(255,255,255,.12)';
+    tab.style.background    = i === idpIdx ? 'rgba(27,138,107,.12)' : '#1A2E44';
+    tab.style.color         = i === idpIdx ? '#22A882' : '#94A3B8';
+  });
 }
 
 function buildInfographicHTML(d) {
