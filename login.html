@@ -207,14 +207,17 @@ async function submit() {
 }
 
 async function redirectAfterLogin(session) {
-  // Check ?next= param first
+  // Check ?next= param first (e.g. invite token URL)
   const params = new URLSearchParams(window.location.search);
   const next = params.get('next');
   if (next) { window.location.href = next; return; }
 
-  // Otherwise redirect based on role
-  const profile = await getProfile(session.user.id);
-  if (profile?.role === 'parent') {
+  // Sync profile email and resolve any pending parent links
+  await ensureProfile(session);
+  const hasLinks = await checkPendingParentLinks(session.user.id, session.user.email);
+  const profile  = await getProfile(session.user.id);
+
+  if (hasLinks || profile?.role === 'parent') {
     window.location.href = '/parent.html';
   } else {
     window.location.href = '/dashboard.html';

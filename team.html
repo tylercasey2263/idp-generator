@@ -292,17 +292,38 @@ input::placeholder { color: var(--text-dim); }
   </div>
 </div>
 
-<!-- INVITE MODAL -->
-<div class="overlay" id="inviteModal">
-  <div class="modal">
-    <h2>Invite Parent</h2>
-    <p>Share this link with the player's parent. When they open it, they'll create an account and be linked to this player's IDPs.</p>
-    <div class="invite-box" id="inviteLink"></div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeInvite()">Close</button>
-      <button class="btn btn-primary" onclick="copyInviteLink()">Copy Link</button>
+<!-- LINK PARENT MODAL -->
+<div class="overlay" id="linkParentModal">
+  <div class="modal" style="max-width:480px;">
+    <h2>Link Parent</h2>
+    <p style="font-size:13px;color:var(--text-muted);line-height:1.6;">
+      Enter the parent's email address. If they already have an account they'll be linked immediately.
+      If not, they'll be auto-linked as soon as they sign up.
+    </p>
+
+    <div class="field">
+      <label>Parent's Email Address</label>
+      <input type="email" id="linkEmailInput" placeholder="parent@example.com"
+             onkeydown="if(event.key==='Enter') saveLinkParent()" />
     </div>
-    <div class="modal-status success" id="inviteStatus"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeLinkParent()">Cancel</button>
+      <button class="btn btn-primary" id="saveLinkParentBtn" onclick="saveLinkParent()">Link Parent</button>
+    </div>
+    <div class="modal-status" id="linkEmailStatus"></div>
+
+    <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border);">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+                  color:var(--text-dim);margin-bottom:6px;">Or share an invite link</div>
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:10px;line-height:1.6;">
+        Parents can also click this link to create an account and connect themselves.
+      </p>
+      <div class="invite-box" id="linkInviteBox" style="font-size:11px;">Generating link…</div>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+        <button class="btn btn-ghost" style="padding:7px 14px;" onclick="copyLinkInvite()">Copy Link</button>
+        <span style="font-size:12px;color:var(--teal-light);" id="linkCopyStatus"></span>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -400,7 +421,7 @@ async function loadPlayers() {
                   <button class="btn-action btn-invite"
                     onclick="openEditPlayer('${p.id}', '${esc(p.name)}', '${esc(p.positions||'')}')">Edit</button>
                   <button class="btn-action btn-invite"
-                    onclick="openInvite('${p.id}')">⤴ Invite Parent</button>
+                    onclick="openLinkParent('${p.id}')">👤 Link Parent</button>
                   <button class="btn-action btn-danger"
                     onclick="deletePlayer('${p.id}', '${esc(p.name)}')">Remove</button>
                 </div>
@@ -415,17 +436,31 @@ function generateIDP(playerId) {
   window.location.href = `/generate.html?player=${playerId}&team=${teamId}`;
 }
 
-async function openInvite(playerId) {
-  // Get or create a parent_players row for this player to get the invite token
+// ─── LINK PARENT ──────────────────────────────
+let linkPlayerId = null;
+
+async function openLinkParent(playerId) {
+  linkPlayerId = playerId;
+  document.getElementById('linkEmailInput').value = '';
+  document.getElementById('linkEmailStatus').textContent = '';
+  document.getElementById('linkEmailStatus').className = 'modal-status';
+  document.getElementById('linkCopyStatus').textContent = '';
+  document.getElementById('linkInviteBox').textContent  = 'Generating link…';
+  document.getElementById('saveLinkParentBtn').disabled  = false;
+  document.getElementById('saveLinkParentBtn').textContent = 'Link Parent';
+  document.getElementById('linkParentModal').classList.add('open');
+  setTimeout(() => document.getElementById('linkEmailInput').focus(), 80);
+
+  // Fetch / create a dedicated invite-token row (no invite_email — for the share-link path)
   let { data: existing } = await sb
     .from('parent_players')
     .select('invite_token')
     .eq('player_id', playerId)
     .is('parent_id', null)
+    .is('invite_email', null)
     .maybeSingle();
 
   if (!existing) {
-    // Create a new invite row with no parent yet
     const { data: created } = await sb
       .from('parent_players')
       .insert({ player_id: playerId, parent_id: null, accepted: false })
@@ -433,26 +468,94 @@ async function openInvite(playerId) {
     existing = created;
   }
 
-  const token = existing?.invite_token;
-  const link  = `${window.location.origin}/parent.html?token=${token}`;
-  currentInviteLink = link;
-
-  document.getElementById('inviteLink').textContent = link;
-  document.getElementById('inviteStatus').textContent = '';
-  document.getElementById('inviteModal').classList.add('open');
+  const link = `${window.location.origin}/parent.html?token=${existing?.invite_token}`;
+  document.getElementById('linkInviteBox').textContent = link;
 }
 
-function closeInvite() {
-  document.getElementById('inviteModal').classList.remove('open');
+function closeLinkParent() {
+  document.getElementById('linkParentModal').classList.remove('open');
 }
-document.getElementById('inviteModal').addEventListener('click', function(e) {
-  if (e.target === this) closeInvite();
+document.getElementById('linkParentModal').addEventListener('click', function(e) {
+  if (e.target === this) closeLinkParent();
 });
 
-function copyInviteLink() {
-  navigator.clipboard.writeText(currentInviteLink).then(() => {
-    document.getElementById('inviteStatus').textContent = 'Link copied to clipboard!';
+function copyLinkInvite() {
+  const link = document.getElementById('linkInviteBox').textContent;
+  navigator.clipboard.writeText(link).then(() => {
+    document.getElementById('linkCopyStatus').textContent = 'Copied!';
+    setTimeout(() => { document.getElementById('linkCopyStatus').textContent = ''; }, 2000);
   });
+}
+
+async function saveLinkParent() {
+  const email = document.getElementById('linkEmailInput').value.trim().toLowerCase();
+  const st  = document.getElementById('linkEmailStatus');
+  if (!email || !email.includes('@')) {
+    st.textContent = 'Please enter a valid email address.';
+    st.className = 'modal-status error'; return;
+  }
+
+  const btn = document.getElementById('saveLinkParentBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+
+  // Check if this email is already linked to this player
+  const { data: alreadyLinked } = await sb
+    .from('parent_players')
+    .select('id')
+    .eq('player_id', linkPlayerId)
+    .eq('invite_email', email)
+    .maybeSingle();
+
+  if (alreadyLinked) {
+    st.textContent = 'This parent is already linked to this player.';
+    st.className = 'modal-status error';
+    btn.disabled = false; btn.textContent = 'Link Parent'; return;
+  }
+
+  // Look up their profile by email
+  const { data: profile } = await sb
+    .from('profiles')
+    .select('id, role')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (profile) {
+    // Check if already linked by parent_id
+    const { data: byId } = await sb
+      .from('parent_players')
+      .select('id')
+      .eq('player_id', linkPlayerId)
+      .eq('parent_id', profile.id)
+      .maybeSingle();
+
+    if (byId) {
+      st.textContent = 'This parent is already linked to this player.';
+      st.className = 'modal-status error';
+      btn.disabled = false; btn.textContent = 'Link Parent'; return;
+    }
+
+    // Create the link with parent_id set immediately
+    await sb.from('parent_players').insert({
+      player_id: linkPlayerId, parent_id: profile.id,
+      accepted: true, invite_email: email,
+    });
+    // Ensure they have the parent role
+    await sb.from('profiles').update({ role: 'parent' }).eq('id', profile.id);
+
+    st.textContent = '✓ Linked! They can log in and view this player\'s IDPs right now.';
+    st.className = 'modal-status success';
+  } else {
+    // No account yet — store email so it auto-links on signup
+    await sb.from('parent_players').insert({
+      player_id: linkPlayerId, parent_id: null,
+      accepted: true, invite_email: email,
+    });
+    st.textContent = '✓ Saved! They\'ll be linked automatically when they create an account.';
+    st.className = 'modal-status success';
+  }
+
+  btn.disabled = false; btn.textContent = 'Link Parent';
+  document.getElementById('linkEmailInput').value = '';
 }
 
 function openAddPlayer() {
