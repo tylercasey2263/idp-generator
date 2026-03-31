@@ -280,17 +280,36 @@ async function saveTeam() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
 
-  // Insert team
-  const { data: team, error: teamErr } = await sb
-    .from('teams')
-    .insert({ name, season: season || null })
-    .select().single();
+  // Get fresh session token explicitly
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    document.getElementById('addTeamStatus').textContent = 'Session expired — please sign in again.';
+    btn.disabled = false; btn.textContent = 'Create Team';
+    window.location.href = '/login.html';
+    return;
+  }
 
-  if (teamErr) {
-    document.getElementById('addTeamStatus').textContent = 'Error: ' + teamErr.message;
+  // Insert team via direct fetch with explicit Authorization header
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/teams`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${session.access_token}`,
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify({ name, season: season || null })
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    document.getElementById('addTeamStatus').textContent = 'Error: ' + (err.message || res.status);
     btn.disabled = false; btn.textContent = 'Create Team';
     return;
   }
+
+  const rows = await res.json();
+  const team = Array.isArray(rows) ? rows[0] : rows;
 
   // Assign this coach to the team
   await sb.from('coach_teams').insert({ coach_id: coachId, team_id: team.id });
