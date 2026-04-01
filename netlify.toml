@@ -1,4 +1,5 @@
 [build]
+  command = "bash netlify-build.sh"
   publish = "."
 
 [[headers]]
