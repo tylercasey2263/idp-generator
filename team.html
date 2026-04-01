@@ -114,6 +114,35 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text);
   border: 1px solid rgba(224,80,80,0.25); }
 .btn-danger:hover { border-color: rgba(224,80,80,0.5); }
 
+/* ─── TRAINING SESSIONS ─── */
+.sessions-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 2.5rem; margin-bottom: 1rem;
+  padding-top: 2rem; border-top: 1px solid var(--border);
+}
+.sessions-label { font-family: 'Barlow Condensed', sans-serif; font-size: 13px;
+  font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); }
+.session-list { display: flex; flex-direction: column; gap: 8px; }
+.session-card {
+  background: var(--navy-mid); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px;
+  display: grid; grid-template-columns: 90px 1fr auto; align-items: start; gap: 14px;
+}
+.session-date { font-family: 'Barlow Condensed', sans-serif; font-size: 13px;
+  font-weight: 700; color: var(--text-muted); white-space: nowrap; margin-top: 2px; }
+.session-focus { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.session-notes { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+.session-delete { background: none; border: none; color: var(--text-dim); cursor: pointer;
+  font-size: 14px; padding: 2px 4px; border-radius: 4px; transition: color .15s; }
+.session-delete:hover { color: var(--red-light); }
+input[type="date"] {
+  background: var(--navy); border: 1px solid var(--border-strong);
+  border-radius: 8px; color: var(--text); font-family: 'Inter', sans-serif;
+  font-size: 14px; padding: 10px 13px; width: 100%; outline: none;
+  transition: border-color 0.2s; color-scheme: dark;
+}
+input[type="date"]:focus { border-color: var(--teal); }
+
 /* ─── EMPTY STATE ─── */
 .empty { text-align: center; padding: 4rem 2rem; color: var(--text-dim); }
 .empty-icon { font-family: 'Barlow Condensed', sans-serif; font-size: 48px;
@@ -218,6 +247,15 @@ input::placeholder { color: var(--text-dim); }
 }
 .pos-opt:hover { background: var(--navy-light); color: var(--text); }
 .pos-opt input[type="checkbox"] { accent-color: var(--teal); width: 14px; height: 14px; flex-shrink: 0; }
+
+/* ── Mic button ── */
+.mic-btn {
+  background: none; border: 1px solid var(--border-strong); border-radius: 5px;
+  color: var(--text-dim); font-size: 12px; padding: 2px 7px; cursor: pointer;
+  margin-left: 8px; transition: all .15s; vertical-align: middle; line-height: 1.4;
+}
+.mic-btn:hover { border-color: var(--teal); color: var(--teal-light); }
+.mic-btn.mic-active { border-color: #E05050; color: #E05050; background: rgba(224,80,80,.08); }
 </style>
 </head>
 <body>
@@ -235,9 +273,11 @@ input::placeholder { color: var(--text-dim); }
     <div class="page-title-group">
       <div class="page-title" id="teamTitle">Loading…</div>
       <div class="page-season" id="teamSeason"></div>
+      <div id="teamSummary" style="display:none;font-size:12px;color:var(--text-dim);margin-top:2px;"></div>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       <button class="btn btn-ghost" onclick="openCsvImport()" style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">⬆ Import CSV</button>
+      <button class="btn btn-ghost" id="btnTeamPlan" onclick="goToTeamPlan()" style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">✦ Team Plan</button>
       <button class="btn btn-primary" onclick="openAddPlayer()">+ Add Player</button>
     </div>
   </div>
@@ -247,6 +287,17 @@ input::placeholder { color: var(--text-dim); }
       <div class="empty-icon">IDP</div>
       <p>Loading players…</p>
     </div>
+  </div>
+
+  <div class="sessions-header">
+    <div class="sessions-label">Training Sessions</div>
+    <button class="btn btn-ghost" onclick="openAddSession()"
+      style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:6px 14px;">
+      + Log Session
+    </button>
+  </div>
+  <div id="sessionsList">
+    <div style="font-size:13px;color:var(--text-dim);padding:.5rem 0;">Loading sessions…</div>
   </div>
 </div>
 </div>
@@ -285,6 +336,14 @@ input::placeholder { color: var(--text-dim); }
       <label>Position(s)</label>
       <div id="editPosPicker" class="pos-picker"></div>
       <input type="hidden" id="editPlayerPositions" />
+    </div>
+    <div class="field">
+      <label>Coach Notes (optional)<button class="mic-btn" type="button" onclick="toggleMicFor('editPlayerNotes',this)" title="Dictate">🎙</button></label>
+      <textarea id="editPlayerNotes" placeholder="Observations, reminders, session notes…"
+        style="background:var(--navy);border:1px solid var(--border-strong);border-radius:8px;
+          color:var(--text);font-family:'Inter',sans-serif;font-size:13px;
+          padding:10px 13px;width:100%;outline:none;resize:vertical;min-height:80px;
+          transition:border-color .2s;line-height:1.5;"></textarea>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeEditPlayer()">Cancel</button>
@@ -373,6 +432,49 @@ input::placeholder { color: var(--text-dim); }
   </div>
 </div>
 
+<!-- ADD SESSION MODAL -->
+<div class="overlay" id="addSessionModal">
+  <div class="modal">
+    <h2>Log Training Session</h2>
+    <div class="field">
+      <label>Date</label>
+      <input type="date" id="sessionDate" />
+    </div>
+    <div class="field">
+      <label>Focus Area</label>
+      <input type="text" id="sessionFocus" placeholder="e.g. Pressing, First touch, Set pieces"
+             onkeydown="if(event.key==='Enter') saveSession()" />
+    </div>
+    <div class="field">
+      <label>Notes (optional)<button class="mic-btn" type="button" onclick="toggleMicFor('sessionNotes',this)" title="Dictate">🎙</button></label>
+      <textarea id="sessionNotes" placeholder="What went well? What to work on next?"
+        style="background:var(--navy);border:1px solid var(--border-strong);border-radius:8px;
+          color:var(--text);font-family:'Inter',sans-serif;font-size:13px;
+          padding:10px 13px;width:100%;outline:none;resize:vertical;min-height:80px;
+          transition:border-color .2s;line-height:1.5;"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeAddSession()">Cancel</button>
+      <button class="btn btn-primary" id="saveSessionBtn" onclick="saveSession()">Log Session</button>
+    </div>
+    <div class="modal-status" id="sessionStatus"></div>
+  </div>
+</div>
+
+<!-- DELETE PLAYER MODAL -->
+<div class="overlay" id="deletePlayerModal">
+  <div class="modal" style="max-width:400px;">
+    <h2 style="color:var(--red-light);">Remove Player?</h2>
+    <p id="deletePlayerMsg" style="font-size:14px;color:var(--text-muted);line-height:1.6;"></p>
+    <p style="font-size:12px;color:var(--text-dim);">This cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeDeletePlayer()">Cancel</button>
+      <button class="btn" id="confirmDeletePlayerBtn" onclick="confirmDeletePlayer()"
+        style="background:#8B1A1A;color:#FCA5A5;border:1px solid rgba(224,80,80,0.4);">Remove Player</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -390,6 +492,7 @@ if (!teamId) window.location.href = '/dashboard.html';
   await renderSidebar('team');
   loadTeam();
   loadPlayers();
+  loadSessions();
 })();
 
 async function loadTeam() {
@@ -441,14 +544,26 @@ async function loadPlayers() {
   const playerIds = players.map(p => p.id);
   const { data: idps } = await sb
     .from('idps')
-    .select('player_id, published, created_at')
+    .select('player_id, published, updated_at, created_at')
     .in('player_id', playerIds)
-    .order('created_at', { ascending: false });
+    .order('updated_at', { ascending: false });
 
   const idpMap = {};
   (idps || []).forEach(i => {
     if (!idpMap[i.player_id]) idpMap[i.player_id] = i;
   });
+
+  // Build team summary
+  const withIDP      = players.filter(p => idpMap[p.id]).length;
+  const numPublished = players.filter(p => idpMap[p.id]?.published).length;
+  const pending      = players.length - withIDP;
+  const summaryEl    = document.getElementById('teamSummary');
+  if (summaryEl) {
+    const parts = [`${players.length} player${players.length !== 1 ? 's' : ''}`, `${withIDP} with IDP${withIDP !== 1 ? 's' : ''}`];
+    if (pending > 0) parts.push(`${pending} without`);
+    summaryEl.textContent = parts.join(' · ');
+    summaryEl.style.display = '';
+  }
 
   container.innerHTML = `
     <table class="player-table">
@@ -464,9 +579,10 @@ async function loadPlayers() {
           const idp = idpMap[p.id];
           let badge = '<span class="idp-badge none">No IDP yet</span>';
           if (idp) {
+            const age = timeAgo(idp.updated_at || idp.created_at);
             badge = idp.published
-              ? '<span class="idp-badge published">✓ Published</span>'
-              : '<span class="idp-badge draft">Draft</span>';
+              ? '<span class="idp-badge published">\u2713 Published \xb7 ' + age + '</span>'
+              : '<span class="idp-badge draft">Draft \xb7 ' + age + '</span>';
           }
           return `
             <tr class="player-row">
@@ -482,7 +598,7 @@ async function loadPlayers() {
                   <button class="btn-action btn-generate" style="background:rgba(96,165,250,.08);color:#60A5FA;border-color:rgba(96,165,250,.3);"
                     onclick="window.location.href='/view-idp.html?player=${p.id}&team=${teamId}'">👁 View IDP</button>
                   <button class="btn-action btn-invite"
-                    onclick="openEditPlayer('${p.id}', '${esc(p.name)}', '${esc(p.positions||'')}')">Edit</button>
+                    onclick="openEditPlayer('${p.id}', '${esc(p.name)}', '${esc(p.positions||'')}', '${esc(p.notes||'')}')">Edit</button>
                   <button class="btn-action btn-invite"
                     onclick="openLinkParent('${p.id}')">👤 Link Parent</button>
                   <button class="btn-action btn-danger"
@@ -621,6 +737,28 @@ async function saveLinkParent() {
   document.getElementById('linkEmailInput').value = '';
 }
 
+function goToTeamPlan() {
+  if (teamId) window.location.href = '/team-plan.html?team=' + teamId;
+}
+
+function timeAgo(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7)  return days + 'd ago';
+  if (days < 30) return Math.floor(days / 7) + 'w ago';
+  if (days < 365) return Math.floor(days / 30) + 'mo ago';
+  return Math.floor(days / 365) + 'yr ago';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
 function openAddPlayer() {
   document.getElementById('playerName').value = '';
   resetPosPicker('addPosPicker');
@@ -656,20 +794,41 @@ async function savePlayer() {
   } else {
     closeAddPlayer();
     loadPlayers();
+    showToast('Player added \u2713');
   }
 }
 
-async function deletePlayer(playerId, name) {
-  if (!confirm(`Remove ${name} from this team? Their IDPs will also be deleted.`)) return;
-  await sb.from('players').delete().eq('id', playerId);
+let _deletePlayerId = null;
+function deletePlayer(playerId, name) {
+  _deletePlayerId = playerId;
+  document.getElementById('deletePlayerMsg').textContent = `Remove "${name}" from this team? Their IDPs will also be permanently deleted.`;
+  document.getElementById('confirmDeletePlayerBtn').disabled = false;
+  document.getElementById('confirmDeletePlayerBtn').textContent = 'Remove Player';
+  document.getElementById('deletePlayerModal').classList.add('open');
+}
+function closeDeletePlayer() {
+  document.getElementById('deletePlayerModal').classList.remove('open');
+  _deletePlayerId = null;
+}
+document.getElementById('deletePlayerModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDeletePlayer();
+});
+async function confirmDeletePlayer() {
+  if (!_deletePlayerId) return;
+  const btn = document.getElementById('confirmDeletePlayerBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  await sb.from('players').delete().eq('id', _deletePlayerId);
+  closeDeletePlayer();
   loadPlayers();
+  showToast('Player removed');
 }
 
 // ─── EDIT PLAYER ──────────────────────────────
 let editingPlayerId = null;
-function openEditPlayer(id, name, positions) {
+function openEditPlayer(id, name, positions, notes) {
   editingPlayerId = id;
-  document.getElementById('editPlayerName').value = name;
+  document.getElementById('editPlayerName').value   = name;
+  document.getElementById('editPlayerNotes').value  = notes || '';
   setPosValue('editPosPicker', positions || '');
   document.getElementById('editPlayerStatus').textContent = '';
   document.getElementById('editPlayerModal').classList.add('open');
@@ -682,20 +841,21 @@ document.getElementById('editPlayerModal').addEventListener('click', function(e)
   if (e.target === this) closeEditPlayer();
 });
 async function saveEditPlayer() {
-  const name = document.getElementById('editPlayerName').value.trim();
-  const pos  = document.getElementById('editPlayerPositions').value.trim();
-  const st   = document.getElementById('editPlayerStatus');
+  const name  = document.getElementById('editPlayerName').value.trim();
+  const pos   = document.getElementById('editPlayerPositions').value.trim();
+  const notes = document.getElementById('editPlayerNotes').value.trim();
+  const st    = document.getElementById('editPlayerStatus');
   if (!name) { st.textContent = 'Name is required.'; st.className = 'modal-status error'; return; }
   const btn = document.getElementById('saveEditPlayerBtn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   const { error } = await sb.from('players')
-    .update({ name, positions: pos || null })
+    .update({ name, positions: pos || null, notes: notes || null })
     .eq('id', editingPlayerId);
   btn.disabled = false; btn.textContent = 'Save Changes';
   if (error) {
     st.textContent = 'Error: ' + error.message; st.className = 'modal-status error';
   } else {
-    closeEditPlayer(); loadPlayers();
+    closeEditPlayer(); loadPlayers(); showToast('Changes saved \u2713');
   }
 }
 
@@ -818,7 +978,46 @@ async function runCsvImport() {
     : `✓ ${done} player${done!==1?'s':''} imported!`;
   st.className = 'modal-status' + (errors ? '' : ' success');
   loadPlayers();
+  if (!errors) showToast(done + ' player' + (done !== 1 ? 's' : '') + ' imported \u2713');
   setTimeout(() => closeCsvModal(), 1800);
+}
+
+// ── Microphone dictation ─────────────────────────────────────────────────
+const _micStates = {};
+function toggleMicFor(targetId, btnEl) {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('Speech recognition is not supported in this browser. Try Chrome.'); return;
+  }
+  if (!_micStates[targetId]) _micStates[targetId] = { recognition: null, active: false };
+  const state = _micStates[targetId];
+
+  if (state.active) {
+    state.recognition.stop();
+    state.active = false;
+    btnEl.classList.remove('mic-active');
+    btnEl.title = 'Dictate';
+    return;
+  }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  state.recognition = new SR();
+  state.recognition.continuous = true;
+  state.recognition.interimResults = false;
+  state.recognition.lang = 'en-US';
+  state.recognition.onresult = e => {
+    const ta = document.getElementById(targetId);
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        const text = e.results[i][0].transcript;
+        ta.value += (ta.value && !ta.value.endsWith(' ') ? ' ' : '') + text;
+      }
+    }
+  };
+  state.recognition.onend = () => { if (state.active) state.recognition.start(); };
+  state.recognition.start();
+  state.active = true;
+  btnEl.classList.add('mic-active');
+  btnEl.title = 'Stop dictating';
 }
 
 function showToast(msg) {
@@ -836,6 +1035,80 @@ function esc(str) {
 // Initialise position pickers (runs after DOM is ready)
 initPosPicker('addPosPicker',  'playerPositions');
 initPosPicker('editPosPicker', 'editPlayerPositions');
+
+// ─── TRAINING SESSIONS ────────────────────────
+async function loadSessions() {
+  const { data: sessions } = await sb
+    .from('training_sessions')
+    .select('*')
+    .eq('team_id', teamId)
+    .order('session_date', { ascending: false });
+
+  const list = document.getElementById('sessionsList');
+  if (!sessions || sessions.length === 0) {
+    list.innerHTML = '<div style="font-size:13px;color:var(--text-dim);padding:.5rem 0;">No sessions logged yet. Hit <strong style="color:var(--text-muted);">+ Log Session</strong> after practice to keep a record.</div>';
+    return;
+  }
+  list.innerHTML = sessions.map(s => {
+    const d = new Date(s.session_date + 'T12:00:00');
+    const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return '<div class="session-card">' +
+      '<div class="session-date">' + esc(dateStr) + '</div>' +
+      '<div><div class="session-focus">' + esc(s.focus) + '</div>' +
+        (s.notes ? '<div class="session-notes">' + esc(s.notes) + '</div>' : '') +
+      '</div>' +
+      '<button class="session-delete" onclick="deleteSession(\'' + s.id + '\')" title="Delete session">\u2715</button>' +
+    '</div>';
+  }).join('');
+}
+
+function openAddSession() {
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('sessionDate').value  = today;
+  document.getElementById('sessionFocus').value = '';
+  document.getElementById('sessionNotes').value = '';
+  document.getElementById('sessionStatus').textContent = '';
+  document.getElementById('addSessionModal').classList.add('open');
+  setTimeout(() => document.getElementById('sessionFocus').focus(), 80);
+}
+function closeAddSession() {
+  document.getElementById('addSessionModal').classList.remove('open');
+}
+document.getElementById('addSessionModal').addEventListener('click', function(e) {
+  if (e.target === this) closeAddSession();
+});
+
+async function saveSession() {
+  const date  = document.getElementById('sessionDate').value;
+  const focus = document.getElementById('sessionFocus').value.trim();
+  const notes = document.getElementById('sessionNotes').value.trim();
+  const st    = document.getElementById('sessionStatus');
+  if (!date)  { st.textContent = 'Date is required.';  st.className = 'modal-status error'; return; }
+  if (!focus) { st.textContent = 'Focus is required.'; st.className = 'modal-status error'; return; }
+
+  const btn = document.getElementById('saveSessionBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+
+  const { error } = await sb.from('training_sessions').insert({
+    team_id: teamId, coach_id: coachId,
+    session_date: date, focus, notes: notes || null
+  });
+
+  btn.disabled = false; btn.textContent = 'Log Session';
+  if (error) {
+    st.textContent = 'Error: ' + error.message; st.className = 'modal-status error';
+  } else {
+    closeAddSession();
+    loadSessions();
+    showToast('Session logged \u2713');
+  }
+}
+
+async function deleteSession(id) {
+  await sb.from('training_sessions').delete().eq('id', id);
+  loadSessions();
+  showToast('Session removed');
+}
 </script>
 </body>
 </html>

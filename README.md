@@ -1,6 +1,6 @@
-# Player IDP Generator
+# Player IDP — Coaching Platform
 
-A static web app for generating player Individual Development Plan (IDP) infographics from coach voice memo transcripts. Runs entirely in the browser — no server, no backend, no data stored anywhere except your own browser session.
+A full-stack web app for youth football coaches to generate AI-powered Individual Development Plans (IDPs), manage teams and players, run a Team Development Plan (TDP), build and save lineups, log training sessions, and share published plans with parents — all backed by Supabase and Claude AI.
 
 ## Live Site
 
@@ -8,95 +8,193 @@ A static web app for generating player Individual Development Plan (IDP) infogra
 
 ---
 
-## How It Works
+## Pages & Features
 
-1. A coach pastes (or types) a raw voice memo transcript into the app
-2. Fills in the player name, position(s), plan duration, and focus area(s)
-3. Clicks **Clean & Generate** — the app sends the transcript to the Claude API, which structures it into strengths, improvements, a 30-day plan, micro-habits, a 12-month vision, and a parent note
-4. A styled dark-theme infographic renders in the browser
-5. The coach downloads it as a standalone HTML file or saves it as a PDF
+### 🏠 Dashboard (`dashboard.html`)
+- Overview of all your teams with a live stats bar (total players, IDPs generated, % published)
+- Create and delete teams
+- Search/filter teams by name
+- Toast notifications on all actions
+
+### 👥 Team Page (`team.html`)
+- Full player roster for a selected team with IDP status badges (Published / Draft + relative timestamp)
+- Add, edit, and delete players with position picker
+- Coach notes field on each player (with 🎙 microphone dictation)
+- CSV import for bulk player creation
+- Training Sessions log — add date, focus area, and freeform notes (with 🎙 mic), view history, delete sessions
+- Quick links to generate/view IDPs and open the lineup manager
+- Team summary line: player count, IDP coverage at a glance
+
+### ✦ IDP Generator (`generate.html`)
+- Paste or dictate a voice memo transcript for any player
+- Fill in name, position(s), plan duration, and focus area(s)
+- **Clean & Generate** — sends to Claude (`claude-sonnet-4-20250514`) for grammar cleanup + structured extraction
+- **Generate As-Is** — skips AI, builds directly from raw text
+- Rendered dark-theme infographic: strengths, improvements, 30-day development plan, micro-habits, 12-month vision, parent note
+- In-place **Edit mode** — click any text element to edit it directly
+- Download as standalone HTML or Save as PDF (print dialog)
+- Save as Draft or Publish to Supabase; published plans are visible to linked parents
+- 🎙 Microphone dictation on the transcript field
+
+### 📊 View IDP (`view-idp.html`)
+- Full IDP history for a player, sorted newest-first
+- **⇄ What Changed** diff panel between any two consecutive IDP versions — highlights new strengths, resolved improvements, focus/mantra/duration changes
+- Download or print any historical IDP
+
+### 🏆 Team Development Plan (`team-plan.html`)
+- Aggregates all published player IDPs for a team
+- Two-panel layout: left for inputs (season, phase, coach notes with 🎙 mic), right for generated infographic
+- Claude synthesises: team strengths, collective improvements, training themes, player spotlights, game week focus, season vision, coach note
+- Save & Publish to Supabase `team_plans` table
+
+### ⚽ Lineup Manager (`lineup.html`)
+- SVG football pitch with accurate markings (penalty areas, arcs, centre circle, goals)
+- Drag-and-drop player tokens from bench onto the pitch, or click to open an assign picker
+- Repositioning by dragging an existing token; remove via the ✕ hover button
+- Formations for **11v11** (7 presets), **9v9** (5 presets), **7v7** (5 presets), plus Custom free-place mode
+- **Save Lineup** — name it and persist to Supabase; saved lineups are scoped to each team
+- **Load Saved** dropdown — restore any saved lineup (format, formation, and all player positions)
+- Delete saved lineups
+- Print-friendly: hides sidebar and controls, renders pitch only
+
+### 👨‍👩‍👧 Parent Portal (`parent.html`)
+- Parents see published IDPs for their linked child/children
+- Step-by-step empty state guides parents on how to get connected
+- View and save-as-PDF any published plan
+
+### ⚙️ Settings (`settings.html`)
+- Club name and logo
+- API key management (masked, last 4 chars shown)
+- User management (admin only) — invite coaches, manage roles
+
+### 🙋 All Players (`players.html`)
+- Club-wide player list with search and position filter
+- Add, edit, delete players (with delete confirmation modal and toast notifications)
+- Links to individual player IDP history
+
+### ❓ Help (`help.html`)
+- FAQ and how-to guide
 
 ---
 
-## Accessing the App
+## Authentication
 
-There are two ways to authenticate — use whichever applies to you:
+Email/password auth via Supabase. Role-based: **Admin** and **Coach**.
 
-### Option 1 — Team Password
-The app ships with a shared, encrypted API key. When you open the site you'll be prompted for the team password. Contact the team admin for the password. Once entered, your session stays unlocked until you close the browser tab.
-
-### Option 2 — Your Own API Key
-If you have your own Anthropic API key, click **Set API Key** in the top-right corner, paste your key (starts with `sk-ant-`), and click **Save Key**. Your personal key takes priority over the team key and is stored only for the current browser session. Get a key at [console.anthropic.com](https://console.anthropic.com).
-
-Both buttons in the nav turn teal with a ✓ when their respective key is active.
+- Coaches see their own teams
+- Admins see the Settings page and all users
+- Parents authenticate via invite link (no password required); they only see their child's published IDPs
 
 ---
 
-## How to Generate an IDP
+## Microphone Dictation
 
-**Fill in the player details:**
-- **Player name** — first and last name
-- **Position(s)** — click the field to pick from the dropdown, select multiple if needed, or type a custom value and press Enter
-- **Plan duration** — how long the development window covers (e.g. 12 months)
-- **Focus area(s)** — click to pick from the dropdown, select multiple if needed, or type a custom phrase and press Enter
+Available on any notes or transcript field throughout the app. Click 🎙 to start, click again (or the button turns red while active) to stop. Transcribed text appends to the field. Uses the browser's Web Speech API — works best in Chrome.
 
-**Paste the transcript** — raw voice memo dictation, notes, or already-cleaned text all work fine. The messier the better — Claude handles cleanup.
-
-**Choose your generation mode:**
-
-| Button | What it does | Needs API key? |
-|--------|-------------|----------------|
-| **Clean & Generate** | Sends transcript to Claude to clean up grammar and extract structured data, then builds the infographic | Yes (handled by team key) |
-| **Generate As-Is** | Skips AI cleanup and builds directly from your raw text | No |
-
-### Editing the infographic
-
-Once the preview renders, click **✏ Edit** in the toolbar to enter edit mode. Every text element — player name, stats, card titles and bodies, plan badges and bullets, micro-habits, goal vision, parent note, and section labels — becomes directly editable in place. A teal highlight shows which field is active. Press **✓ Done Editing** to exit edit mode and lock the text back in.
-
-Downloads always reflect your edits, and the exported file is always clean (no `contenteditable` attributes).
-
-### Downloading
-
-Once the preview renders:
-- **Download HTML** — saves a standalone `.html` file with all styles embedded; share it, archive it, or open it offline
-- **Save as PDF** — opens the browser print dialog; set destination to **Save as PDF**, then print. Background colors are forced on so the dark theme is preserved.
+Fields with mic support:
+- Transcript (generate.html)
+- Coach notes on player edit modal (team.html)
+- Session notes on training log modal (team.html)
+- Coach notes on Team Plan (team-plan.html)
 
 ---
 
-## Example Transcript
+## Tech Stack
 
-Not sure what to put in the transcript box? Here's a sample voice memo format that works well:
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Vanilla HTML/CSS/JS, no framework |
+| Fonts | Google Fonts — Barlow Condensed + Inter |
+| Auth & DB | Supabase (PostgreSQL + PostgREST) |
+| AI | Anthropic Claude (`claude-sonnet-4-20250514`) via direct browser fetch |
+| Hosting | GitHub Pages (static) |
 
-> *"Alright, this is a development note for [Player Name], he plays central midfielder, U14 squad. Just wrapping up the fall season and wanted to get some thoughts down. So [Player Name] — big picture, this kid has a really high soccer IQ. He reads pressure well, knows when to switch the field, and his first touch under pressure has gotten dramatically better since August…"*
+---
 
-Rambling, unstructured, and full of filler words is totally fine. Claude cleans it up.
+## Database Tables
+
+| Table | Purpose |
+|-------|---------|
+| `profiles` | Coach/admin users |
+| `teams` | Teams per coach |
+| `players` | Players per team (with notes column) |
+| `player_teams` | Many-to-many player↔team links |
+| `idps` | Generated IDPs (draft + published) |
+| `team_plans` | Team Development Plans |
+| `lineups` | Named saved lineups per team |
+| `training_sessions` | Session logs per team |
+| `parent_links` | Player↔parent connections |
+| `invites` | Invite tokens for coach/parent onboarding |
+| `settings` | Club-level settings (name, logo, API key) |
+
+---
+
+## Supabase Setup (SQL)
+
+All tables have RLS disabled. Run these if setting up from scratch:
+
+```sql
+-- Players notes column (if upgrading)
+ALTER TABLE public.players ADD COLUMN IF NOT EXISTS notes text;
+
+-- Training sessions
+CREATE TABLE public.training_sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  team_id uuid REFERENCES public.teams(id) ON DELETE CASCADE,
+  coach_id uuid REFERENCES public.profiles(id),
+  session_date date NOT NULL DEFAULT CURRENT_DATE,
+  focus text NOT NULL,
+  notes text,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE public.training_sessions DISABLE ROW LEVEL SECURITY;
+
+-- Lineups
+CREATE TABLE public.lineups (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  team_id uuid REFERENCES public.teams(id) ON DELETE CASCADE,
+  name text NOT NULL DEFAULT 'Lineup',
+  formation text,
+  positions jsonb NOT NULL DEFAULT '[]',
+  created_by uuid REFERENCES public.profiles(id),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+ALTER TABLE public.lineups DISABLE ROW LEVEL SECURITY;
+
+-- Invites (for coach onboarding via Settings)
+CREATE TABLE public.invites (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  token text UNIQUE DEFAULT gen_random_uuid()::text,
+  role text NOT NULL CHECK (role IN ('coach','admin')),
+  label text,
+  created_by uuid REFERENCES public.profiles(id),
+  used_by uuid REFERENCES public.profiles(id),
+  used_at timestamptz,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE public.invites DISABLE ROW LEVEL SECURITY;
+```
+
+---
+
+## Local Development
+
+No build step — open any `.html` file directly, or serve with any static file server:
+
+```bash
+npx serve .
+# or
+python -m http.server 8080
+```
+
+Supabase credentials are loaded from `js/auth.js`. The Claude API key is fetched from the `settings` table at runtime (entered by an admin in the Settings page).
 
 ---
 
 ## Privacy & Security
 
-- The API key is encrypted at rest and only decrypted in memory after a correct password is entered
-- The decrypted key exists only in your browser session — it is never written to `localStorage` or `sessionStorage`
-- All Claude API calls go directly from your browser to `api.anthropic.com` — no proxy, no middleman
-- No analytics, no tracking, no data is stored or logged anywhere
-- Transcript content and player data never leave your browser except as part of the direct Claude API call
-
----
-
-## Customization
-
-The entire app is a single `index.html` file. To customize:
-
-- **Colors** — edit the CSS variables at the top of the `<style>` block
-- **Position / Focus dropdown options** — edit the `TAG_OPTIONS` object near the top of the `<script>` block
-- **Infographic layout** — find the `renderInfographic()` function in the `<script>` block
-- **Claude prompt** — edit the `systemPrompt` variable inside `callClaude()` to change how transcripts are interpreted
-- **Default micro-habits** — edit the `parseRaw()` function for the As-Is fallback defaults
-
----
-
-## Requirements
-
-- Any modern browser (Chrome, Firefox, Safari, Edge)
-- Team access password
-- Internet connection (for Google Fonts and the Claude API call)
+- Claude API calls go **directly** from the browser to `api.anthropic.com` — no proxy
+- The API key is stored encrypted in the Supabase `settings` table and only decrypted in-session
+- No analytics, no third-party tracking
+- Parent accounts can only see published plans for their linked child — no cross-family data access

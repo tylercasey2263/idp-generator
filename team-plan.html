@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team Development Plan — Player IDP</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/auth.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #0D1B2A; --navy-mid: #1A2E44; --navy-light: #243B55;
+    --teal: #1B8A6B; --teal-light: #22A882; --teal-faint: #0D2E25;
+    --amber: #D4870A; --amber-light: #F0A020; --amber-faint: #2E1E05;
+    --green: #2D7A3E; --green-light: #38A050; --green-faint: #0D2214;
+    --purple: #5A3FA0; --purple-light: #7357C8; --purple-faint: #1A1230;
+    --blue-light: #60A5FA; --blue-faint: #0D1E2E;
+    --red: #B33030; --red-light: #E05050;
+    --text: #EDF2F7; --text-muted: #94A3B8; --text-dim: #64748B;
+    --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
+  }
+
+  html, body { min-height: 100vh; }
+  body { background: var(--navy); color: var(--text); font-family: 'Inter', sans-serif;
+    font-size: 15px; line-height: 1.6; }
+  .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* ─── TOP NAV ─── */
+  .topnav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2rem; height: 56px; border-bottom: 1px solid var(--border);
+    background: var(--navy); position: sticky; top: 0; z-index: 100;
+  }
+  .nav-left { display: flex; align-items: center; gap: 14px; }
+  .nav-back {
+    font-size: 12px; font-weight: 600; color: var(--text-dim);
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 11px; cursor: pointer; font-family: 'Inter', sans-serif;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 5px;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .nav-back:hover { color: var(--text-muted); border-color: var(--border-strong); }
+  .topnav-brand { font-family: 'Barlow Condensed', sans-serif; font-size: 20px;
+    font-weight: 800; letter-spacing: 0.02em; color: var(--text); }
+  .topnav-brand span { color: var(--teal-light); }
+  .nav-right { display: flex; align-items: center; gap: 10px; }
+  .nav-name { font-size: 13px; color: var(--text-muted); }
+  .nav-btn {
+    font-size: 12px; font-weight: 600; color: var(--text-dim);
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 11px; cursor: pointer; font-family: 'Inter', sans-serif;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .nav-btn:hover { color: var(--text-muted); border-color: var(--border-strong); }
+
+  /* ─── MAIN PANELS ─── */
+  .main { display: grid; grid-template-columns: 380px 1fr; flex: 1;
+    min-height: calc(100vh - 56px); }
+
+  /* ─── LEFT PANEL ─── */
+  .left-panel {
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    padding: 1.5rem; gap: 1rem; overflow-y: auto;
+    max-height: calc(100vh - 56px); position: sticky; top: 56px;
+  }
+  .panel-section-label { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 6px; }
+  .input-group { display: flex; flex-direction: column; gap: 6px; }
+  input[type="text"], textarea, select {
+    background: var(--navy-mid); border: 1px solid var(--border-strong);
+    border-radius: 7px; color: var(--text); font-family: 'Inter', sans-serif;
+    font-size: 14px; padding: 10px 12px; width: 100%;
+    transition: border-color 0.2s;
+  }
+  input[type="text"]:focus, textarea:focus, select:focus {
+    outline: none; border-color: var(--teal); }
+  input[type="text"]::placeholder, textarea::placeholder { color: var(--text-dim); }
+  textarea { min-height: 100px; line-height: 1.5; resize: vertical; }
+  select option { background: var(--navy-mid); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .btn { display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 11px 16px; border-radius: 7px;
+    font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; border: none;
+    transition: opacity 0.2s, transform 0.1s; width: 100%; }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: var(--teal); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--teal-light); }
+
+  .divider-line { height: 1px; background: var(--border); margin: 2px 0; }
+
+  .status-bar { font-size: 12px; color: var(--text-dim);
+    font-family: 'Barlow Condensed', sans-serif; min-height: 18px; transition: color 0.3s; }
+  .status-bar.loading { color: var(--teal-light); }
+  .status-bar.error   { color: var(--red-light); }
+  .status-bar.success { color: var(--green-light); }
+
+  .spinner { display: inline-block; width: 12px; height: 12px;
+    border: 2px solid var(--border-strong); border-top-color: var(--teal-light);
+    border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─── PLAYER LIST ─── */
+  .player-list { display: flex; flex-direction: column; gap: 4px; }
+  .player-list-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 10px; border-radius: 6px; background: var(--navy-mid);
+    border: 1px solid var(--border);
+  }
+  .pli-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .pli-pos  { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+  .pli-badge {
+    font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 3px;
+    font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.06em;
+    text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
+  }
+  .pli-badge.has-idp  { background: var(--teal-faint); color: var(--teal-light);
+    border: 1px solid rgba(27,138,107,0.3); }
+  .pli-badge.no-idp   { background: transparent; color: var(--text-dim);
+    border: 1px solid var(--border); }
+  .pli-no-players { font-size: 13px; color: var(--text-dim); text-align: center;
+    padding: 1rem; }
+
+  /* ─── RIGHT PANEL ─── */
+  .right-panel { overflow-y: auto; max-height: calc(100vh - 56px); position: relative; }
+
+  .empty-state { display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 100%; min-height: 400px; gap: 12px;
+    color: var(--text-dim); text-align: center; padding: 2rem; }
+  .empty-state .big-icon { font-size: 48px; opacity: 0.3;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 800;
+    letter-spacing: -2px; color: var(--teal-light); }
+  .empty-state p { font-size: 14px; color: var(--text-dim); max-width: 300px; line-height: 1.6; }
+
+  /* ─── DOWNLOAD / ACTION BAR ─── */
+  .download-bar { display: none; position: sticky; top: 0; z-index: 50;
+    background: var(--navy-mid); border-bottom: 1px solid var(--border-strong);
+    padding: 10px 1.5rem; gap: 10px; align-items: center; }
+  .download-bar.visible { display: flex; }
+  .download-bar .dl-label { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-dim); flex: 1; }
+  .btn-dl { display: flex; align-items: center; gap: 6px; padding: 7px 14px;
+    border-radius: 6px; font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: pointer; border: none; transition: opacity 0.2s; }
+  .btn-dl-save { background: var(--teal-faint); color: var(--teal-light);
+    border: 1px solid rgba(34,168,130,0.4); }
+  .btn-dl-save:hover   { border-color: var(--teal); }
+  .btn-dl-save.saved   { background: var(--green-faint); color: var(--green-light);
+    border-color: rgba(56,160,80,0.4); cursor: default; }
+  .btn-dl-html { background: var(--navy-light); color: var(--text-muted);
+    border: 1px solid var(--border-strong); }
+  .btn-dl-html:hover { color: var(--text); }
+  .btn-dl-print { background: var(--navy-light); color: var(--text-muted);
+    border: 1px solid var(--border-strong); }
+  .btn-dl-print:hover { color: var(--text); }
+
+  #preview-container { padding: 1.5rem; }
+
+  /* ─── TDP INFOGRAPHIC ─── */
+  #infographic { font-family: 'Inter', sans-serif; font-size: 15px;
+    color: #EDF2F7; background: #0D1B2A; border-radius: 10px; padding: 2rem;
+    animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  #infographic .ig-header { display: grid; grid-template-columns: 1fr auto;
+    align-items: end; gap: 1rem; padding-bottom: 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,0.15); margin-bottom: 1.5rem; }
+  #infographic .ig-header h1 { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 42px; font-weight: 800; line-height: 1; color: #EDF2F7; }
+  #infographic .ig-header h1 span { color: #22A882; }
+  #infographic .ig-header .sub { font-size: 12px; color: #64748B; margin-top: 5px;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase; }
+  #infographic .ig-header .phase-badge { display: inline-block; background: #0D2E25;
+    border: 1px solid #1B8A6B; color: #22A882; font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 5px 12px; border-radius: 4px; }
+  #infographic .ig-header .phase-label { display: block; font-size: 11px; color: #64748B;
+    font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.08em;
+    text-transform: uppercase; margin-top: 6px; text-align: right; }
+
+  #infographic .stats-row { display: grid; grid-template-columns: repeat(4,1fr);
+    gap: 8px; margin-bottom: 1.5rem; }
+  #infographic .stat-card { background: #1A2E44; border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px; padding: 12px 14px; }
+  #infographic .stat-card .val { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 17px; font-weight: 700; color: #EDF2F7; line-height: 1.2; }
+  #infographic .stat-card .lbl { font-size: 10px; color: #64748B;
+    text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 500; }
+
+  #infographic .sec-label { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #64748B; margin-bottom: 8px; margin-top: 1.5rem; }
+  #infographic .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  #infographic .card { border-radius: 8px; padding: 12px 14px;
+    border: 1px solid rgba(255,255,255,0.08); }
+  #infographic .card.green { background: #0D2214; border-color: rgba(56,160,80,0.2); }
+  #infographic .card.amber { background: #2E1E05; border-color: rgba(212,135,10,0.2); }
+  #infographic .card h4 { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px; font-weight: 700; color: #EDF2F7; margin-bottom: 4px;
+    display: flex; align-items: center; gap: 6px; }
+  #infographic .card .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  #infographic .card p { font-size: 12px; color: #94A3B8; line-height: 1.5; }
+  #infographic .divider { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 1.5rem 0 0; }
+
+  #infographic .plan-list { display: flex; flex-direction: column; gap: 6px; }
+  #infographic .plan-item { display: grid; grid-template-columns: 110px 1fr;
+    border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); }
+  #infographic .plan-badge { display: flex; align-items: center; justify-content: center;
+    text-align: center; font-family: 'Barlow Condensed', sans-serif; font-size: 10px;
+    font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 10px 7px; line-height: 1.3; }
+  #infographic .plan-badge.purple { background: #1A1230; color: #7357C8; border-right: 1px solid rgba(115,87,200,0.2); }
+  #infographic .plan-badge.amber  { background: #2E1E05; color: #F0A020; border-right: 1px solid rgba(212,135,10,0.2); }
+  #infographic .plan-badge.teal   { background: #0D2E25; color: #22A882; border-right: 1px solid rgba(27,138,107,0.2); }
+  #infographic .plan-badge.blue   { background: #0D1E2E; color: #60A5FA; border-right: 1px solid rgba(96,165,250,0.2); }
+  #infographic .plan-content { background: #1A2E44; padding: 10px 14px; }
+  #infographic .plan-content h4 { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px; font-weight: 700; color: #EDF2F7; margin-bottom: 5px; }
+  #infographic .plan-content ul { list-style: none; display: flex; flex-direction: column; gap: 3px; }
+  #infographic .plan-content ul li { font-size: 12px; color: #94A3B8;
+    display: flex; gap: 7px; align-items: flex-start; line-height: 1.45; }
+  #infographic .plan-content ul li::before { content: '—'; color: #64748B; flex-shrink: 0; }
+
+  /* Player Spotlights */
+  #infographic .spotlight-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; }
+  #infographic .spotlight-card { background: #1A2E44;
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px; }
+  #infographic .spotlight-card .sp-name { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px; font-weight: 700; color: #EDF2F7; line-height: 1.2; }
+  #infographic .spotlight-card .sp-pos { font-size: 10px; color: #64748B;
+    font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase;
+    letter-spacing: 0.06em; margin-bottom: 5px; }
+  #infographic .spotlight-card .sp-focus { font-size: 11px; font-weight: 600;
+    color: #22A882; margin-bottom: 4px; font-family: 'Barlow Condensed', sans-serif;
+    text-transform: uppercase; letter-spacing: 0.05em; }
+  #infographic .spotlight-card .sp-note { font-size: 11px; color: #94A3B8; line-height: 1.45; }
+
+  #infographic .gameday { background: #1A2E44; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px; padding: 12px 16px; display: flex; align-items: center;
+    gap: 12px; margin-top: 8px; }
+  #infographic .gameday .gd-label { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: #64748B; white-space: nowrap; }
+  #infographic .gameday .gd-text { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px; font-weight: 700; color: #EDF2F7; }
+  #infographic .gameday .gd-text span { color: #22A882; }
+
+  #infographic .goal-banner { background: #0D2E25; border: 1px solid rgba(27,138,107,0.35);
+    border-radius: 10px; padding: 16px 18px; margin-top: 8px;
+    display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+  #infographic .goal-banner .timeline { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px; font-weight: 700; color: #22A882; text-transform: uppercase;
+    letter-spacing: 0.1em; white-space: nowrap; }
+  #infographic .goal-banner p { font-size: 13px; color: #94A3B8; line-height: 1.55; }
+
+  #infographic .coach-note { margin-top: 1.5rem; border-left: 3px solid rgba(255,255,255,0.15);
+    padding: 10px 16px; background: #1A2E44; border-radius: 0 8px 8px 0; }
+  #infographic .coach-note .plabel { font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #64748B; margin-bottom: 6px; }
+  #infographic .coach-note p { font-size: 12px; color: #94A3B8; line-height: 1.6; font-style: italic; }
+
+  @media print {
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .topnav, .left-panel, .download-bar { display: none !important; }
+    .main { display: block; }
+    .right-panel { max-height: none; overflow: visible; }
+    #preview-container { padding: 0; }
+    #infographic { border-radius: 0; padding: 1rem; }
+    body { background: #0D1B2A; }
+  }
+  @media (max-width: 768px) {
+    .main { grid-template-columns: 1fr; min-height: auto; }
+    .left-panel { max-height: none; position: static; border-right: none;
+      border-bottom: 1px solid var(--border); padding: 1.25rem; }
+    .right-panel { max-height: none; }
+    .row { grid-template-columns: 1fr; }
+    .download-bar { flex-wrap: wrap; gap: 6px; }
+    #infographic .stats-row { grid-template-columns: 1fr 1fr; }
+    #infographic .card-grid { grid-template-columns: 1fr; }
+    #infographic .spotlight-grid { grid-template-columns: 1fr; }
+  }
+
+/* ── Mic button ── */
+.mic-btn {
+  background: none; border: 1px solid rgba(255,255,255,0.15); border-radius: 5px;
+  color: var(--text-dim); font-size: 12px; padding: 2px 7px; cursor: pointer;
+  margin-left: 8px; transition: all .15s; vertical-align: middle; line-height: 1.4;
+}
+.mic-btn:hover { border-color: var(--teal-light); color: var(--teal-light); }
+.mic-btn.mic-active { border-color: #E05050; color: #E05050; background: rgba(224,80,80,.08); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <nav class="topnav">
+    <div class="nav-left">
+      <a class="nav-back" id="backBtn" href="/dashboard.html">← Back</a>
+      <div class="topnav-brand">Player <span>IDP</span></div>
+    </div>
+    <div class="nav-right">
+      <span class="nav-name" id="navName"></span>
+      <button class="nav-btn" onclick="signOut()">Sign Out</button>
+    </div>
+  </nav>
+
+  <div class="main">
+
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+
+      <div>
+        <div class="panel-section-label">Team</div>
+        <div class="input-group">
+          <input type="text" id="teamNameInput" placeholder="Team name" readonly
+            style="background:var(--navy);color:var(--text-muted);cursor:default;" />
+          <div class="row">
+            <input type="text" id="seasonInput" placeholder="Season (e.g. Spring 2026)" />
+            <input type="text" id="phaseInput" placeholder="Phase (e.g. Building)" />
+          </div>
+        </div>
+      </div>
+
+      <div class="divider-line"></div>
+
+      <div>
+        <div class="panel-section-label">Players &amp; IDP Status</div>
+        <div class="player-list" id="playerList">
+          <div class="pli-no-players">Loading…</div>
+        </div>
+      </div>
+
+      <div class="divider-line"></div>
+
+      <div>
+        <div class="panel-section-label">Coach Notes <span style="color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span><button class="mic-btn" type="button" onclick="toggleMicFor('coachNotes',this)" title="Dictate">🎙</button></div>
+        <textarea id="coachNotes" placeholder="Add any context for Claude — team dynamics, recent results, areas you've been working on…"></textarea>
+      </div>
+
+      <div class="input-group" style="gap:8px;">
+        <button class="btn btn-primary" id="btnGenerate" onclick="handleGenerate()">
+          <span>✦</span> Generate Team Plan
+        </button>
+        <div class="status-bar" id="statusBar"></div>
+      </div>
+
+      <div class="divider-line"></div>
+
+      <div style="font-size:12px; color:var(--text-dim); line-height:1.6;">
+        <strong style="color:var(--text-muted);font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">How it works</strong><br><br>
+        Fetches the latest published IDP for each player on this team, aggregates their strengths and development areas, then asks Claude to generate a team-level development plan.<br><br>
+        Hit <strong style="color:var(--text-muted);">Save &amp; Publish</strong> once the preview looks good.
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel" id="rightPanel">
+      <div class="download-bar" id="downloadBar">
+        <div class="dl-label">Preview ready</div>
+        <button class="btn-dl btn-dl-save" id="btnSavePublish" onclick="saveAndPublish()">⬆ Save &amp; Publish</button>
+        <button class="btn-dl btn-dl-html" onclick="downloadHTML()">⬇ Download HTML</button>
+        <button class="btn-dl btn-dl-print" onclick="window.print()">⬒ Save as PDF</button>
+      </div>
+
+      <div id="preview-container">
+        <div class="empty-state" id="emptyState">
+          <div class="big-icon">TDP</div>
+          <p>Load the team, then hit <strong>Generate Team Plan</strong> to create a team-level development plan from your players' IDPs.</p>
+        </div>
+        <div id="infographic" style="display:none;"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Microphone dictation ─────────────────────────────────────────────────
+const _micStates = {};
+function toggleMicFor(targetId, btnEl) {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('Speech recognition is not supported in this browser. Try Chrome.'); return;
+  }
+  if (!_micStates[targetId]) _micStates[targetId] = { recognition: null, active: false };
+  const state = _micStates[targetId];
+
+  if (state.active) {
+    state.recognition.stop();
+    state.active = false;
+    btnEl.classList.remove('mic-active');
+    btnEl.title = 'Dictate';
+    return;
+  }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  state.recognition = new SR();
+  state.recognition.continuous = true;
+  state.recognition.interimResults = false;
+  state.recognition.lang = 'en-US';
+  state.recognition.onresult = e => {
+    const ta = document.getElementById(targetId);
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        const text = e.results[i][0].transcript;
+        ta.value += (ta.value && !ta.value.endsWith(' ') ? ' ' : '') + text;
+      }
+    }
+  };
+  state.recognition.onend = () => { if (state.active) state.recognition.start(); };
+  state.recognition.start();
+  state.active = true;
+  btnEl.classList.add('mic-active');
+  btnEl.title = 'Stop dictating';
+}
+
+// ─── AUTH + INIT ────────────────────────────────────────
+const urlParams = new URLSearchParams(window.location.search);
+const teamId    = urlParams.get('team');
+let coachId     = null;
+let lastTDPData = null;
+let teamData    = null;
+let playerIDPs  = [];  // [{player, idp}] — idp may be null
+
+(async () => {
+  const ctx = await requireCoach();
+  if (!ctx) return;
+  coachId = ctx.session.user.id;
+  document.getElementById('navName').textContent = ctx.profile.full_name || ctx.session.user.email;
+
+  if (!teamId) {
+    setStatus('No team ID in URL. Go back and click "Generate Team Plan" from a team page.', 'error');
+    return;
+  }
+
+  document.getElementById('backBtn').href = '/team.html?team=' + teamId;
+
+  await loadTeamAndPlayers();
+})();
+
+// ─── LOAD TEAM + PLAYERS + IDPs ────────────────────────
+async function loadTeamAndPlayers() {
+  setStatus('Loading team…', 'loading');
+
+  // Load team
+  const { data: team, error: teamErr } = await sb
+    .from('teams').select('id, name, season').eq('id', teamId).single();
+  if (teamErr || !team) { setStatus('Team not found.', 'error'); return; }
+  teamData = team;
+  document.getElementById('teamNameInput').value = team.name;
+  document.getElementById('seasonInput').value   = team.season || '';
+
+  // Load players on this team
+  const { data: players } = await sb
+    .from('players').select('id, name, positions').eq('team_id', teamId).order('name');
+
+  if (!players || players.length === 0) {
+    document.getElementById('playerList').innerHTML =
+      '<div class="pli-no-players">No players on this team yet.</div>';
+    setStatus('No players found for this team.', 'error');
+    return;
+  }
+
+  // Load latest IDP for each player (published first, then any)
+  const playerIds = players.map(p => p.id);
+  const { data: idps } = await sb
+    .from('idps')
+    .select('id, player_id, data, published, updated_at')
+    .in('player_id', playerIds)
+    .order('updated_at', { ascending: false });
+
+  // Build map: player_id -> latest IDP (prefer published)
+  const idpMap = {};
+  (idps || []).forEach(idp => {
+    if (!idpMap[idp.player_id]) {
+      idpMap[idp.player_id] = idp;
+    } else if (idp.published && !idpMap[idp.player_id].published) {
+      idpMap[idp.player_id] = idp;
+    }
+  });
+
+  playerIDPs = players.map(p => ({ player: p, idp: idpMap[p.id] || null }));
+
+  renderPlayerList();
+  setStatus('');
+}
+
+function renderPlayerList() {
+  const list    = document.getElementById('playerList');
+  const hasIDPs = playerIDPs.filter(x => x.idp).length;
+  list.innerHTML = playerIDPs.map(({ player, idp }) => {
+    const posText = player.positions ? player.positions.split('/').map(s => s.trim().replace(/\s*\(.*?\)/, '')).join(', ') : '—';
+    return '<div class="player-list-item">' +
+      '<div><div class="pli-name">' + esc(player.name) + '</div>' +
+      '<div class="pli-pos">' + esc(posText) + '</div></div>' +
+      '<div class="pli-badge ' + (idp ? 'has-idp' : 'no-idp') + '">' +
+        (idp ? (idp.published ? 'IDP ✓' : 'Draft') : 'No IDP') +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  if (hasIDPs === 0) {
+    setStatus('No players have IDPs yet — generate individual IDPs first.', 'error');
+    document.getElementById('btnGenerate').disabled = true;
+  }
+}
+
+// ─── GENERATE ──────────────────────────────────────────
+async function handleGenerate() {
+  const playersWithIDPs = playerIDPs.filter(x => x.idp);
+  if (playersWithIDPs.length === 0) {
+    setStatus('No player IDPs found. Generate individual IDPs first.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btnGenerate');
+  btn.disabled = true;
+
+  // Reset save button
+  const saveBtn = document.getElementById('btnSavePublish');
+  saveBtn.textContent = '⬆ Save & Publish';
+  saveBtn.classList.remove('saved');
+  saveBtn.disabled = false;
+
+  setStatus('Fetching API key…', 'loading');
+  const key = await getClaudeApiKey();
+  if (!key) {
+    setStatus('No Claude API key found in settings. Ask your admin to add one.', 'error');
+    btn.disabled = false;
+    return;
+  }
+
+  setStatus('Sending to Claude…', 'loading');
+  try {
+    const teamName   = document.getElementById('teamNameInput').value;
+    const season     = document.getElementById('seasonInput').value.trim() || 'Spring 2026';
+    const phase      = document.getElementById('phaseInput').value.trim() || 'Development';
+    const coachNotes = document.getElementById('coachNotes').value.trim();
+
+    const data = await callClaude(key, teamName, season, phase, playersWithIDPs, playerIDPs.length, coachNotes);
+    lastTDPData = data;
+    renderInfographic(data);
+    setStatus('Generated successfully.', 'success');
+  } catch(e) {
+    setStatus('Error: ' + e.message, 'error');
+  }
+  btn.disabled = false;
+}
+
+// ─── CLAUDE API ────────────────────────────────────────
+async function callClaude(key, teamName, season, phase, playersWithIDPs, totalPlayers, coachNotes) {
+  const systemPrompt = `You are a youth soccer coaching expert. Given a collection of individual player IDPs (Individual Development Plans) for a team, generate a Team Development Plan (TDP) that identifies collective strengths, shared improvement areas, training themes, and a seasonal vision. Return ONLY valid JSON, no markdown, no explanation.
+
+JSON structure:
+{
+  "teamName": "string",
+  "season": "string",
+  "phase": "string",
+  "mantra": "short 4-6 word team mantra",
+  "teamStrengths": [{ "title": "short title", "body": "1-2 sentence description of a collective team strength" }],
+  "teamImprovements": [{ "title": "short title", "body": "1-2 sentence description of a shared area to improve" }],
+  "trainingThemes": [
+    { "badge": "Week 1-4", "badgeType": "purple", "title": "Theme title", "bullets": ["specific drill or exercise", "coaching point", "game condition"] },
+    { "badge": "Week 5-8", "badgeType": "amber", "title": "Theme title", "bullets": ["..."] },
+    { "badge": "Week 9-12", "badgeType": "teal", "title": "Theme title", "bullets": ["..."] }
+  ],
+  "playerSpotlights": [
+    { "name": "Player Name", "position": "abbreviated position", "focus": "key development focus", "note": "1 sentence specific to this player's role in the team plan" }
+  ],
+  "gameWeekFocus": "Short phrase — key collective emphasis",
+  "seasonVision": "2-3 sentence paragraph describing the team's seasonal vision and collective goals",
+  "coachNote": "2-3 sentence note to the team about the season ahead"
+}
+
+Rules:
+- teamStrengths: 4-6 items based on patterns across individual IDPs
+- teamImprovements: 4-6 items representing the most common individual improvement areas
+- trainingThemes: exactly 3 items, covering the full season arc
+- playerSpotlights: include ALL players who have IDPs, keep notes brief
+- badgeType must be one of: purple, amber, teal, blue
+- Keep titles short (3-5 words), bullets concise`;
+
+  // Build player summaries
+  const playerSummaries = playersWithIDPs.map(({ player, idp }) => {
+    const d = idp.data;
+    const strengths    = (d.strengths    || []).slice(0,2).map(s => s.title).join(', ');
+    const improvements = (d.improvements || []).slice(0,2).map(s => s.title).join(', ');
+    const pos          = player.positions ? player.positions.split('/')[0].trim() : d.position || 'Field Player';
+    return `Player: ${d.playerName || player.name} | Position: ${pos} | Strengths: ${strengths || 'N/A'} | Needs work: ${improvements || 'N/A'} | Focus: ${d.focus || 'Development'}`;
+  }).join('\n');
+
+  const userMsg = [
+    'Team: ' + teamName,
+    'Season: ' + season,
+    'Phase: ' + phase,
+    'Total players: ' + totalPlayers + ' (' + playersWithIDPs.length + ' with IDPs)',
+    '',
+    'PLAYER IDP SUMMARIES:',
+    playerSummaries,
+    coachNotes ? '\nCOACH NOTES:\n' + coachNotes : ''
+  ].join('\n');
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 3000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMsg }]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || 'API error ' + response.status);
+  }
+  const result = await response.json();
+  const text   = result.content[0].text.trim();
+  return JSON.parse(text.replace(/```json|```/g, '').trim());
+}
+
+// ─── RENDER ────────────────────────────────────────────
+function renderInfographic(d) {
+  const ig = document.getElementById('infographic');
+
+  const strengthCards = (d.teamStrengths || []).map(s =>
+    '<div class="card green"><h4><span class="dot" style="background:#38A050;"></span>' + esc(s.title) + '</h4><p>' + esc(s.body) + '</p></div>'
+  ).join('');
+
+  const improvCards = (d.teamImprovements || []).map(s =>
+    '<div class="card amber"><h4><span class="dot" style="background:#F0A020;"></span>' + esc(s.title) + '</h4><p>' + esc(s.body) + '</p></div>'
+  ).join('');
+
+  const themeRows = (d.trainingThemes || []).map(p =>
+    '<div class="plan-item">' +
+      '<div class="plan-badge ' + (p.badgeType || 'purple') + '">' + esc(p.badge) + '</div>' +
+      '<div class="plan-content"><h4>' + esc(p.title) + '</h4><ul>' +
+        (p.bullets || []).map(b => '<li>' + esc(b) + '</li>').join('') +
+      '</ul></div>' +
+    '</div>'
+  ).join('');
+
+  const spotlights = (d.playerSpotlights || []).map(s =>
+    '<div class="spotlight-card">' +
+      '<div class="sp-name">' + esc(s.name) + '</div>' +
+      '<div class="sp-pos">' + esc(s.position || '') + '</div>' +
+      '<div class="sp-focus">' + esc(s.focus || '') + '</div>' +
+      '<div class="sp-note">' + esc(s.note || '') + '</div>' +
+    '</div>'
+  ).join('');
+
+  const gdParts = (d.gameWeekFocus || '').split('—');
+  const gdText  = gdParts.length > 1
+    ? '<span>' + esc(gdParts[0].trim()) + '</span> — ' + esc(gdParts[1].trim())
+    : esc(d.gameWeekFocus || '');
+
+  const playerCount = playerIDPs.length;
+
+  ig.innerHTML =
+    '<div class="ig-header">' +
+      '<div><h1>' + esc(d.teamName || 'Team') + ' <span>TDP</span></h1>' +
+      '<div class="sub">Team Development Plan · ' + esc(d.season || '2026') + ' · Coaching Staff</div></div>' +
+      '<div style="text-align:right;">' +
+        '<div class="phase-badge">' + esc(d.phase || 'Development') + '</div>' +
+        '<span class="phase-label">Team Plan</span>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="stats-row">' +
+      '<div class="stat-card"><div class="val">' + playerCount + '</div><div class="lbl">Players</div></div>' +
+      '<div class="stat-card"><div class="val">' + esc(d.phase || '—') + '</div><div class="lbl">Phase</div></div>' +
+      '<div class="stat-card"><div class="val">' + esc(d.season || '—') + '</div><div class="lbl">Season</div></div>' +
+      '<div class="stat-card"><div class="val">' + esc(d.mantra || 'Play together') + '</div><div class="lbl">Team mantra</div></div>' +
+    '</div>' +
+
+    '<div class="sec-label">Team strengths — build on these collectively</div>' +
+    '<div class="card-grid">' + strengthCards + '</div>' +
+
+    '<hr class="divider">' +
+    '<div class="sec-label">Collective areas to improve</div>' +
+    '<div class="card-grid">' + improvCards + '</div>' +
+
+    '<hr class="divider">' +
+    '<div class="sec-label">Training themes — season arc</div>' +
+    '<div class="plan-list">' + themeRows + '</div>' +
+
+    '<div class="sec-label" style="margin-top:1.5rem;">Player spotlights</div>' +
+    '<div class="spotlight-grid">' + spotlights + '</div>' +
+
+    '<div class="gameday" style="margin-top:1.5rem;">' +
+      '<div class="gd-label">Game week focus</div>' +
+      '<div class="gd-text">' + gdText + '</div>' +
+    '</div>' +
+
+    '<div class="sec-label" style="margin-top:1.5rem;">Season vision</div>' +
+    '<div class="goal-banner">' +
+      '<div class="timeline">Season<br>vision</div>' +
+      '<p>' + esc(d.seasonVision || '') + '</p>' +
+    '</div>' +
+
+    '<div class="coach-note">' +
+      '<div class="plabel">Note to the team</div>' +
+      '<p>' + esc(d.coachNote || '') + '</p>' +
+    '</div>';
+
+  document.getElementById('emptyState').style.display = 'none';
+  ig.style.display = 'block';
+  document.getElementById('downloadBar').classList.add('visible');
+  ig.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ─── SAVE & PUBLISH ────────────────────────────────────
+async function saveAndPublish() {
+  if (!lastTDPData) return;
+  const btn = document.getElementById('btnSavePublish');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="border-top-color:var(--teal-light);width:10px;height:10px;border-width:2px;"></span>';
+
+  const payload = {
+    team_id:    teamId,
+    created_by: coachId,
+    data:       lastTDPData,
+    published:  true,
+    updated_at: new Date().toISOString()
+  };
+
+  // Upsert: update if a plan exists for this team, otherwise insert
+  const { data: existing } = await sb
+    .from('team_plans').select('id').eq('team_id', teamId)
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+
+  let error;
+  if (existing) {
+    ({ error } = await sb.from('team_plans').update({
+      data: lastTDPData, published: true, updated_at: payload.updated_at
+    }).eq('id', existing.id));
+  } else {
+    ({ error } = await sb.from('team_plans').insert(payload));
+  }
+
+  if (error) {
+    setStatus('Save error: ' + error.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = '⬆ Save &amp; Publish';
+  } else {
+    btn.classList.add('saved');
+    btn.textContent = '✓ Published';
+    setStatus('Team plan saved and published.', 'success');
+  }
+}
+
+// ─── DOWNLOAD HTML ─────────────────────────────────────
+function downloadHTML() {
+  const ig = document.getElementById('infographic');
+  if (!ig || ig.style.display === 'none') return;
+  const name  = (lastTDPData && lastTDPData.teamName) || 'Team';
+  const clone = ig.cloneNode(true);
+  const css   = getTDPInfographicCSS();
+  const html  = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>' + name + ' — TDP 2026</title>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">' +
+    '<style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}body{background:#0D1B2A;color:#EDF2F7;font-family:\'Inter\',sans-serif;font-size:15px;line-height:1.6;padding:2rem 1.5rem 3rem;max-width:900px;margin:0 auto;}@media print{*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}}' + css + '</style>' +
+    '</head><body>' + clone.outerHTML + '</body></html>';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+  a.download = name.replace(/\s+/g, '_') + '_TDP_2026.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function getTDPInfographicCSS() {
+  return '#infographic{font-family:\'Inter\',sans-serif;font-size:15px;color:#EDF2F7;background:#0D1B2A;border-radius:10px;padding:2rem;}.ig-header{display:grid;grid-template-columns:1fr auto;align-items:end;gap:1rem;padding-bottom:1.25rem;border-bottom:1px solid rgba(255,255,255,0.15);margin-bottom:1.5rem;}.ig-header h1{font-family:\'Barlow Condensed\',sans-serif;font-size:42px;font-weight:800;line-height:1;color:#EDF2F7;}.ig-header h1 span{color:#22A882;}.ig-header .sub{font-size:12px;color:#64748B;margin-top:5px;font-family:\'Barlow Condensed\',sans-serif;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;}.ig-header .phase-badge{display:inline-block;background:#0D2E25;border:1px solid #1B8A6B;color:#22A882;font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:5px 12px;border-radius:4px;}.ig-header .phase-label{display:block;font-size:11px;color:#64748B;font-family:\'Barlow Condensed\',sans-serif;letter-spacing:0.08em;text-transform:uppercase;margin-top:6px;text-align:right;}.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1.5rem;}.stat-card{background:#1A2E44;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px 14px;}.stat-card .val{font-family:\'Barlow Condensed\',sans-serif;font-size:17px;font-weight:700;color:#EDF2F7;line-height:1.2;}.stat-card .lbl{font-size:10px;color:#64748B;text-transform:uppercase;letter-spacing:0.08em;margin-top:3px;font-family:\'Barlow Condensed\',sans-serif;font-weight:500;}.sec-label{font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#64748B;margin-bottom:8px;margin-top:1.5rem;}.card-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}.card{border-radius:8px;padding:12px 14px;border:1px solid rgba(255,255,255,0.08);}.card.green{background:#0D2214;border-color:rgba(56,160,80,0.2);}.card.amber{background:#2E1E05;border-color:rgba(212,135,10,0.2);}.card h4{font-family:\'Barlow Condensed\',sans-serif;font-size:13px;font-weight:700;color:#EDF2F7;margin-bottom:4px;display:flex;align-items:center;gap:6px;}.card .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}.card p{font-size:12px;color:#94A3B8;line-height:1.5;}.divider{border:none;border-top:1px solid rgba(255,255,255,0.08);margin:1.5rem 0 0;}.plan-list{display:flex;flex-direction:column;gap:6px;}.plan-item{display:grid;grid-template-columns:110px 1fr;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);}.plan-badge{display:flex;align-items:center;justify-content:center;text-align:center;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:10px 7px;line-height:1.3;}.plan-badge.purple{background:#1A1230;color:#7357C8;border-right:1px solid rgba(115,87,200,0.2);}.plan-badge.amber{background:#2E1E05;color:#F0A020;border-right:1px solid rgba(212,135,10,0.2);}.plan-badge.teal{background:#0D2E25;color:#22A882;border-right:1px solid rgba(27,138,107,0.2);}.plan-badge.blue{background:#0D1E2E;color:#60A5FA;border-right:1px solid rgba(96,165,250,0.2);}.plan-content{background:#1A2E44;padding:10px 14px;}.plan-content h4{font-family:\'Barlow Condensed\',sans-serif;font-size:13px;font-weight:700;color:#EDF2F7;margin-bottom:5px;}.plan-content ul{list-style:none;display:flex;flex-direction:column;gap:3px;}.plan-content ul li{font-size:12px;color:#94A3B8;display:flex;gap:7px;align-items:flex-start;line-height:1.45;}.plan-content ul li::before{content:\'—\';color:#64748B;flex-shrink:0;}.spotlight-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}.spotlight-card{background:#1A2E44;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;}.spotlight-card .sp-name{font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:700;color:#EDF2F7;line-height:1.2;}.spotlight-card .sp-pos{font-size:10px;color:#64748B;font-family:\'Barlow Condensed\',sans-serif;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px;}.spotlight-card .sp-focus{font-size:11px;font-weight:600;color:#22A882;margin-bottom:4px;font-family:\'Barlow Condensed\',sans-serif;text-transform:uppercase;letter-spacing:0.05em;}.spotlight-card .sp-note{font-size:11px;color:#94A3B8;line-height:1.45;}.gameday{background:#1A2E44;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-top:8px;}.gameday .gd-label{font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#64748B;white-space:nowrap;}.gameday .gd-text{font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:700;color:#EDF2F7;}.gameday .gd-text span{color:#22A882;}.goal-banner{background:#0D2E25;border:1px solid rgba(27,138,107,0.35);border-radius:10px;padding:16px 18px;margin-top:8px;display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;}.goal-banner .timeline{font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;color:#22A882;text-transform:uppercase;letter-spacing:0.1em;white-space:nowrap;}.goal-banner p{font-size:13px;color:#94A3B8;line-height:1.55;}.coach-note{margin-top:1.5rem;border-left:3px solid rgba(255,255,255,0.15);padding:10px 16px;background:#1A2E44;border-radius:0 8px 8px 0;}.coach-note .plabel{font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#64748B;margin-bottom:6px;}.coach-note p{font-size:12px;color:#94A3B8;line-height:1.6;font-style:italic;}';
+}
+
+// ─── UTILS ─────────────────────────────────────────────
+function setStatus(msg, type) {
+  const el = document.getElementById('statusBar');
+  el.className = 'status-bar' + (type ? ' ' + type : '');
+  el.innerHTML = type === 'loading'
+    ? '<span style="display:flex;align-items:center;gap:6px;"><span class="spinner"></span>' + msg + '</span>'
+    : msg;
+}
+
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

@@ -396,6 +396,28 @@ input::placeholder { color: var(--text-dim); }
   </div>
 </div>
 
+<!-- DELETE PLAYER MODAL -->
+<div class="overlay" id="deletePlayerModal">
+  <div class="modal" style="max-width:400px;">
+    <h2 style="color:#E05050;">Remove Player?</h2>
+    <p id="deletePlayerMsg" style="font-size:14px;color:var(--text-muted);line-height:1.6;"></p>
+    <p style="font-size:12px;color:var(--text-dim);">Their IDPs will also be permanently deleted. This cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeDeletePlayer()">Cancel</button>
+      <button class="btn" id="confirmDeleteBtn" onclick="confirmDeletePlayer()"
+        style="background:#8B1A1A;color:#FCA5A5;border:1px solid rgba(224,80,80,0.4);flex:1;padding:11px 16px;">
+        Remove Player
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"
+  style="position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);
+    background:var(--navy-mid);border:1px solid var(--border-strong);
+    border-radius:8px;padding:10px 20px;font-size:13px;color:var(--teal-light);
+    z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;"></div>
+
 <script>
 let allPlayers     = [];
 let allTeams       = [];
@@ -663,14 +685,41 @@ async function savePlayer() {
   } else {
     closePlayerModal();
     await loadData();
+    showToast(editingId ? 'Changes saved \u2713' : 'Player added \u2713');
   }
 }
 
 // ─── DELETE PLAYER ────────────────────────────
-async function deletePlayer(id, name) {
-  if (!confirm(`Remove ${name}? Their IDPs will also be deleted.`)) return;
-  await sb.from('players').delete().eq('id', id);
+let _delPlayerId = null;
+function deletePlayer(id, name) {
+  _delPlayerId = id;
+  document.getElementById('deletePlayerMsg').textContent = 'Remove "' + name + '" from the roster?';
+  document.getElementById('confirmDeleteBtn').disabled = false;
+  document.getElementById('confirmDeleteBtn').textContent = 'Remove Player';
+  document.getElementById('deletePlayerModal').classList.add('open');
+}
+function closeDeletePlayer() {
+  document.getElementById('deletePlayerModal').classList.remove('open');
+  _delPlayerId = null;
+}
+document.getElementById('deletePlayerModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDeletePlayer();
+});
+async function confirmDeletePlayer() {
+  if (!_delPlayerId) return;
+  const btn = document.getElementById('confirmDeleteBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;border-radius:50%;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;animation:spin .7s linear infinite;"></span>';
+  await sb.from('players').delete().eq('id', _delPlayerId);
+  closeDeletePlayer();
   await loadData();
+  showToast('Player removed');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  setTimeout(() => { t.style.opacity = '0'; }, 2500);
 }
 
 // ─── CSV IMPORT ───────────────────────────────

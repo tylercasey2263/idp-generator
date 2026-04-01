@@ -277,9 +277,23 @@ async function loadIDPs(userId) {
         <div class="page-title">Parent Portal</div>
       </div>
       <div class="info-card">
-        <div class="icon">📋</div>
-        <h2>No players linked yet</h2>
-        <p>Your coach will send you an invite link to connect you to your player's development plan. Once you click the link, their IDP will appear here.</p>
+        <div class="icon">👋</div>
+        <h2>Welcome to Player IDP</h2>
+        <p>You're not linked to any players yet. Here's how to get connected:</p>
+        <div style="text-align:left;margin-top:1.25rem;display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;align-items:flex-start;gap:12px;font-size:13px;color:var(--text-muted);line-height:1.6;">
+            <span style="background:var(--teal-faint);border:1px solid rgba(27,138,107,.35);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--teal-light);font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;flex-shrink:0;margin-top:1px;">1</span>
+            <span>Ask your coach to open the team page, click <strong style="color:var(--text);">👤 Link Parent</strong> next to your player, and send you the invite link.</span>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:12px;font-size:13px;color:var(--text-muted);line-height:1.6;">
+            <span style="background:var(--teal-faint);border:1px solid rgba(27,138,107,.35);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--teal-light);font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;flex-shrink:0;margin-top:1px;">2</span>
+            <span>Click the link they send. You'll be automatically connected to your player's account — no extra steps needed.</span>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:12px;font-size:13px;color:var(--text-muted);line-height:1.6;">
+            <span style="background:var(--teal-faint);border:1px solid rgba(27,138,107,.35);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--teal-light);font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;flex-shrink:0;margin-top:1px;">3</span>
+            <span>Their published development plans will appear here. You can view, print, or save them as PDF any time.</span>
+          </div>
+        </div>
       </div>`;
     return;
   }

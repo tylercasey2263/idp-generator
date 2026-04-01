@@ -139,11 +139,17 @@ input::placeholder { color: var(--text-dim); }
 
 <script>
 let mode = 'signin';
+const _inviteToken = new URLSearchParams(window.location.search).get('invite');
 
 // If already logged in, redirect away
 (async () => {
   const session = await getSession();
-  if (session) redirectAfterLogin(session);
+  if (session) { redirectAfterLogin(session); return; }
+  // Auto-switch to signup and show a welcome note if an invite link was used
+  if (_inviteToken) {
+    setMode('signup');
+    setStatus("You've been invited! Create an account to get started.", 'success');
+  }
 })();
 
 function setMode(m) {
@@ -212,8 +218,9 @@ async function redirectAfterLogin(session) {
   const next = params.get('next');
   if (next) { window.location.href = next; return; }
 
-  // Sync profile email and resolve any pending parent links
+  // Sync profile email, apply invite role, resolve parent links
   await ensureProfile(session);
+  await processInvite(session.user.id, _inviteToken);
   await checkPendingParentLinks(session.user.id, session.user.email);
   const profile = await getProfile(session.user.id);
 

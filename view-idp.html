@@ -256,6 +256,45 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
 }
 .ig-parent-note p { font-size: 13px; color: var(--text-muted); line-height: 1.7; font-style: italic; }
 
+/* ─── DIFF / COMPARE ─── */
+.diff-panel {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;
+}
+.diff-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.diff-panel-title {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim);
+}
+.diff-close {
+  background: none; border: none; color: var(--text-dim); cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 2px 5px; border-radius: 4px;
+  transition: color .15s;
+}
+.diff-close:hover { color: var(--text); }
+.diff-row { display: flex; flex-direction: column; gap: 6px; }
+.diff-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 13px; padding: 7px 10px; border-radius: 6px;
+  background: var(--navy); border: 1px solid var(--border);
+}
+.diff-item.added   { background: #0D2214; border-color: rgba(56,160,80,.25); }
+.diff-item.removed { background: #2E1E05; border-color: rgba(212,135,10,.25); }
+.diff-item.changed { background: #0D1E2E; border-color: rgba(96,165,250,.2); }
+.diff-tag {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; padding: 2px 7px;
+  border-radius: 3px; flex-shrink: 0; margin-top: 1px;
+}
+.diff-tag.added   { background: rgba(56,160,80,.15);  color: #38A050; }
+.diff-tag.removed { background: rgba(212,135,10,.15); color: #F0A020; }
+.diff-tag.changed { background: rgba(96,165,250,.15); color: #60A5FA; }
+.diff-text { color: var(--text-muted); line-height: 1.5; }
+.diff-text em { color: var(--text); font-style: normal; font-weight: 600; }
+
 /* Empty / spinner */
 .empty { text-align: center; padding: 4rem 2rem; color: var(--text-dim); }
 .empty-icon { font-family: 'Barlow Condensed', sans-serif; font-size: 48px; font-weight: 800; opacity: .2; margin-bottom: 1rem; }
@@ -380,7 +419,9 @@ function selectIDP(idx) {
 }
 
 function renderViewer(idp, idx) {
-  const date = formatDate(idp.updated_at);
+  const date     = formatDate(idp.updated_at);
+  const prevIDP  = allIDPs[idx + 1] || null;
+  const showDiff = prevIDP && prevIDP.data;
   return `
     <div class="viewer-toolbar">
       <div class="viewer-info">
@@ -390,6 +431,7 @@ function renderViewer(idp, idx) {
         <span class="viewer-date">${date}</span>
       </div>
       <div class="viewer-actions">
+        ${showDiff ? `<button class="btn btn-ghost btn-sm" id="compareBtn-${idx}" onclick="toggleDiff(${idx})">⇄ What Changed</button>` : ''}
         <a href="/generate.html?idp=${idp.id}&player=${idp.player_id}${teamId ? '&team='+teamId : ''}"
            class="btn btn-ghost btn-sm">✎ Edit</a>
         ${!idp.published
@@ -397,10 +439,78 @@ function renderViewer(idp, idx) {
           : ''}
       </div>
     </div>
+    ${showDiff ? `<div class="diff-panel" id="diffPanel-${idx}" style="display:none;">${buildDiff(prevIDP.data, idp.data)}</div>` : ''}
     <div class="idp-card">
       ${buildInfographic(idp.data)}
     </div>
   `;
+}
+
+function toggleDiff(idx) {
+  const panel = document.getElementById('diffPanel-' + idx);
+  const btn   = document.getElementById('compareBtn-' + idx);
+  if (!panel) return;
+  const showing = panel.style.display !== 'none';
+  panel.style.display = showing ? 'none' : 'block';
+  btn.textContent = showing ? '⇄ What Changed' : '⇄ Hide Changes';
+}
+
+function buildDiff(prev, curr) {
+  const items = [];
+
+  // Focus change
+  if ((prev.focus || '') !== (curr.focus || '')) {
+    items.push({ type: 'changed', label: 'Focus', text: esc(prev.focus || '—') + ' → <em>' + esc(curr.focus || '—') + '</em>' });
+  }
+
+  // Mantra change
+  if ((prev.mantra || '') !== (curr.mantra || '')) {
+    items.push({ type: 'changed', label: 'Mantra', text: esc(prev.mantra || '—') + ' → <em>' + esc(curr.mantra || '—') + '</em>' });
+  }
+
+  // Strengths — titles added or removed
+  const prevStrengths = (prev.strengths || []).map(s => s.title);
+  const currStrengths = (curr.strengths || []).map(s => s.title);
+  currStrengths.filter(t => !prevStrengths.includes(t)).forEach(t => {
+    items.push({ type: 'added', label: 'New strength', text: '<em>' + esc(t) + '</em>' });
+  });
+  prevStrengths.filter(t => !currStrengths.includes(t)).forEach(t => {
+    items.push({ type: 'removed', label: 'Strength removed', text: esc(t) });
+  });
+
+  // Improvements — titles added, resolved, or carried over
+  const prevImprov = (prev.improvements || []).map(s => s.title);
+  const currImprov = (curr.improvements || []).map(s => s.title);
+  prevImprov.filter(t => !currImprov.includes(t)).forEach(t => {
+    items.push({ type: 'added', label: 'Resolved', text: '<em>' + esc(t) + '</em>' });
+  });
+  currImprov.filter(t => !prevImprov.includes(t)).forEach(t => {
+    items.push({ type: 'removed', label: 'New focus area', text: '<em>' + esc(t) + '</em>' });
+  });
+
+  // Duration change
+  if ((prev.duration || '') !== (curr.duration || '')) {
+    items.push({ type: 'changed', label: 'Duration', text: esc(prev.duration || '—') + ' → <em>' + esc(curr.duration || '—') + '</em>' });
+  }
+
+  if (items.length === 0) {
+    return '<div class="diff-panel-header"><div class="diff-panel-title">What Changed</div><button class="diff-close" onclick="toggleDiff(0)">×</button></div>' +
+      '<div style="font-size:13px;color:var(--text-dim);">No structural changes detected between these two IDPs.</div>';
+  }
+
+  const prevDate = formatDate(allIDPs.find(i => i.data === prev)?.updated_at || '');
+  const header = '<div class="diff-panel-header">' +
+    '<div class="diff-panel-title">What Changed <span style="font-weight:400;text-transform:none;letter-spacing:0;font-family:\'Inter\',sans-serif;font-size:11px;margin-left:6px;">vs ' + esc(prevDate) + '</span></div>' +
+    '</div>';
+
+  const rows = items.map(item =>
+    '<div class="diff-item ' + item.type + '">' +
+      '<span class="diff-tag ' + item.type + '">' + esc(item.label) + '</span>' +
+      '<span class="diff-text">' + item.text + '</span>' +
+    '</div>'
+  ).join('');
+
+  return header + '<div class="diff-row">' + rows + '</div>';
 }
 
 async function publishIDP(idpId, idx) {

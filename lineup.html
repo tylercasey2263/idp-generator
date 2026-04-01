@@ -185,6 +185,27 @@ html, body { height: 100vh; overflow: hidden; background: var(--navy);
 }
 .assign-empty { font-size: 12px; color: var(--text-dim); padding: 8px; }
 
+/* ── Lineup name input ── */
+.ctrl-input {
+  width: 100%; background: var(--navy); border: 1px solid var(--border-strong);
+  border-radius: 8px; color: var(--text); font-family: 'Inter', sans-serif;
+  font-size: 13px; padding: 8px 10px; outline: none;
+  transition: border-color .2s;
+}
+.ctrl-input:focus { border-color: var(--teal); }
+.ctrl-input::placeholder { color: var(--text-dim); }
+
+.saved-lineup-row { display: flex; gap: 6px; align-items: center; }
+.saved-lineup-row .ctrl-select { flex: 1; min-width: 0; }
+.lm-btn-icon {
+  padding: 7px 9px; border-radius: 7px; border: 1px solid var(--border-strong);
+  font-size: 13px; cursor: pointer; transition: background .15s; flex-shrink: 0;
+  background: transparent; color: var(--text-muted); line-height: 1;
+}
+.lm-btn-icon:hover { background: var(--navy-light); color: var(--text); }
+.lm-btn-icon.danger { color: #E05050; border-color: rgba(224,80,80,.25); }
+.lm-btn-icon.danger:hover { background: rgba(224,80,80,.1); }
+
 /* ── Toast ── */
 .toast {
   position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
@@ -235,6 +256,23 @@ html, body { height: 100vh; overflow: hidden; background: var(--navy);
       <div>
         <div class="ctrl-label">Formation</div>
         <select id="formationSel" class="ctrl-select" onchange="onFormationChange()"></select>
+      </div>
+
+      <!-- Lineup save -->
+      <div>
+        <div class="ctrl-label">Lineup Name</div>
+        <input type="text" id="lineupName" class="ctrl-input" placeholder="e.g. vs City FC" maxlength="60">
+        <button class="lm-btn lm-btn-primary" style="width:100%;margin-top:6px;" onclick="saveLineup()">Save Lineup</button>
+      </div>
+
+      <!-- Load saved lineups (shown when team has saved lineups) -->
+      <div id="savedLineupsSection" style="display:none;">
+        <div class="ctrl-label">Load Saved</div>
+        <div class="saved-lineup-row">
+          <select id="savedLineupsSel" class="ctrl-select"></select>
+          <button class="lm-btn-icon" onclick="loadSelectedLineup()" title="Load lineup">↓</button>
+          <button class="lm-btn-icon danger" onclick="deleteSelectedLineup()" title="Delete lineup">✕</button>
+        </div>
       </div>
 
       <div class="roster-section">
@@ -478,6 +516,7 @@ let onPitch     = [];    // [{playerId, name, x, y}]
 let currentSlots = [];   // [{id, label, x, y}] from current formation
 let dragging    = null;  // {playerId, source:'roster'|'token'}
 let pendingPlace = null; // {x,y} — pending position for assign picker
+let savedLineups = [];   // [{id, name, formation, positions, created_at}]
 
 // ── Init ─────────────────────────────────────────────────────────────────
 (async () => {
@@ -520,7 +559,14 @@ function onFormatChange() {
 async function onTeamChange() {
   const teamId = document.getElementById('teamSel').value;
   onPitch = [];
-  if (!teamId) { allPlayers = []; renderRoster(); renderPitch(); return; }
+  if (!teamId) {
+    allPlayers = [];
+    savedLineups = [];
+    updateSavedLineupsUI();
+    renderRoster();
+    renderPitch();
+    return;
+  }
 
   const { data: players } = await sb
     .from('players').select('id, name, positions').eq('team_id', teamId).order('name');
@@ -536,6 +582,7 @@ async function onTeamChange() {
   allPlayers = Object.values(map).sort((a,b) => a.name.localeCompare(b.name));
   renderRoster();
   renderPitch();
+  await loadLineups();
 }
 
 function onFormationChange() {
@@ -778,6 +825,92 @@ document.addEventListener('click', e => {
   if (!document.getElementById('assignPicker').contains(e.target)) closeAssignPicker();
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAssignPicker(); });
+
+// ── Save / Load lineups ───────────────────────────────────────────────────
+async function loadLineups() {
+  const teamId = document.getElementById('teamSel').value;
+  if (!teamId) { savedLineups = []; updateSavedLineupsUI(); return; }
+  const { data } = await sb.from('lineups')
+    .select('id,name,formation,positions,created_at')
+    .eq('team_id', teamId)
+    .order('created_at', { ascending: false });
+  savedLineups = data || [];
+  updateSavedLineupsUI();
+}
+
+function updateSavedLineupsUI() {
+  const section = document.getElementById('savedLineupsSection');
+  const sel = document.getElementById('savedLineupsSel');
+  if (savedLineups.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  sel.innerHTML = savedLineups.map(l =>
+    `<option value="${esc(l.id)}">${esc(l.name)}</option>`
+  ).join('');
+}
+
+async function saveLineup() {
+  const teamId = document.getElementById('teamSel').value;
+  if (!teamId) { toast('Select a team first'); return; }
+  if (onPitch.length === 0) { toast('Place players on the pitch first'); return; }
+
+  const name = document.getElementById('lineupName').value.trim() || 'Lineup';
+  const format = document.getElementById('formatSel').value;
+  const formation = document.getElementById('formationSel').value;
+  const userId = (await sb.auth.getUser()).data.user?.id;
+
+  const { error } = await sb.from('lineups').insert({
+    team_id: teamId,
+    name,
+    formation: format + ':' + formation,
+    positions: onPitch,
+    created_by: userId,
+  });
+
+  if (error) { toast('Save failed'); console.error(error); return; }
+  toast('Lineup saved ✓');
+  await loadLineups();
+}
+
+async function loadSelectedLineup() {
+  const id = document.getElementById('savedLineupsSel').value;
+  if (!id) return;
+  const lineup = savedLineups.find(l => l.id === id);
+  if (!lineup) return;
+
+  // Restore format + formation
+  const parts = (lineup.formation || ':').split(':');
+  const fmt = parts[0]; const fmn = parts[1];
+  if (fmt && FORMATS[fmt]) {
+    document.getElementById('formatSel').value = fmt;
+    populateFormations(fmt);
+  }
+  if (fmn) {
+    document.getElementById('formationSel').value = fmn;
+    applyFormation(fmn);
+  }
+
+  // Restore positions
+  onPitch = Array.isArray(lineup.positions) ? lineup.positions : [];
+
+  // Restore name
+  document.getElementById('lineupName').value = lineup.name;
+
+  renderPitch();
+  toast('Lineup loaded ✓');
+}
+
+async function deleteSelectedLineup() {
+  const id = document.getElementById('savedLineupsSel').value;
+  if (!id) return;
+  const lineup = savedLineups.find(l => l.id === id);
+  if (!lineup) return;
+  if (!confirm(`Delete "${lineup.name}"?`)) return;
+
+  const { error } = await sb.from('lineups').delete().eq('id', id);
+  if (error) { toast('Delete failed'); return; }
+  toast('Lineup deleted');
+  await loadLineups();
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function eventToPct(e) {

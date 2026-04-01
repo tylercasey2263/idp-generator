@@ -9,89 +9,48 @@
 3. Add authorized redirect URI: `https://uarsodrarfnkodnfoclt.supabase.co/auth/v1/callback`
 4. Copy Client ID + Client Secret
 5. In Supabase → Authentication → Providers → Google → paste both values → Enable
-6. Claude adds "Sign in with Google" button to login.html (5 min)
+6. Add "Sign in with Google" button to login.html
 
 ---
 
-## 📋 TDP — Team Development Plan
-**Effort:** Medium (1-2 hours)
-
-Generate a team-level plan by aggregating all player IDPs on a team.
-- Button on team page: "Generate Team Plan"
-- Fetches latest IDP for each player
-- Sends combined data to Claude with a team-focused prompt
-- Output: team strengths, collective weaknesses, suggested training themes
-- Save/publish same as individual IDPs
-
----
-
-## 📧 Coach & Admin Invite Links
+## 📤 IDP Email / Share
 **Effort:** Medium (~1 hour)
 
-- Admin generates invite link with a pre-set role (Coach or Admin)
-- Token stored in new `invites` table in Supabase
-- User signs up via `/login.html?invite=TOKEN`
-- After signup, role is automatically assigned from the token
-- Manage active invites in Settings page
-
-### SQL needed:
-```sql
-CREATE TABLE public.invites (
-  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  token      text UNIQUE DEFAULT gen_random_uuid()::text,
-  role       text NOT NULL CHECK (role IN ('coach','admin')),
-  label      text,
-  created_by uuid REFERENCES public.profiles(id),
-  used_by    uuid REFERENCES public.profiles(id),
-  used_at    timestamptz,
-  created_at timestamptz DEFAULT now()
-);
-ALTER TABLE public.invites DISABLE ROW LEVEL SECURITY;
-```
+- "Share IDP" button on view-idp.html
+- Generates a public read-only URL (token-based, no login required)
+- Or: email the HTML file directly via a transactional email service (Resend, SendGrid)
 
 ---
 
-## ⚽ Custom Lineup Manager (replace Coach Assist iframe)
-**Effort:** Large (~2-3 hours)
+## 📅 Season / Cohort View
+**Effort:** Medium (~2 hours)
 
-Build a fully integrated lineup/formation tool using our own teams and players.
+- Timeline view showing all IDPs for a team across a season
+- Group by phase (Foundation / Assert / Progress / Excel)
+- Useful for parent evenings and season reviews
 
-### Features:
-- SVG soccer pitch (field lines, goals, center circle, penalty areas)
-- Drag-and-drop player tokens positioned on the field
-- Formation presets: 4-3-3, 4-4-2, 4-2-3-1, 3-5-2, 5-3-2
-- Bench area for unplaced players
-- Team selector pulling from real Supabase teams
-- Player roster auto-loaded from selected team
-- Save lineup to Supabase (loadable next session)
-- Print / export formation view
+---
 
-### SQL needed:
-```sql
-CREATE TABLE public.lineups (
-  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  team_id    uuid REFERENCES public.teams(id) ON DELETE CASCADE,
-  name       text NOT NULL DEFAULT 'Lineup',
-  formation  text,
-  positions  jsonb NOT NULL DEFAULT '[]',
-  created_by uuid REFERENCES public.profiles(id),
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
-ALTER TABLE public.lineups DISABLE ROW LEVEL SECURITY;
-```
+## 🏅 Player Progress Tracker
+**Effort:** Large (~3 hours)
+
+- Track improvement scores across IDP versions (e.g. a coach manually rates 1–5 per improvement area after each session)
+- Sparkline chart per player showing trend over time
+- Highlight most improved players on the dashboard
 
 ---
 
 ## ✅ Completed
+
+### Core App
 - [x] Inline IDP edit mode
-- [x] Netlify deployment
+- [x] Netlify → GitHub Pages deployment
 - [x] Supabase auth (email/password)
 - [x] Coach dashboard + team management
 - [x] Player management (add, edit, delete, CSV import)
 - [x] Club-wide All Players page with search & filter
-- [x] IDP generator with Claude AI
-- [x] Save & Publish IDPs
+- [x] IDP generator with Claude AI (`claude-sonnet-4-20250514`)
+- [x] Save & Publish IDPs to Supabase
 - [x] Parent portal with invite links
 - [x] Sidebar navigation (all pages)
 - [x] Settings page (admin only) — club name, logo, API key, user management
@@ -102,4 +61,33 @@ ALTER TABLE public.lineups DISABLE ROW LEVEL SECURITY;
 - [x] Team search on dashboard
 - [x] API key masked in settings (last 4 chars only)
 - [x] Root URL redirects to login
-- [x] Custom Lineup Manager (replacing Coach Assist iframe) ← IN PROGRESS
+
+### Lineup Manager
+- [x] SVG pitch with full field markings
+- [x] Drag-and-drop player tokens
+- [x] Formation presets: 11v11 (7), 9v9 (5), 7v7 (5)
+- [x] Custom free-place mode
+- [x] Assign-picker on click
+- [x] Save named lineups to Supabase (`lineups` table)
+- [x] Load saved lineups per team (restores format, formation, positions)
+- [x] Delete saved lineups
+- [x] Print view
+
+### Team Development Plan
+- [x] Two-panel layout (inputs + infographic)
+- [x] Claude AI aggregates all player IDPs into team-level plan
+- [x] Team strengths, improvements, training themes, player spotlights, game week focus, season vision
+- [x] Save & Publish to `team_plans` table
+
+### UX Improvements
+- [x] Dashboard stats bar (players, IDPs generated, % published)
+- [x] IDP age/timestamp on team page badges
+- [x] Team summary line (player count, IDP coverage)
+- [x] Parent portal step-by-step empty state
+- [x] Player notes scratchpad (coach-only, on edit modal)
+- [x] IDP "What Changed" diff view between versions
+- [x] Training session log (date, focus, notes) per team
+- [x] Mobile responsive layout (generate.html, team-plan.html)
+- [x] Toast notifications (dashboard, team, players pages)
+- [x] Delete confirmation modals (players, team page)
+- [x] 🎙 Microphone dictation on all note/transcript fields

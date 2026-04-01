@@ -314,9 +314,12 @@
     body { background: #0D1B2A; }
   }
   @media (max-width: 768px) {
-    .main { grid-template-columns: 1fr; }
-    .left-panel { max-height: none; position: static; border-right: none; border-bottom: 1px solid var(--border); }
+    .main { grid-template-columns: 1fr; min-height: auto; }
+    .left-panel { max-height: none; position: static; border-right: none;
+      border-bottom: 1px solid var(--border); padding: 1.25rem; }
     .right-panel { max-height: none; }
+    .row { grid-template-columns: 1fr; }
+    .download-bar { flex-wrap: wrap; gap: 6px; }
     #infographic .stats-row { grid-template-columns: 1fr 1fr; }
     #infographic .card-grid { grid-template-columns: 1fr; }
     #infographic .micro-grid { grid-template-columns: 1fr; }

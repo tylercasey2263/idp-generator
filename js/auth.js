@@ -34,6 +34,27 @@ async function ensureProfile(session) {
   await sb.from('profiles').update({ email: user.email }).eq('id', user.id);
 }
 
+// If the URL contains ?invite=TOKEN, apply the role from the invite and mark it used.
+// Respects role hierarchy — never demotes a higher-level user.
+async function processInvite(userId, token) {
+  if (!token) return;
+  const { data: invite } = await sb.from('invites')
+    .select('id, role')
+    .eq('token', token)
+    .is('used_at', null)
+    .maybeSingle();
+  if (!invite) return;
+
+  const hierarchy = { admin: 3, coach: 2, parent: 1 };
+  const { data: profile } = await sb.from('profiles').select('role').eq('id', userId).maybeSingle();
+  if ((hierarchy[invite.role] || 0) > (hierarchy[profile?.role] || 0)) {
+    await sb.from('profiles').update({ role: invite.role }).eq('id', userId);
+  }
+  await sb.from('invites')
+    .update({ used_by: userId, used_at: new Date().toISOString() })
+    .eq('id', invite.id);
+}
+
 // If a coach pre-linked this email to any players, complete the association now.
 // Returns true if any new links were found (so redirectAfterLogin can route to /parent.html).
 // Never downgrades a coach or admin — highest permission always wins.

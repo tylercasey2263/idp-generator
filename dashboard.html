@@ -144,6 +144,34 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text);
   border: 1px solid rgba(224,80,80,0.25); margin-left: auto; }
 .btn-sm-danger:hover { background: rgba(224,80,80,0.08); border-color: rgba(224,80,80,0.5); }
 
+/* ─── STATS BAR ─── */
+.stats-bar {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 10px;
+  margin-bottom: 1.5rem;
+}
+.stat-block {
+  background: var(--navy-mid); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 18px;
+}
+.stat-block .val {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 30px;
+  font-weight: 800; color: var(--text); line-height: 1;
+}
+.stat-block .lbl {
+  font-size: 11px; color: var(--text-dim); text-transform: uppercase;
+  letter-spacing: .08em; margin-top: 4px; font-weight: 600;
+}
+
+/* ─── TOAST ─── */
+.toast {
+  position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 8px; padding: 10px 20px; font-size: 13px;
+  color: var(--teal-light); z-index: 999; opacity: 0;
+  transition: opacity 0.2s; pointer-events: none; white-space: nowrap;
+}
+.toast.show { opacity: 1; }
+
 /* ─── EMPTY STATE ─── */
 .empty { text-align: center; padding: 4rem 2rem; color: var(--text-dim); }
 .empty-icon {
@@ -202,6 +230,12 @@ input::placeholder { color: var(--text-dim); }
     <button class="btn btn-primary" onclick="openAddTeam()">+ Add Team</button>
   </div>
 
+  <div class="stats-bar">
+    <div class="stat-block"><div class="val" id="statPlayers">—</div><div class="lbl">Total Players</div></div>
+    <div class="stat-block"><div class="val" id="statIDPs">—</div><div class="lbl">IDPs Generated</div></div>
+    <div class="stat-block"><div class="val" id="statPublished">—</div><div class="lbl">Published</div></div>
+  </div>
+
   <div class="search-bar-wrap">
     <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
       <circle cx="6" cy="6" r="4.5" stroke="#94A3B8" stroke-width="1.5"/>
@@ -222,6 +256,8 @@ input::placeholder { color: var(--text-dim); }
   <div id="playerResults"></div>
 </div>
 </div>
+
+<div class="toast" id="toast"></div>
 
 <!-- DELETE CONFIRM MODAL -->
 <div class="overlay" id="deleteConfirmModal">
@@ -269,7 +305,40 @@ let allPlayers = [];   // populated after teams load for combined search
   await renderSidebar('dashboard');
   loadTeams();
   loadAllPlayers();   // background — no await
+  loadStats();        // background — no await
 })();
+
+async function loadStats() {
+  const { data: rows } = await sb.from('coach_teams').select('team_id').eq('coach_id', coachId);
+  const teamIds = (rows || []).map(r => r.team_id);
+  if (!teamIds.length) {
+    document.getElementById('statPlayers').textContent   = '0';
+    document.getElementById('statIDPs').textContent      = '0';
+    document.getElementById('statPublished').textContent = '—';
+    return;
+  }
+  const { data: players } = await sb.from('players').select('id').in('team_id', teamIds);
+  const playerCount = (players || []).length;
+  document.getElementById('statPlayers').textContent = playerCount;
+  if (!playerCount) {
+    document.getElementById('statIDPs').textContent      = '0';
+    document.getElementById('statPublished').textContent = '—';
+    return;
+  }
+  const playerIds = players.map(p => p.id);
+  const { data: idps } = await sb.from('idps').select('id, published').in('player_id', playerIds);
+  const total     = (idps || []).length;
+  const published = (idps || []).filter(i => i.published).length;
+  document.getElementById('statIDPs').textContent      = total;
+  document.getElementById('statPublished').textContent = total > 0 ? Math.round(published / total * 100) + '%' : '—';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
 
 async function loadAllPlayers() {
   // Simple select without embedded join to avoid FK-dependency issues
@@ -450,6 +519,8 @@ async function confirmDelete() {
   window._allTeamRows = (window._allTeamRows || []).filter(r => r.team_id !== _pendingDeleteId);
   closeDeleteConfirm();
   renderTeamCards(window._allTeamRows, window._countMap || {});
+  loadStats();
+  showToast('Team deleted');
 }
 
 function openAddTeam() {
@@ -514,6 +585,8 @@ async function saveTeam() {
   btn.disabled = false; btn.textContent = 'Create Team';
   closeAddTeam();
   loadTeams();
+  loadStats();
+  showToast('Team created ✓');
 }
 
 function esc(str) {
