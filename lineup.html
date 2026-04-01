@@ -121,7 +121,7 @@ html, body { height: 100vh; overflow: hidden; background: var(--navy);
   letter-spacing: .06em; color: rgba(255,255,255,0.35);
   font-family: 'Barlow Condensed', sans-serif;
   cursor: pointer; transition: border-color .15s, background .15s;
-  z-index: 2;
+  z-index: 2; pointer-events: auto;
 }
 .slot:hover, .slot.drag-over {
   border-color: rgba(34,168,130,.7);
@@ -141,7 +141,7 @@ html, body { height: 100vh; overflow: hidden; background: var(--navy);
   cursor: grab; z-index: 3; user-select: none;
   box-shadow: 0 2px 8px rgba(0,0,0,.4);
   transition: box-shadow .15s, transform .1s;
-  line-height: 1.1; padding: 2px;
+  line-height: 1.1; padding: 2px; pointer-events: auto;
 }
 .player-token:hover {
   box-shadow: 0 4px 14px rgba(0,0,0,.5);
@@ -678,7 +678,9 @@ function renderTokens() {
          draggable="true"
          data-id="${t.playerId}"
          ondragstart="tokenDragStart(event,'${t.playerId}')"
-         ondragend="tokenDragEnd(event)">
+         ondragend="tokenDragEnd(event)"
+         ondragover="event.preventDefault()"
+         ondrop="pitchFreeDrop(event)">
       ${esc(shortName(t.name))}
       <span class="tok-remove" onclick="removeToken(event,'${t.playerId}')">✕</span>
     </div>`).join('');
@@ -738,7 +740,8 @@ function setupPitchEvents() {
     container.classList.remove('drag-target');
     if (!dragging) return;
     const {x, y} = eventToPct(e);
-    placePlayer(dragging.playerId, x, y);
+    const snapped = nearestSlotPos(x, y, dragging.playerId);
+    placePlayer(dragging.playerId, snapped.x, snapped.y);
     dragging = null;
     renderPitch();
   });
@@ -813,9 +816,44 @@ function showAssignPicker(clientX, clientY, pitchX, pitchY) {
 }
 
 function assignPickerSelect(playerId) {
-  placePlayer(playerId, _pickerX, _pickerY);
+  const snapped = nearestSlotPos(_pickerX, _pickerY, playerId);
+  placePlayer(playerId, snapped.x, snapped.y);
   closeAssignPicker();
   renderPitch();
+}
+
+// Drop that lands on an existing token (passes through to pitch logic)
+function pitchFreeDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.getElementById('pitchContainer').classList.remove('drag-target');
+  if (!dragging) return;
+  const {x, y} = eventToPct(e);
+  const snapped = nearestSlotPos(x, y, dragging.playerId);
+  placePlayer(dragging.playerId, snapped.x, snapped.y);
+  dragging = null;
+  renderPitch();
+}
+
+// Snap to the nearest unoccupied formation slot.
+// In custom mode, returns the raw coordinates unchanged.
+function nearestSlotPos(x, y, excludePlayerId) {
+  const formation = document.getElementById('formationSel').value;
+  if (formation === 'custom' || currentSlots.length === 0) return {x, y};
+
+  let nearest = null, nearestDist = Infinity;
+  currentSlots.forEach(s => {
+    // Skip slots already occupied by another placed player
+    const occupied = onPitch.some(t =>
+      t.playerId !== excludePlayerId &&
+      Math.abs(t.x - s.x) < 5 && Math.abs(t.y - s.y) < 5
+    );
+    if (occupied) return;
+    const dist = Math.sqrt((x - s.x) ** 2 + (y - s.y) ** 2);
+    if (dist < nearestDist) { nearest = s; nearestDist = dist; }
+  });
+
+  return nearest ? {x: nearest.x, y: nearest.y} : {x, y};
 }
 
 function closeAssignPicker() {
