@@ -8,6 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/js/auth.js"></script>
 <script src="/js/nav.js"></script>
+<script src="/js/pos-picker.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -173,6 +174,50 @@ input::placeholder { color: var(--text-dim); }
   transition: opacity 0.2s; pointer-events: none;
 }
 .toast.show { opacity: 1; }
+
+/* ─── POSITION PICKER ─── */
+.pos-picker { position: relative; }
+.pos-trigger {
+  display: flex; align-items: center; gap: 8px; min-height: 42px;
+  background: var(--navy); border: 1px solid var(--border-strong);
+  border-radius: 8px; padding: 6px 11px; cursor: pointer;
+  transition: border-color .2s;
+}
+.pos-trigger:hover, .pos-trigger.open { border-color: var(--teal); }
+.pos-chips-wrap { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; align-items: center; }
+.pos-ph { font-size: 14px; color: var(--text-dim); line-height: 1; }
+.pos-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--teal-faint); border: 1px solid rgba(27,138,107,.4);
+  color: var(--teal-light); font-size: 12px; font-weight: 600;
+  padding: 2px 8px; border-radius: 4px; white-space: nowrap;
+}
+.pos-chip-x {
+  cursor: pointer; opacity: .7; font-size: 13px; line-height: 1;
+  background: none; border: none; color: inherit; padding: 0 0 0 2px;
+}
+.pos-chip-x:hover { opacity: 1; }
+.pos-caret { flex-shrink: 0; opacity: .5; transition: transform .15s; color: var(--text-muted); }
+.pos-panel {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 10px; z-index: 250;
+  max-height: 270px; overflow-y: auto;
+}
+.pos-group { margin-bottom: 8px; }
+.pos-group:last-child { margin-bottom: 0; }
+.pos-group-lbl {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--text-dim); padding: 2px 6px 4px;
+}
+.pos-group-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; }
+.pos-opt {
+  display: flex; align-items: center; gap: 7px; font-size: 13px;
+  color: var(--text-muted); padding: 5px 8px; border-radius: 5px;
+  cursor: pointer; transition: background .1s; user-select: none;
+}
+.pos-opt:hover { background: var(--navy-light); color: var(--text); }
+.pos-opt input[type="checkbox"] { accent-color: var(--teal); width: 14px; height: 14px; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -217,8 +262,8 @@ input::placeholder { color: var(--text-dim); }
     </div>
     <div class="field">
       <label>Position(s) (optional)</label>
-      <input type="text" id="playerPositions" placeholder="e.g. Central Midfielder"
-             onkeydown="if(event.key==='Enter') savePlayer()" />
+      <div id="addPosPicker" class="pos-picker"></div>
+      <input type="hidden" id="playerPositions" />
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeAddPlayer()">Cancel</button>
@@ -238,7 +283,8 @@ input::placeholder { color: var(--text-dim); }
     </div>
     <div class="field">
       <label>Position(s)</label>
-      <input type="text" id="editPlayerPositions" placeholder="e.g. Central Midfielder" />
+      <div id="editPosPicker" class="pos-picker"></div>
+      <input type="hidden" id="editPlayerPositions" />
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeEditPlayer()">Cancel</button>
@@ -577,7 +623,7 @@ async function saveLinkParent() {
 
 function openAddPlayer() {
   document.getElementById('playerName').value = '';
-  document.getElementById('playerPositions').value = '';
+  resetPosPicker('addPosPicker');
   document.getElementById('addPlayerStatus').textContent = '';
   document.getElementById('addPlayerModal').classList.add('open');
   setTimeout(() => document.getElementById('playerName').focus(), 80);
@@ -624,7 +670,7 @@ let editingPlayerId = null;
 function openEditPlayer(id, name, positions) {
   editingPlayerId = id;
   document.getElementById('editPlayerName').value = name;
-  document.getElementById('editPlayerPositions').value = positions;
+  setPosValue('editPosPicker', positions || '');
   document.getElementById('editPlayerStatus').textContent = '';
   document.getElementById('editPlayerModal').classList.add('open');
   setTimeout(() => document.getElementById('editPlayerName').focus(), 80);
@@ -786,6 +832,10 @@ function esc(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+
+// Initialise position pickers (runs after DOM is ready)
+initPosPicker('addPosPicker',  'playerPositions');
+initPosPicker('editPosPicker', 'editPlayerPositions');
 </script>
 </body>
 </html>
