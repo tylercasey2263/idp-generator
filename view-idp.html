@@ -314,6 +314,14 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
   .ig-micro-grid { grid-template-columns: 1fr; }
   .idp-list-item { flex-wrap: wrap; }
 }
+.toast {
+  position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 8px; padding: 9px 20px; font-size: 13px;
+  color: var(--teal-light); z-index: 999; opacity: 0;
+  transition: opacity .2s; pointer-events: none; white-space: nowrap;
+}
+.toast.show { opacity: 1; }
 </style>
 </head>
 <body>
@@ -323,6 +331,7 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
   <div class="spinner"></div>
 </div>
 </div>
+<div id="toast" class="toast"></div>
 
 <script>
 const params   = new URLSearchParams(window.location.search);
@@ -435,9 +444,9 @@ function renderViewer(idp, idx) {
         ${showDiff ? `<button class="btn btn-ghost btn-sm" id="compareBtn-${idx}" onclick="toggleDiff(${idx})">⇄ What Changed</button>` : ''}
         <a href="/generate.html?idp=${idp.id}&player=${idp.player_id}${teamId ? '&team='+teamId : ''}"
            class="btn btn-ghost btn-sm">✎ Edit</a>
-        ${!idp.published
-          ? `<button class="btn btn-primary btn-sm" onclick="publishIDP('${idp.id}', ${idx})">⬆ Publish</button>`
-          : ''}
+        ${idp.published
+          ? `<button class="btn btn-ghost btn-sm" onclick="shareIDP('${idp.id}', ${idx})">🔗 Share with Player</button>`
+          : `<button class="btn btn-primary btn-sm" onclick="publishIDP('${idp.id}', ${idx})">⬆ Publish</button>`}
       </div>
     </div>
     ${showDiff ? `<div class="diff-panel" id="diffPanel-${idx}" style="display:none;">${buildDiff(prevIDP.data, idp.data)}</div>` : ''}
@@ -616,6 +625,39 @@ function buildInfographic(d) {
       <p>${esc(d.parentNote || '')}</p>
     </div>
   `;
+}
+
+// ── Share with Player ────────────────────────────────────────────────────
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+async function shareIDP(idpId, idx) {
+  let token = allIDPs[idx].share_token;
+  if (!token) {
+    token = generateUUID();
+    const { error } = await sb.from('idps').update({ share_token: token }).eq('id', idpId);
+    if (error) { showToast('Failed to create link'); return; }
+    allIDPs[idx].share_token = token;
+  }
+  const url = `${window.location.origin}/player-view.html?token=${token}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('Player link copied! ✓');
+  } catch {
+    prompt('Copy this link for the player:', url);
+  }
+}
+
+let _toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
 }
 
 function esc(s) {

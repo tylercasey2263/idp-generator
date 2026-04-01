@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Development Plan — Player IDP</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/config.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0D1B2A; --navy-mid: #1A2E44; --navy-light: #243B55;
+  --teal: #1B8A6B; --teal-light: #22A882; --teal-faint: #0D2E25;
+  --amber: #D4870A; --amber-light: #F0A020; --amber-faint: #2E1E05;
+  --text: #EDF2F7; --text-muted: #A8B8CC; --text-dim: #64748B;
+  --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
+}
+html, body { min-height: 100vh; background: var(--navy); color: var(--text); font-family: 'Inter', sans-serif; font-size: 15px; }
+
+/* ── Top bar ── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem; height: 56px;
+  background: var(--navy-mid); border-bottom: 1px solid var(--border-strong);
+}
+.topbar-brand {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 18px;
+  font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--teal-light);
+}
+.btn-pdf {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-strong);
+  font-family: 'Barlow Condensed', sans-serif; font-size: 12px;
+  font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  cursor: pointer; background: transparent; color: var(--text-dim);
+  transition: all .15s;
+}
+.btn-pdf:hover { color: var(--text); border-color: rgba(255,255,255,.3); }
+
+/* ── Hero ── */
+.hero {
+  background: linear-gradient(135deg, var(--navy-mid) 0%, #0f2235 100%);
+  border-bottom: 1px solid var(--border-strong);
+  padding: 2.5rem 2rem 2rem;
+  text-align: center;
+}
+.hero-label {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 700;
+  letter-spacing: .2em; text-transform: uppercase; color: var(--teal-light);
+  margin-bottom: .75rem;
+}
+.hero-name {
+  font-family: 'Barlow Condensed', sans-serif; font-size: clamp(48px, 10vw, 80px);
+  font-weight: 800; line-height: 1; color: var(--text);
+  text-transform: uppercase; letter-spacing: .02em;
+}
+.hero-name span { color: var(--teal-light); }
+.hero-sub {
+  margin-top: .75rem; font-size: 14px; color: var(--text-dim);
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase;
+}
+
+/* ── Page ── */
+.page { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+/* ── IDP card (copied from view-idp.html) ── */
+.idp-card {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 12px; padding: 2.25rem; font-family: 'Inter', sans-serif;
+}
+.ig-header {
+  display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 1rem;
+  padding-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,.1);
+  margin-bottom: 1.75rem;
+}
+.ig-player-name {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 48px; font-weight: 800;
+  line-height: 1; color: var(--text);
+}
+.ig-player-name em { color: var(--teal-light); font-style: normal; }
+.ig-sub {
+  font-size: 13px; color: var(--text-dim); margin-top: 6px;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase;
+}
+.ig-pos-badge {
+  display: inline-block; background: var(--teal-faint); border: 1px solid var(--teal);
+  color: var(--teal-light); font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  padding: 6px 14px; border-radius: 5px;
+}
+.ig-phase { display: block; font-size: 12px; color: var(--text-dim); margin-top: 7px;
+  font-family: 'Barlow Condensed', sans-serif; letter-spacing: .08em; text-transform: uppercase; text-align: right; }
+.ig-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 1.75rem; }
+.ig-stat { background: var(--navy-light); border: 1px solid var(--border-strong); border-radius: 10px; padding: 14px 16px; }
+.ig-stat-val { font-family: 'Barlow Condensed', sans-serif; font-size: 19px; font-weight: 700; color: var(--text); line-height: 1.2; }
+.ig-stat-lbl { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .08em; margin-top: 4px; font-weight: 600; }
+.ig-sec-label {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--text-dim);
+  margin-bottom: 10px; margin-top: 1.75rem;
+}
+.ig-divider { border: none; border-top: 1px solid rgba(255,255,255,.08); margin: 1.75rem 0 0; }
+.ig-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ig-card { border-radius: 10px; padding: 14px 16px; border: 1px solid rgba(255,255,255,.07); }
+.ig-card.green { background: #0D2214; border-color: rgba(56,160,80,.25); }
+.ig-card.amber { background: #2E1E05; border-color: rgba(212,135,10,.25); }
+.ig-card h4 { font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; display: flex; align-items: center; gap: 7px; }
+.ig-card .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.ig-card p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+.ig-plan-list { display: flex; flex-direction: column; gap: 8px; }
+.ig-plan-item { display: grid; grid-template-columns: 110px 1fr; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,.07); }
+.ig-plan-badge { display: flex; align-items: center; justify-content: center; text-align: center; font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 12px 8px; line-height: 1.4; }
+.ig-plan-badge.purple { background: #1A1230; color: #7357C8; border-right: 1px solid rgba(115,87,200,.2); }
+.ig-plan-badge.amber  { background: #2E1E05; color: #F0A020; border-right: 1px solid rgba(212,135,10,.2); }
+.ig-plan-badge.teal   { background: #0D2E25; color: #22A882; border-right: 1px solid rgba(27,138,107,.2); }
+.ig-plan-badge.blue   { background: #0D1E2E; color: #60A5FA; border-right: 1px solid rgba(96,165,250,.2); }
+.ig-plan-content { background: var(--navy-light); padding: 12px 16px; }
+.ig-plan-content h4 { font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.ig-plan-content ul { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.ig-plan-content ul li { font-size: 13px; color: var(--text-muted); display: flex; gap: 8px; align-items: flex-start; line-height: 1.55; }
+.ig-plan-content ul li::before { content: '—'; color: var(--text-dim); flex-shrink: 0; }
+.ig-micro-label { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #60A5FA; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; margin-top: 1.75rem; }
+.ig-micro-label::after { content: ''; flex: 1; height: 1px; background: rgba(96,165,250,.2); }
+.ig-micro-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+.ig-micro-card { background: #0D1E2E; border: 1px solid rgba(96,165,250,.2); border-radius: 10px; padding: 14px; text-align: center; }
+.ig-micro-num { font-family: 'Barlow Condensed', sans-serif; font-size: 32px; font-weight: 800; color: #60A5FA; line-height: 1; }
+.ig-micro-desc { font-size: 12px; color: var(--text-muted); margin-top: 5px; line-height: 1.5; }
+.ig-gameday { background: var(--navy-light); border: 1px solid rgba(255,255,255,.1); border-radius: 10px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+.ig-gameday-label { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); white-space: nowrap; }
+.ig-gameday-text { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; color: var(--text); }
+.ig-gameday-text em { color: var(--teal-light); font-style: normal; }
+.ig-goal { background: var(--teal-faint); border: 1px solid rgba(27,138,107,.35); border-radius: 10px; padding: 18px 20px; margin-top: 10px; display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; }
+.ig-goal-label { font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 700; color: var(--teal-light); text-transform: uppercase; letter-spacing: .1em; white-space: nowrap; }
+.ig-goal p { font-size: 14px; color: var(--text-muted); line-height: 1.65; }
+.ig-parent-note { margin-top: 1.5rem; border-left: 3px solid rgba(255,255,255,.12); padding: 12px 18px; background: var(--navy-light); border-radius: 0 10px 10px 0; }
+.ig-parent-note-label { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 7px; }
+.ig-parent-note p { font-size: 13px; color: var(--text-muted); line-height: 1.7; font-style: italic; }
+
+/* ── States ── */
+.spinner { display: block; width: 32px; height: 32px; border: 3px solid var(--border-strong); border-top-color: var(--teal-light); border-radius: 50%; animation: spin .7s linear infinite; margin: 5rem auto; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.not-found { text-align: center; padding: 5rem 2rem; }
+.not-found-icon { font-family: 'Barlow Condensed', sans-serif; font-size: 64px; font-weight: 800; color: var(--teal-light); opacity: .25; line-height: 1; margin-bottom: 1rem; }
+.not-found h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 700; margin-bottom: .5rem; }
+.not-found p { font-size: 14px; color: var(--text-dim); }
+
+/* ── Footer ── */
+.footer { text-align: center; padding: 2rem; font-size: 12px; color: var(--text-dim); border-top: 1px solid var(--border); margin-top: 3rem; }
+
+/* ── Print ── */
+@media print {
+  .topbar, .hero, .footer { display: none !important; }
+  body { background: #0D1B2A; }
+  .page { padding: 0; max-width: 100%; }
+  .idp-card { border: none; }
+}
+
+/* ── Mobile ── */
+@media (max-width: 640px) {
+  .ig-header { grid-template-columns: 1fr; }
+  .ig-stats { grid-template-columns: 1fr 1fr; }
+  .ig-card-grid { grid-template-columns: 1fr; }
+  .ig-micro-grid { grid-template-columns: 1fr; }
+  .ig-plan-item { grid-template-columns: 80px 1fr; }
+  .hero { padding: 1.5rem 1rem 1.25rem; }
+  .page { padding: 1.25rem 1rem 3rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">⚽ Player IDP</div>
+  <button class="btn-pdf" onclick="window.print()">⬒ Save as PDF</button>
+</div>
+
+<div id="hero" style="display:none;" class="hero">
+  <div class="hero-label">Your Individual Development Plan</div>
+  <div class="hero-name" id="heroName"></div>
+  <div class="hero-sub" id="heroSub"></div>
+</div>
+
+<div class="page">
+  <div id="content"><div class="spinner"></div></div>
+</div>
+
+<div class="footer" id="footer" style="display:none;">
+  Prepared by your coaching staff · Player IDP
+</div>
+
+<script>
+const sb = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+
+const token = new URLSearchParams(window.location.search).get('token');
+
+(async () => {
+  const content = document.getElementById('content');
+
+  if (!token) {
+    showNotFound('No plan link provided.'); return;
+  }
+
+  const { data: idp, error } = await sb
+    .from('idps')
+    .select('*')
+    .eq('share_token', token)
+    .eq('published', true)
+    .maybeSingle();
+
+  if (error || !idp || !idp.data) {
+    showNotFound("This plan isn't available. Ask your coach to check the link."); return;
+  }
+
+  // Fetch player info
+  const { data: player } = await sb
+    .from('players').select('name, positions').eq('id', idp.player_id).maybeSingle();
+
+  const name = idp.data.playerName || player?.name || 'Player';
+  const pos  = idp.data.position  || player?.positions || '';
+
+  // Populate hero
+  const parts = name.trim().split(/\s+/);
+  const heroName = document.getElementById('heroName');
+  if (parts.length >= 2) {
+    heroName.innerHTML = parts.slice(0, -1).join(' ') + ' <span>' + esc(parts[parts.length - 1]) + '</span>';
+  } else {
+    heroName.innerHTML = '<span>' + esc(name) + '</span>';
+  }
+  document.getElementById('heroSub').textContent = pos ? pos + ' · Development Plan' : 'Development Plan';
+  document.getElementById('hero').style.display = '';
+
+  // Set page title
+  document.title = name + "'s Development Plan · Player IDP";
+
+  // Render infographic
+  content.innerHTML = `<div class="idp-card">${buildInfographic(idp.data)}</div>`;
+  document.getElementById('footer').style.display = '';
+})();
+
+function showNotFound(msg) {
+  document.getElementById('content').innerHTML = `
+    <div class="not-found">
+      <div class="not-found-icon">IDP</div>
+      <h2>Plan not found</h2>
+      <p>${esc(msg)}</p>
+    </div>`;
+}
+
+function buildInfographic(d) {
+  if (!d) return '';
+
+  const sc = (d.strengths || []).map(s =>
+    `<div class="ig-card green">
+       <h4><span class="dot" style="background:#38A050;"></span>${esc(s.title)}</h4>
+       <p>${esc(s.body)}</p>
+     </div>`).join('');
+
+  const ic = (d.improvements || []).map(s =>
+    `<div class="ig-card amber">
+       <h4><span class="dot" style="background:#F0A020;"></span>${esc(s.title)}</h4>
+       <p>${esc(s.body)}</p>
+     </div>`).join('');
+
+  const pr = (d.plan || []).map(p =>
+    `<div class="ig-plan-item">
+       <div class="ig-plan-badge ${p.badgeType || 'purple'}">${esc(p.badge)}</div>
+       <div class="ig-plan-content">
+         <h4>${esc(p.title)}</h4>
+         <ul>${(p.bullets || []).map(b => `<li>${esc(b)}</li>`).join('')}</ul>
+       </div>
+     </div>`).join('');
+
+  const mc = (d.microHabits || []).map(m =>
+    `<div class="ig-micro-card">
+       <div class="ig-micro-num">${esc(m.num)}</div>
+       <div class="ig-micro-desc">${esc(m.desc)}</div>
+     </div>`).join('');
+
+  const gdParts = (d.gameDayFocus || '').split('—');
+  const gdText  = gdParts.length > 1
+    ? `<em>${esc(gdParts[0].trim())}</em> — ${esc(gdParts[1].trim())}`
+    : esc(d.gameDayFocus || '');
+
+  return `
+    <div class="ig-header">
+      <div>
+        <div class="ig-player-name">${esc(d.playerName || 'Player')} <em>IDP</em></div>
+        <div class="ig-sub">Individual Development Plan · Coaching Staff</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="ig-pos-badge">${esc(d.position || 'Field Player')}</div>
+        <span class="ig-phase">Phase: ${esc(d.focus || 'Development')}</span>
+      </div>
+    </div>
+
+    <div class="ig-stats">
+      <div class="ig-stat"><div class="ig-stat-val">Development</div><div class="ig-stat-lbl">Current Phase</div></div>
+      <div class="ig-stat"><div class="ig-stat-val">${esc(d.focus || '—')}</div><div class="ig-stat-lbl">Focus Area</div></div>
+      <div class="ig-stat"><div class="ig-stat-val">${esc(d.duration || '12 months')}</div><div class="ig-stat-lbl">Plan Duration</div></div>
+      <div class="ig-stat"><div class="ig-stat-val">${esc(d.mantra || 'Play with intent')}</div><div class="ig-stat-lbl">Player Mantra</div></div>
+    </div>
+
+    <div class="ig-sec-label">✦ Strengths — keep building on these</div>
+    <div class="ig-card-grid">${sc}</div>
+
+    <hr class="ig-divider">
+    <div class="ig-sec-label">▲ Areas to improve</div>
+    <div class="ig-card-grid">${ic}</div>
+
+    <hr class="ig-divider">
+    <div class="ig-sec-label">📋 Development plan</div>
+    <div class="ig-plan-list">${pr}</div>
+
+    <div class="ig-micro-label">Home micro-habits — daily</div>
+    <div class="ig-micro-grid">${mc}</div>
+
+    <div class="ig-gameday">
+      <div class="ig-gameday-label">Game Day Focus</div>
+      <div class="ig-gameday-text">${gdText}</div>
+    </div>
+
+    <div class="ig-sec-label" style="margin-top:1.75rem;">🎯 12-Month Goal</div>
+    <div class="ig-goal">
+      <div class="ig-goal-label">12-Month<br>Vision</div>
+      <p>${esc(d.goalVision || '')}</p>
+    </div>
+
+    <div class="ig-parent-note">
+      <div class="ig-parent-note-label">Note for parents</div>
+      <p>${esc(d.parentNote || '')}</p>
+    </div>
+  `;
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
+</body>
+</html>
