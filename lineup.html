@@ -224,17 +224,17 @@ html, body { height: 100vh; overflow: hidden; background: var(--navy);
       </div>
 
       <div>
-        <div class="ctrl-label">Formation</div>
-        <select id="formationSel" class="ctrl-select" onchange="onFormationChange()">
-          <option value="4-3-3">4-3-3</option>
-          <option value="4-4-2">4-4-2</option>
-          <option value="4-2-3-1">4-2-3-1</option>
-          <option value="3-5-2">3-5-2</option>
-          <option value="5-3-2">5-3-2</option>
-          <option value="4-5-1">4-5-1</option>
-          <option value="4-1-4-1">4-1-4-1</option>
-          <option value="custom">Custom (free place)</option>
+        <div class="ctrl-label">Format</div>
+        <select id="formatSel" class="ctrl-select" onchange="onFormatChange()">
+          <option value="11v11">11v11</option>
+          <option value="9v9">9v9</option>
+          <option value="7v7">7v7</option>
         </select>
+      </div>
+
+      <div>
+        <div class="ctrl-label">Formation</div>
+        <select id="formationSel" class="ctrl-select" onchange="onFormationChange()"></select>
       </div>
 
       <div class="roster-section">
@@ -323,72 +323,153 @@ html, body { height: 100vh; overflow: hidden; background: var(--navy);
 
 <script>
 // ── Formation definitions ─────────────────────────────────────────────────
-// x/y as percentage of pitch container (0-100)
-// y=10 = attacking end (top), y=90 = defensive end (GK, bottom)
-const FORMATIONS = {
-  '4-3-3': [
-    {id:'gk', label:'GK', x:50, y:88},
-    {id:'rb', label:'RB', x:82, y:73}, {id:'cb1',label:'CB', x:61, y:76},
-    {id:'cb2',label:'CB', x:39, y:76}, {id:'lb', label:'LB', x:18, y:73},
-    {id:'rm', label:'RM', x:78, y:51}, {id:'cm', label:'CM', x:50, y:53},
-    {id:'lm', label:'LM', x:22, y:51},
-    {id:'rw', label:'RW', x:80, y:22}, {id:'st', label:'ST', x:50, y:18},
-    {id:'lw', label:'LW', x:20, y:22},
-  ],
-  '4-4-2': [
-    {id:'gk',  label:'GK', x:50, y:88},
-    {id:'rb',  label:'RB', x:82, y:73}, {id:'cb1',label:'CB', x:60, y:76},
-    {id:'cb2', label:'CB', x:40, y:76}, {id:'lb', label:'LB', x:18, y:73},
-    {id:'rm',  label:'RM', x:82, y:51}, {id:'cm1',label:'CM', x:60, y:53},
-    {id:'cm2', label:'CM', x:40, y:53}, {id:'lm', label:'LM', x:18, y:51},
-    {id:'st1', label:'ST', x:61, y:20}, {id:'st2',label:'ST', x:39, y:20},
-  ],
-  '4-2-3-1': [
-    {id:'gk',  label:'GK',  x:50, y:88},
-    {id:'rb',  label:'RB',  x:82, y:75}, {id:'cb1',label:'CB',  x:61, y:78},
-    {id:'cb2', label:'CB',  x:39, y:78}, {id:'lb', label:'LB',  x:18, y:75},
-    {id:'dm1', label:'DM',  x:61, y:63}, {id:'dm2',label:'DM',  x:39, y:63},
-    {id:'ram', label:'AM',  x:79, y:41}, {id:'cam',label:'CAM', x:50, y:39},
-    {id:'lam', label:'AM',  x:21, y:41},
-    {id:'st',  label:'ST',  x:50, y:18},
-  ],
-  '3-5-2': [
-    {id:'gk',  label:'GK',  x:50, y:88},
-    {id:'cb1', label:'CB',  x:71, y:76}, {id:'cb2',label:'CB',  x:50, y:78},
-    {id:'cb3', label:'CB',  x:29, y:76},
-    {id:'rwb', label:'RWB', x:88, y:54}, {id:'cm1',label:'CM',  x:68, y:56},
-    {id:'cm2', label:'CM',  x:50, y:58}, {id:'cm3',label:'CM',  x:32, y:56},
-    {id:'lwb', label:'LWB', x:12, y:54},
-    {id:'st1', label:'ST',  x:61, y:21}, {id:'st2',label:'ST',  x:39, y:21},
-  ],
-  '5-3-2': [
-    {id:'gk',  label:'GK',  x:50, y:88},
-    {id:'rwb', label:'RWB', x:88, y:73}, {id:'cb1',label:'CB',  x:70, y:78},
-    {id:'cb2', label:'CB',  x:50, y:80}, {id:'cb3',label:'CB',  x:30, y:78},
-    {id:'lwb', label:'LWB', x:12, y:73},
-    {id:'rm',  label:'RM',  x:70, y:52}, {id:'cm', label:'CM',  x:50, y:54},
-    {id:'lm',  label:'LM',  x:30, y:52},
-    {id:'st1', label:'ST',  x:61, y:21}, {id:'st2',label:'ST',  x:39, y:21},
-  ],
-  '4-5-1': [
-    {id:'gk',  label:'GK', x:50, y:88},
-    {id:'rb',  label:'RB', x:82, y:75}, {id:'cb1',label:'CB', x:61, y:78},
-    {id:'cb2', label:'CB', x:39, y:78}, {id:'lb', label:'LB', x:18, y:75},
-    {id:'rm',  label:'RM', x:88, y:52}, {id:'cm1',label:'CM', x:68, y:54},
-    {id:'cm2', label:'CM', x:50, y:56}, {id:'cm3',label:'CM', x:32, y:54},
-    {id:'lm',  label:'LM', x:12, y:52},
-    {id:'st',  label:'ST', x:50, y:20},
-  ],
-  '4-1-4-1': [
-    {id:'gk',  label:'GK', x:50, y:88},
-    {id:'rb',  label:'RB', x:82, y:75}, {id:'cb1',label:'CB', x:61, y:78},
-    {id:'cb2', label:'CB', x:39, y:78}, {id:'lb', label:'LB', x:18, y:75},
-    {id:'dm',  label:'DM', x:50, y:65},
-    {id:'rm',  label:'RM', x:82, y:47}, {id:'cm1',label:'CM', x:61, y:49},
-    {id:'cm2', label:'CM', x:39, y:49}, {id:'lm', label:'LM', x:18, y:47},
-    {id:'st',  label:'ST', x:50, y:20},
-  ],
-  'custom': [],
+// x/y as percentage of pitch (0-100). y=10 attacking end, y=90 GK end.
+const FORMATS = {
+  '11v11': {
+    '4-3-3': [
+      {id:'gk', label:'GK', x:50, y:88},
+      {id:'rb', label:'RB', x:82, y:73}, {id:'cb1',label:'CB', x:61, y:76},
+      {id:'cb2',label:'CB', x:39, y:76}, {id:'lb', label:'LB', x:18, y:73},
+      {id:'rm', label:'RM', x:78, y:51}, {id:'cm', label:'CM', x:50, y:53},
+      {id:'lm', label:'LM', x:22, y:51},
+      {id:'rw', label:'RW', x:80, y:22}, {id:'st', label:'ST', x:50, y:18},
+      {id:'lw', label:'LW', x:20, y:22},
+    ],
+    '4-4-2': [
+      {id:'gk',  label:'GK', x:50, y:88},
+      {id:'rb',  label:'RB', x:82, y:73}, {id:'cb1',label:'CB', x:60, y:76},
+      {id:'cb2', label:'CB', x:40, y:76}, {id:'lb', label:'LB', x:18, y:73},
+      {id:'rm',  label:'RM', x:82, y:51}, {id:'cm1',label:'CM', x:60, y:53},
+      {id:'cm2', label:'CM', x:40, y:53}, {id:'lm', label:'LM', x:18, y:51},
+      {id:'st1', label:'ST', x:61, y:20}, {id:'st2',label:'ST', x:39, y:20},
+    ],
+    '4-2-3-1': [
+      {id:'gk',  label:'GK',  x:50, y:88},
+      {id:'rb',  label:'RB',  x:82, y:75}, {id:'cb1',label:'CB',  x:61, y:78},
+      {id:'cb2', label:'CB',  x:39, y:78}, {id:'lb', label:'LB',  x:18, y:75},
+      {id:'dm1', label:'DM',  x:61, y:63}, {id:'dm2',label:'DM',  x:39, y:63},
+      {id:'ram', label:'AM',  x:79, y:41}, {id:'cam',label:'CAM', x:50, y:39},
+      {id:'lam', label:'AM',  x:21, y:41},
+      {id:'st',  label:'ST',  x:50, y:18},
+    ],
+    '3-5-2': [
+      {id:'gk',  label:'GK',  x:50, y:88},
+      {id:'cb1', label:'CB',  x:71, y:76}, {id:'cb2',label:'CB',  x:50, y:78},
+      {id:'cb3', label:'CB',  x:29, y:76},
+      {id:'rwb', label:'RWB', x:88, y:54}, {id:'cm1',label:'CM',  x:68, y:56},
+      {id:'cm2', label:'CM',  x:50, y:58}, {id:'cm3',label:'CM',  x:32, y:56},
+      {id:'lwb', label:'LWB', x:12, y:54},
+      {id:'st1', label:'ST',  x:61, y:21}, {id:'st2',label:'ST',  x:39, y:21},
+    ],
+    '5-3-2': [
+      {id:'gk',  label:'GK',  x:50, y:88},
+      {id:'rwb', label:'RWB', x:88, y:73}, {id:'cb1',label:'CB',  x:70, y:78},
+      {id:'cb2', label:'CB',  x:50, y:80}, {id:'cb3',label:'CB',  x:30, y:78},
+      {id:'lwb', label:'LWB', x:12, y:73},
+      {id:'rm',  label:'RM',  x:70, y:52}, {id:'cm', label:'CM',  x:50, y:54},
+      {id:'lm',  label:'LM',  x:30, y:52},
+      {id:'st1', label:'ST',  x:61, y:21}, {id:'st2',label:'ST',  x:39, y:21},
+    ],
+    '4-5-1': [
+      {id:'gk',  label:'GK', x:50, y:88},
+      {id:'rb',  label:'RB', x:82, y:75}, {id:'cb1',label:'CB', x:61, y:78},
+      {id:'cb2', label:'CB', x:39, y:78}, {id:'lb', label:'LB', x:18, y:75},
+      {id:'rm',  label:'RM', x:88, y:52}, {id:'cm1',label:'CM', x:68, y:54},
+      {id:'cm2', label:'CM', x:50, y:56}, {id:'cm3',label:'CM', x:32, y:54},
+      {id:'lm',  label:'LM', x:12, y:52},
+      {id:'st',  label:'ST', x:50, y:20},
+    ],
+    '4-1-4-1': [
+      {id:'gk',  label:'GK', x:50, y:88},
+      {id:'rb',  label:'RB', x:82, y:75}, {id:'cb1',label:'CB', x:61, y:78},
+      {id:'cb2', label:'CB', x:39, y:78}, {id:'lb', label:'LB', x:18, y:75},
+      {id:'dm',  label:'DM', x:50, y:65},
+      {id:'rm',  label:'RM', x:82, y:47}, {id:'cm1',label:'CM', x:61, y:49},
+      {id:'cm2', label:'CM', x:39, y:49}, {id:'lm', label:'LM', x:18, y:47},
+      {id:'st',  label:'ST', x:50, y:20},
+    ],
+    'custom': [],
+  },
+
+  '9v9': {
+    '3-3-2': [
+      {id:'gk',  label:'GK', x:50, y:88},
+      {id:'rb',  label:'RB', x:75, y:74}, {id:'cb', label:'CB', x:50, y:77},
+      {id:'lb',  label:'LB', x:25, y:74},
+      {id:'rm',  label:'RM', x:72, y:51}, {id:'cm', label:'CM', x:50, y:53},
+      {id:'lm',  label:'LM', x:28, y:51},
+      {id:'rst', label:'ST', x:63, y:22}, {id:'lst',label:'ST', x:37, y:22},
+    ],
+    '3-2-3': [
+      {id:'gk',  label:'GK', x:50, y:88},
+      {id:'rb',  label:'RB', x:75, y:74}, {id:'cb', label:'CB', x:50, y:77},
+      {id:'lb',  label:'LB', x:25, y:74},
+      {id:'dm1', label:'DM', x:63, y:59}, {id:'dm2',label:'DM', x:37, y:59},
+      {id:'rw',  label:'RW', x:78, y:26}, {id:'st', label:'ST', x:50, y:22},
+      {id:'lw',  label:'LW', x:22, y:26},
+    ],
+    '2-4-2': [
+      {id:'gk',  label:'GK', x:50, y:88},
+      {id:'rd',  label:'RD', x:67, y:75}, {id:'ld', label:'LD', x:33, y:75},
+      {id:'rm',  label:'RM', x:80, y:51}, {id:'cm1',label:'CM', x:60, y:53},
+      {id:'cm2', label:'CM', x:40, y:53}, {id:'lm', label:'LM', x:20, y:51},
+      {id:'rst', label:'ST', x:63, y:22}, {id:'lst',label:'ST', x:37, y:22},
+    ],
+    '3-2-1-2': [
+      {id:'gk',  label:'GK', x:50, y:88},
+      {id:'rb',  label:'RB', x:75, y:76}, {id:'cb', label:'CB', x:50, y:78},
+      {id:'lb',  label:'LB', x:25, y:76},
+      {id:'dm1', label:'DM', x:63, y:62}, {id:'dm2',label:'DM', x:37, y:62},
+      {id:'am',  label:'AM', x:50, y:42},
+      {id:'rst', label:'ST', x:63, y:22}, {id:'lst',label:'ST', x:37, y:22},
+    ],
+    '4-2-2': [
+      {id:'gk',  label:'GK', x:50, y:88},
+      {id:'rb',  label:'RB', x:80, y:76}, {id:'cb1',label:'CB', x:60, y:78},
+      {id:'cb2', label:'CB', x:40, y:78}, {id:'lb', label:'LB', x:20, y:76},
+      {id:'dm1', label:'DM', x:63, y:57}, {id:'dm2',label:'DM', x:37, y:57},
+      {id:'rst', label:'ST', x:63, y:24}, {id:'lst',label:'ST', x:37, y:24},
+    ],
+    'custom': [],
+  },
+
+  '7v7': {
+    '2-3-1': [
+      {id:'gk',  label:'GK', x:50, y:88},
+      {id:'rd',  label:'RD', x:67, y:72}, {id:'ld', label:'LD', x:33, y:72},
+      {id:'rm',  label:'RM', x:75, y:50}, {id:'cm', label:'CM', x:50, y:52},
+      {id:'lm',  label:'LM', x:25, y:50},
+      {id:'st',  label:'ST', x:50, y:20},
+    ],
+    '1-3-2': [
+      {id:'gk',  label:'GK', x:50, y:88},
+      {id:'sw',  label:'SW', x:50, y:74},
+      {id:'rm',  label:'RM', x:72, y:52}, {id:'cm', label:'CM', x:50, y:54},
+      {id:'lm',  label:'LM', x:28, y:52},
+      {id:'rst', label:'ST', x:63, y:22}, {id:'lst',label:'ST', x:37, y:22},
+    ],
+    '2-1-2-1': [
+      {id:'gk',  label:'GK', x:50, y:88},
+      {id:'rd',  label:'RD', x:65, y:74}, {id:'ld', label:'LD', x:35, y:74},
+      {id:'dm',  label:'DM', x:50, y:62},
+      {id:'rm',  label:'RM', x:70, y:44}, {id:'lm', label:'LM', x:30, y:44},
+      {id:'st',  label:'ST', x:50, y:20},
+    ],
+    '3-2-1': [
+      {id:'gk',  label:'GK', x:50, y:88},
+      {id:'rd',  label:'RD', x:72, y:72}, {id:'cd', label:'CD', x:50, y:75},
+      {id:'ld',  label:'LD', x:28, y:72},
+      {id:'rm',  label:'RM', x:65, y:50}, {id:'lm', label:'LM', x:35, y:50},
+      {id:'st',  label:'ST', x:50, y:20},
+    ],
+    '2-2-2': [
+      {id:'gk',  label:'GK', x:50, y:88},
+      {id:'rd',  label:'RD', x:65, y:73}, {id:'ld', label:'LD', x:35, y:73},
+      {id:'rm',  label:'RM', x:65, y:52}, {id:'lm', label:'LM', x:35, y:52},
+      {id:'rst', label:'ST', x:63, y:24}, {id:'lst',label:'ST', x:37, y:24},
+    ],
+    'custom': [],
+  },
 };
 
 // ── State ────────────────────────────────────────────────────────────────
@@ -413,11 +494,29 @@ let pendingPlace = null; // {x,y} — pending position for assign picker
     sel.appendChild(opt);
   });
 
+  populateFormations('11v11');
   applyFormation('4-3-3');
   setupPitchEvents();
 })();
 
-// ── Team / formation changes ──────────────────────────────────────────────
+// ── Format / formation changes ────────────────────────────────────────────
+function populateFormations(format) {
+  const sel = document.getElementById('formationSel');
+  const keys = Object.keys(FORMATS[format] || {});
+  sel.innerHTML = keys.map(k =>
+    `<option value="${k}">${k === 'custom' ? 'Custom (free place)' : k}</option>`
+  ).join('');
+}
+
+function onFormatChange() {
+  const format = document.getElementById('formatSel').value;
+  populateFormations(format);
+  onPitch = [];
+  const firstKey = Object.keys(FORMATS[format] || {})[0] || 'custom';
+  document.getElementById('formationSel').value = firstKey;
+  applyFormation(firstKey);
+}
+
 async function onTeamChange() {
   const teamId = document.getElementById('teamSel').value;
   onPitch = [];
@@ -445,9 +544,9 @@ function onFormationChange() {
 }
 
 function applyFormation(f) {
-  const defs = FORMATIONS[f] || [];
-  // Try to keep existing placed players at their current positions
-  currentSlots = defs.map(s => ({ ...s, playerId: null }));
+  const format = document.getElementById('formatSel').value;
+  const defs = (FORMATS[format] || {})[f] || [];
+  currentSlots = defs.map(s => ({ ...s }));
   renderPitch();
 }
 
