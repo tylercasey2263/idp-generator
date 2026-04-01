@@ -1,7 +1,23 @@
+# Claude / IDE
 .claude/
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
+import_players.py
+
+# Environment / secrets
 .env
+.env.local
+*.local.py
+*.local.js
+
+# Supabase config (real credentials — see js/config.example.js for template)
+js/config.js
+
+# Personal / local files
+TODO.md
 *.pdf
 *.html.bak
+*.csv
