@@ -252,7 +252,12 @@
             <path d="M2 4.5h14M2 9h14M2 13.5h14" stroke="#94A3B8" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
         </button>
-        <span class="sb-topbar-title">${esc(clubName)} <em>PD</em></span>
+        <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+          ${clubLogo
+            ? `<img src="${clubLogo}" alt="" style="width:28px;height:28px;border-radius:6px;object-fit:cover;flex-shrink:0;">`
+            : `<div style="width:28px;height:28px;border-radius:6px;background:rgba(27,138,107,.2);border:1px solid rgba(27,138,107,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${IC.soccer}</div>`}
+          <span class="sb-topbar-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(clubName)}</span>
+        </div>
       </div>
       <div class="sb-overlay" id="sbOverlay" onclick="closeSidebar()"></div>
     `;

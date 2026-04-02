@@ -217,6 +217,75 @@ html, body { height: 100vh; overflow: hidden; background: var(--navy);
 }
 .toast.show { opacity: 1; }
 
+/* ── Mobile ── */
+@media (max-width: 820px) {
+  /* Allow page to scroll vertically on mobile */
+  html, body { height: auto; overflow: auto; }
+
+  .lm-wrap {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Panel becomes a horizontal control strip across the top */
+  .lm-panel {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-strong);
+  }
+  .lm-panel-inner {
+    flex-direction: row;
+    flex-wrap: wrap;
+    height: auto;
+    overflow: visible;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  /* Team / Format / Formation / Name selects sit side-by-side */
+  .lm-panel-inner > div:not(.roster-section):not(#savedLineupsSection) {
+    flex: 1 1 130px;
+    min-width: 0;
+  }
+
+  /* Lineup name input: full row on mobile */
+  #savedLineupsSection { flex: 1 1 100%; }
+
+  /* Clear / Save / Print buttons: full row */
+  .lm-btn-row { flex: 1 1 100%; }
+
+  /* Bench: horizontal scrolling chip strip */
+  .roster-section { flex: 1 1 100%; min-height: 0; max-height: 60px; }
+  .roster-list {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 6px;
+    padding-bottom: 2px;
+  }
+  .roster-player {
+    flex-shrink: 0;
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+  .roster-drag-hint { display: none; }
+  .roster-empty { white-space: nowrap; padding: 8px 0; }
+
+  /* Pitch fills full width; aspect-ratio drives height (fixes off-screen tokens) */
+  .lm-pitch-area {
+    padding: 8px;
+    flex: none;
+  }
+  .pitch-hint { display: none; } /* reclaim vertical space */
+  .pitch-container {
+    height: auto !important;
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
 /* ── Print ── */
 @media print {
   body { background: #fff; }
