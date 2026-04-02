@@ -17,30 +17,79 @@
   --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
   --red-light: #E05050;
 }
-html, body { min-height: 100vh; background: var(--navy); color: var(--text);
-  font-family: 'Inter', sans-serif; font-size: 15px; }
+html, body { height: 100%; margin: 0; background: var(--navy); color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 15px; overflow: hidden; }
 
-.page {
-  min-height: 100vh; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; padding: 2rem;
+/* ── Split Layout ── */
+.split {
+  display: flex; height: 100vh; width: 100%;
 }
 
-.brand {
+/* ── Left Branding Panel ── */
+.panel-left {
+  width: 42%; min-width: 300px;
+  background: linear-gradient(160deg, #07111C 0%, #0D2E25 100%);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 3rem 2.5rem;
+  position: relative;
+}
+.brand-block { text-align: center; }
+
+.brand-logo-wrap {
+  width: 80px; height: 80px; margin: 0 auto 1.5rem;
+  background: rgba(27,138,107,.15);
+  border: 1px solid rgba(27,138,107,.3);
+  border-radius: 14px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.brand-logo-wrap img { width: 100%; height: 100%; object-fit: cover; }
+
+.brand-name {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 28px; font-weight: 800; letter-spacing: 0.02em;
-  color: var(--text); margin-bottom: 2rem; text-align: center;
+  font-size: 38px; font-weight: 800; color: #fff;
+  line-height: 1.1; margin-bottom: .35rem;
 }
-.brand span { color: var(--teal-light); }
+.brand-sub {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px; font-weight: 700; color: var(--teal-light);
+  letter-spacing: .12em; text-transform: uppercase;
+}
+.brand-tagline {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px; color: #475569; margin-top: 2rem;
+  font-style: italic;
+}
+.panel-left-footer {
+  position: absolute; bottom: 1.5rem; left: 0; right: 0;
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px; color: #243B55;
+}
+
+/* ── Right Form Panel ── */
+.panel-right {
+  flex: 1; background: #0D1B2A;
+  display: flex; align-items: center; justify-content: center;
+  padding: 2.5rem;
+  overflow-y: auto;
+}
+.form-wrap { width: 100%; max-width: 380px; }
+
+.form-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px; text-transform: uppercase;
+  color: #475569; letter-spacing: .1em;
+  margin-bottom: 1.5rem;
+}
 
 .card {
-  background: var(--navy-mid); border: 1px solid var(--border-strong);
-  border-radius: 14px; padding: 2rem; width: 100%; max-width: 400px;
   display: flex; flex-direction: column; gap: 18px;
 }
 
 .card-title {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 22px; font-weight: 800; color: var(--text);
+  font-size: 26px; font-weight: 800; color: var(--text);
 }
 
 .tabs {
@@ -97,45 +146,102 @@ input::placeholder { color: var(--text-dim); }
   border-radius: 50%; animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Mobile: < 700px ── */
+@media (max-width: 699px) {
+  .split { flex-direction: column; }
+
+  .panel-left {
+    width: 100%; min-width: unset; height: 90px;
+    flex-direction: row; padding: 0 1.25rem;
+    align-items: center; justify-content: center;
+    gap: 14px;
+    background: linear-gradient(90deg, #07111C 0%, #0D2E25 100%);
+  }
+  .brand-block { display: flex; align-items: center; gap: 14px; text-align: left; }
+  .brand-logo-wrap {
+    width: 40px; height: 40px; margin: 0;
+    border-radius: 10px; flex-shrink: 0;
+  }
+  .brand-logo-wrap svg { width: 20px; height: 20px; }
+  .brand-name { font-size: 22px; margin-bottom: 0; }
+  .brand-sub { font-size: 11px; }
+  .brand-tagline { display: none; }
+  .panel-left-footer { display: none; }
+
+  .brand-text-mobile { display: flex; flex-direction: column; gap: 1px; }
+
+  .panel-right {
+    flex: 1; padding: 1.5rem 1.25rem;
+    align-items: flex-start; padding-top: 2rem;
+  }
+}
+
+/* ── Desktop: left panel text stacks ── */
+@media (min-width: 700px) {
+  .brand-text-mobile { display: contents; }
+}
 </style>
 </head>
 <body>
-<div class="page">
-  <div class="brand">Player <span>IDP</span></div>
+<div class="split">
 
-  <div class="card">
-    <div class="card-title" id="cardTitle">Sign In</div>
-
-    <div class="tabs" id="modeTabs">
-      <button class="tab active" onclick="setMode('signin')">Sign In</button>
-      <button class="tab" onclick="setMode('signup')">Create Account</button>
+  <!-- Left Branding Panel -->
+  <div class="panel-left">
+    <div class="brand-block">
+      <div class="brand-logo-wrap" id="brandLogoWrap">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="#22A882" stroke-width="2"/><polygon points="16,9 20,14 16,19 12,14" stroke="#22A882" stroke-width="1.5" fill="#22A882" opacity=".35"/></svg>
+      </div>
+      <div class="brand-text-mobile">
+        <div class="brand-name" id="brandName">Player Development</div>
+        <div class="brand-sub">Player Development</div>
+      </div>
+      <div class="brand-tagline">Develop every player, every session.</div>
     </div>
+    <div class="panel-left-footer">&copy; Player IDP</div>
+  </div>
 
-    <div class="field" id="nameField" style="display:none;">
-      <label>Full Name</label>
-      <input type="text" id="fullName" placeholder="Your name" autocomplete="name" />
-    </div>
+  <!-- Right Form Panel -->
+  <div class="panel-right">
+    <div class="form-wrap">
+      <div class="form-label">Sign in to continue</div>
 
-    <div class="field">
-      <label>Email</label>
-      <input type="email" id="email" placeholder="you@example.com" autocomplete="email"
-             onkeydown="if(event.key==='Enter') submit()" />
-    </div>
+      <div class="card">
+        <div class="card-title" id="cardTitle">Sign In</div>
 
-    <div class="field">
-      <label>Password</label>
-      <input type="password" id="password" placeholder="Password" autocomplete="current-password"
-             onkeydown="if(event.key==='Enter') submit()" />
-    </div>
+        <div class="tabs" id="modeTabs">
+          <button class="tab active" onclick="setMode('signin')">Sign In</button>
+          <button class="tab" onclick="setMode('signup')">Create Account</button>
+        </div>
 
-    <button class="btn btn-primary" id="submitBtn" onclick="submit()">Sign In</button>
+        <div class="field" id="nameField" style="display:none;">
+          <label>Full Name</label>
+          <input type="text" id="fullName" placeholder="Your name" autocomplete="name" />
+        </div>
 
-    <div class="status" id="statusMsg"></div>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="email" placeholder="you@example.com" autocomplete="email"
+                 onkeydown="if(event.key==='Enter') submit()" />
+        </div>
 
-    <div class="footer-link" id="switchLink">
-      Don't have an account? <a onclick="setMode('signup')">Create one</a>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="password" placeholder="Password" autocomplete="current-password"
+                 onkeydown="if(event.key==='Enter') submit()" />
+        </div>
+
+        <button class="btn btn-primary" id="submitBtn" onclick="submit()">Sign In</button>
+
+        <div class="status" id="statusMsg"></div>
+
+        <div class="footer-link" id="switchLink">
+          Don't have an account? <a onclick="setMode('signup')">Create one</a>
+        </div>
+      </div>
     </div>
   </div>
+
 </div>
 
 <script>
@@ -232,6 +338,24 @@ async function redirectAfterLogin(session) {
     window.location.href = '/parent.html';
   }
 }
+</script>
+
+<script>
+(async () => {
+  const { data: settings } = await sb.from('settings').select('key,value').in('key', ['club_name','club_logo']);
+  const clubName = settings?.find(r => r.key === 'club_name')?.value || '';
+  const clubLogo = settings?.find(r => r.key === 'club_logo')?.value || '';
+
+  if (clubName) {
+    document.getElementById('brandName').textContent = clubName;
+    document.title = 'Sign In \u2014 ' + clubName + ' Player Development';
+  }
+
+  const logoWrap = document.getElementById('brandLogoWrap');
+  if (clubLogo && logoWrap) {
+    logoWrap.innerHTML = '<img src="' + clubLogo + '" alt="' + clubName + '" style="width:100%;height:100%;object-fit:cover;">';
+  }
+})();
 </script>
 </body>
 </html>

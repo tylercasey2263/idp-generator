@@ -190,8 +190,14 @@
 
     // Get club settings
     const { data: settings } = await sb.from('settings').select('key,value').in('key', ['club_name','club_logo']);
-    const clubName = settings?.find(r => r.key === 'club_name')?.value || 'Player IDP';
+    const clubName = settings?.find(r => r.key === 'club_name')?.value || 'Player Development';
     const clubLogo = settings?.find(r => r.key === 'club_logo')?.value || '';
+
+    // Expose globally and update page title
+    window._clubName = clubName;
+    window._clubLogo = clubLogo;
+    const titleParts = document.title.split(' — ');
+    document.title = (titleParts.length > 1 ? titleParts[0] + ' — ' : '') + clubName + ' Player Development';
 
     const logoHTML = clubLogo
       ? `<img src="${clubLogo}" alt="Club Logo">`
@@ -209,7 +215,7 @@
           <div class="sb-logo-wrap">${logoHTML}</div>
           <div style="min-width:0">
             <div class="sb-club-name">${esc(clubName)}</div>
-            <div class="sb-club-sub">IDP Portal</div>
+            <div class="sb-club-sub">Player Development</div>
           </div>
         </div>
 
@@ -246,7 +252,7 @@
             <path d="M2 4.5h14M2 9h14M2 13.5h14" stroke="#94A3B8" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
         </button>
-        <span class="sb-topbar-title">Player <em>IDP</em></span>
+        <span class="sb-topbar-title">${esc(clubName)} <em>PD</em></span>
       </div>
       <div class="sb-overlay" id="sbOverlay" onclick="closeSidebar()"></div>
     `;
@@ -276,8 +282,8 @@
   const TOURS = {
     dashboard: [
       {
-        title: 'Welcome to Player IDP! 👋',
-        body: 'This is your coaching hub. Manage teams, generate individual development plans, and share them with parents — all in one place.',
+        title: 'Welcome to Player Development! 👋',
+        body: 'This is your coaching hub. Manage teams, generate individual development plans, and share them with players and parents — all in one place.',
         target: null,
       },
       {
@@ -292,7 +298,7 @@
       },
       {
         title: "You're ready! 🎉",
-        body: 'Start by clicking "+ Add Team". You can revisit this tour anytime from the Help page.',
+        body: 'Start by clicking "+ Add Team". Generate IDPs, build lineups, and share player plans. You can revisit this tour anytime from the Help page.',
         target: null,
       },
     ],

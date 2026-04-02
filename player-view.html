@@ -174,7 +174,7 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
 <body>
 
 <div class="topbar">
-  <div class="topbar-brand">⚽ Player IDP</div>
+  <div class="topbar-brand" id="topbarBrand">⚽ Player Development</div>
   <button class="btn-pdf" onclick="window.print()">⬒ Save as PDF</button>
 </div>
 
@@ -199,6 +199,14 @@ const token = new URLSearchParams(window.location.search).get('token');
 
 (async () => {
   const content = document.getElementById('content');
+
+  // Load club branding
+  const { data: settingsRows } = await sb.from('settings').select('key,value').in('key', ['club_name','club_logo']);
+  const clubName = settingsRows?.find(r => r.key === 'club_name')?.value || '';
+  const clubLogo = settingsRows?.find(r => r.key === 'club_logo')?.value || '';
+  if (clubName) {
+    document.getElementById('topbarBrand').textContent = '⚽ ' + clubName + ' Player Development';
+  }
 
   if (!token) {
     showNotFound('No plan link provided.'); return;
@@ -234,7 +242,7 @@ const token = new URLSearchParams(window.location.search).get('token');
   document.getElementById('hero').style.display = '';
 
   // Set page title
-  document.title = name + "'s Development Plan · Player IDP";
+  document.title = name + "'s Development Plan" + (clubName ? ' · ' + clubName : '') + ' · Player Development';
 
   // Render infographic
   content.innerHTML = `<div class="idp-card">${buildInfographic(idp.data)}</div>`;
