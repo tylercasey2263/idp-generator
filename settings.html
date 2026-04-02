@@ -115,12 +115,6 @@ input::placeholder { color: var(--text-dim); }
 .modal-status { font-size: 12px; min-height: 16px; }
 .modal-status.ok  { color: var(--teal-light); }
 .modal-status.err { color: var(--red-light); }
-select.inv-role-select {
-  background: var(--navy); border: 1px solid var(--border-strong); border-radius: 8px;
-  color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px;
-  padding: 10px 13px; width: 100%; outline: none; transition: border-color .2s;
-}
-select.inv-role-select:focus { border-color: var(--teal); }
 .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border-strong); }
 .btn-ghost:hover { color: var(--text-muted); }
 
@@ -134,55 +128,6 @@ select.inv-role-select:focus { border-color: var(--teal); }
 }
 .toggle-key:hover { border-color: var(--teal); }
 
-/* User table */
-.user-table { width: 100%; border-collapse: collapse; }
-.user-table th {
-  text-align: left; font-size: 11px; font-weight: 700; color: var(--text-dim);
-  text-transform: uppercase; letter-spacing: .09em; padding: 0 12px 10px;
-  border-bottom: 1px solid var(--border-strong);
-}
-.user-row { border-bottom: 1px solid var(--border); }
-.user-row:last-child { border-bottom: none; }
-.user-row td { padding: 12px; vertical-align: middle; }
-.user-email { font-size: 13px; color: var(--text); }
-.user-name-sm { font-size: 12px; color: var(--text-dim); margin-top: 1px; }
-.role-select {
-  background: var(--navy); border: 1px solid var(--border-strong); border-radius: 6px;
-  color: var(--text); font-family: 'Inter', sans-serif; font-size: 12px;
-  padding: 5px 8px; cursor: pointer; outline: none; transition: border-color .2s;
-}
-.role-select:focus { border-color: var(--teal); }
-.role-badge {
-  display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .06em; padding: 2px 7px; border-radius: 3px;
-}
-.role-badge.admin  { background: rgba(212,135,10,.2);  color: #F0A020; }
-.role-badge.coach  { background: rgba(27,138,107,.2);  color: #22A882; }
-.role-badge.parent { background: rgba(100,116,139,.2); color: #94A3B8; }
-
-/* Invite link box */
-.invite-link-box {
-  background: var(--navy); border: 1px solid var(--border-strong);
-  border-radius: 8px; padding: 10px 13px; font-size: 12px;
-  font-family: monospace; color: var(--text-muted); word-break: break-all;
-  line-height: 1.5;
-}
-/* Pending invites table */
-.invite-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
-.invite-table th {
-  text-align: left; font-size: 11px; font-weight: 700; color: var(--text-dim);
-  text-transform: uppercase; letter-spacing: .09em; padding: 0 10px 8px;
-  border-bottom: 1px solid var(--border-strong);
-}
-.invite-table td { padding: 10px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
-.invite-table tr:last-child td { border-bottom: none; }
-.chip {
-  display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .06em; padding: 2px 8px; border-radius: 3px;
-}
-.chip-used    { background: rgba(27,138,107,.2);   color: #22A882; }
-.chip-pending { background: rgba(212,135,10,.2);   color: #F0A020; }
-
 /* Access denied */
 .access-denied {
   text-align: center; padding: 5rem 2rem; color: var(--text-dim);
@@ -194,50 +139,6 @@ select.inv-role-select:focus { border-color: var(--teal); }
 </style>
 </head>
 <body>
-
-<!-- ADD USER MODAL -->
-<div class="overlay" id="addUserModal">
-  <div class="modal">
-    <h2>Add User</h2>
-
-    <div class="field">
-      <label>Full Name</label>
-      <input type="text" id="inviteName" placeholder="Jane Smith" />
-    </div>
-
-    <div class="field">
-      <label>Email Address</label>
-      <input type="email" id="inviteEmail" placeholder="jane@example.com" />
-    </div>
-
-    <div class="field">
-      <label>Role</label>
-      <select id="inviteRole" class="inv-role-select">
-        <option value="coach">Coach — manage teams &amp; players</option>
-        <option value="admin">Admin — full access including Settings</option>
-        <option value="parent">Parent — read-only IDP view</option>
-      </select>
-    </div>
-
-    <!-- Shown after invite is created -->
-    <div id="inviteLinkSection" style="display:none;">
-      <div class="field">
-        <label>Invite Link</label>
-        <div class="invite-link-box" id="inviteLinkBox"></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:4px;">
-        <button class="btn btn-primary" onclick="copyInviteLink()" style="flex:1;">Copy Link</button>
-        <button class="btn btn-ghost" onclick="sendInviteEmail()" style="flex:1;">Open Email App</button>
-      </div>
-    </div>
-
-    <div class="modal-actions" id="inviteActions">
-      <button class="btn btn-ghost" onclick="closeAddUser()">Cancel</button>
-      <button class="btn btn-primary" id="createInviteBtn" onclick="createInvite()">Create Invite</button>
-    </div>
-    <div class="modal-status" id="inviteStatus"></div>
-  </div>
-</div>
 
 <div id="sidebarMount"></div>
 
@@ -271,16 +172,6 @@ let coachId = null;
   const { data: rows } = await sb.from('settings').select('key,value');
   const S = {};
   (rows || []).forEach(r => S[r.key] = r.value);
-
-  // Load all users (email stored in profiles via ensureProfile)
-  const { data: users } = await sb.from('profiles').select('id, full_name, role, email').order('full_name');
-
-  // Load recent invites
-  const { data: invites } = await sb
-    .from('invites')
-    .select('id, role, email, label, used_at, created_at')
-    .order('created_at', { ascending: false })
-    .limit(30);
 
   document.getElementById('pageContent').innerHTML = `
     <div class="page-title">Settings</div>
@@ -357,179 +248,18 @@ let coachId = null;
       </div>
     </div>
 
-    <!-- ── USER MANAGEMENT ── -->
-    <div class="settings-section">
-      <div class="section-header">
-        <div>
-          <div class="section-title">User Management</div>
-          <div class="section-desc">All registered users. Change roles as needed.</div>
-        </div>
-        <button class="btn btn-primary" onclick="openAddUser()" style="flex-shrink:0;">+ Add User</button>
+    <div style="background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:12px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-muted);">User Management</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-top:2px;">Manage coaches, admins, and parents — and send invite links.</div>
       </div>
-
-      <table class="user-table">
-        <thead>
-          <tr>
-            <th>Name / Email</th>
-            <th>Role</th>
-            <th>Change Role</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${(users || []).map(u => `
-            <tr class="user-row">
-              <td>
-                <div class="user-email">${esc(u.full_name || 'Unnamed User')}</div>
-                <div class="user-name-sm">${esc(u.email || '—')}</div>
-              </td>
-              <td><span class="role-badge ${u.role}">${u.role}</span></td>
-              <td>
-                <select class="role-select" data-uid="${u.id}" onchange="changeRole(this)">
-                  <option value="admin"  ${u.role==='admin'  ? 'selected':''}>Admin</option>
-                  <option value="coach"  ${u.role==='coach'  ? 'selected':''}>Coach</option>
-                  <option value="parent" ${u.role==='parent' ? 'selected':''}>Parent</option>
-                </select>
-              </td>
-            </tr>`).join('')}
-        </tbody>
-      </table>
-      <div style="font-size:12px;color:var(--text-dim);margin-top:12px;">
-        Role changes take effect on next login. <strong>Admin</strong> — full access including Settings.
-        <strong>Coach</strong> — manage teams &amp; players. <strong>Parent</strong> — read-only IDP view.
-      </div>
-    </div>
-
-    <!-- ── INVITES ── -->
-    <div class="settings-section">
-      <div class="section-header">
-        <div>
-          <div class="section-title">Invite History</div>
-          <div class="section-desc">Recently created invite links and their status.</div>
-        </div>
-      </div>
-
-      ${(!invites || invites.length === 0) ? `
-        <div style="font-size:13px;color:var(--text-dim);padding:8px 0;">No invites yet. Use <strong>+ Add User</strong> above to invite coaches, admins, or parents.</div>
-      ` : `
-        <table class="invite-table">
-          <thead>
-            <tr>
-              <th>Name / Email</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${invites.map(inv => {
-              const d = new Date(inv.created_at);
-              const dateStr = d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
-              return `
-                <tr>
-                  <td>
-                    <div style="font-size:13px;color:var(--text);">${esc(inv.label || '—')}</div>
-                    <div style="font-size:12px;color:var(--text-dim);">${esc(inv.email || '—')}</div>
-                  </td>
-                  <td><span class="role-badge ${inv.role}">${inv.role}</span></td>
-                  <td>${inv.used_at
-                    ? '<span class="chip chip-used">Used</span>'
-                    : '<span class="chip chip-pending">Pending</span>'}</td>
-                  <td style="font-size:12px;color:var(--text-dim);white-space:nowrap;">${dateStr}</td>
-                </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      `}
+      <a href="/users.html" class="btn btn-primary" style="text-decoration:none;flex-shrink:0;">Manage Users →</a>
     </div>
   `;
 
   // Trigger tour for first-time admin
   maybeStartTour('settings');
 })();
-
-// ── Add User modal ────────────────────────────
-let _inviteLink = '';
-let _inviteEmailVal = '';
-let _inviteNameVal  = '';
-
-function openAddUser() {
-  _inviteLink = '';
-  document.getElementById('inviteName').value  = '';
-  document.getElementById('inviteEmail').value = '';
-  document.getElementById('inviteRole').value  = 'coach';
-  document.getElementById('inviteLinkSection').style.display = 'none';
-  document.getElementById('inviteActions').style.display     = 'flex';
-  document.getElementById('inviteStatus').textContent        = '';
-  document.getElementById('addUserModal').classList.add('open');
-  setTimeout(() => document.getElementById('inviteName').focus(), 80);
-}
-
-function closeAddUser() {
-  document.getElementById('addUserModal').classList.remove('open');
-  // Reload so invite history updates
-  if (_inviteLink) location.reload();
-}
-
-async function createInvite() {
-  const name  = document.getElementById('inviteName').value.trim();
-  const email = document.getElementById('inviteEmail').value.trim();
-  const role  = document.getElementById('inviteRole').value;
-  const st    = document.getElementById('inviteStatus');
-
-  if (!name)  { st.textContent = 'Please enter a name.';  st.className = 'modal-status err'; return; }
-  if (!email) { st.textContent = 'Please enter an email.'; st.className = 'modal-status err'; return; }
-
-  const btn = document.getElementById('createInviteBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>';
-
-  const { data: invite, error } = await sb
-    .from('invites')
-    .insert({ role, email: email.toLowerCase(), label: name, created_by: coachId })
-    .select('token')
-    .single();
-
-  btn.disabled = false;
-  btn.textContent = 'Create Invite';
-
-  if (error) {
-    st.textContent = 'Error: ' + error.message;
-    st.className = 'modal-status err';
-    return;
-  }
-
-  _inviteLink     = `${location.origin}/login.html?invite=${invite.token}`;
-  _inviteEmailVal = email;
-  _inviteNameVal  = name;
-
-  document.getElementById('inviteLinkBox').textContent       = _inviteLink;
-  document.getElementById('inviteLinkSection').style.display = 'block';
-  document.getElementById('inviteActions').style.display     = 'none';
-  st.textContent = 'Invite created! Copy the link or use Open Email App.';
-  st.className   = 'modal-status ok';
-}
-
-function copyInviteLink() {
-  navigator.clipboard.writeText(_inviteLink).then(() => {
-    const st = document.getElementById('inviteStatus');
-    st.textContent = 'Copied to clipboard!';
-    st.className   = 'modal-status ok';
-  });
-}
-
-function sendInviteEmail() {
-  const role    = document.getElementById('inviteRole').value;
-  const subject = encodeURIComponent(`You're invited to Player IDP`);
-  const body    = encodeURIComponent(
-    `Hi ${_inviteNameVal},\n\nYou've been invited to join Player IDP as a ${role}.\n\nClick the link below to create your account:\n\n${_inviteLink}\n\nThis link is unique to you — please don't share it.\n\nWelcome aboard!`
-  );
-  window.open(`mailto:${_inviteEmailVal}?subject=${subject}&body=${body}`);
-}
-
-// Close modal on backdrop click
-document.getElementById('addUserModal').addEventListener('click', function(e) {
-  if (e.target === this) closeAddUser();
-});
 
 // ── Logo ──────────────────────────────────────
 let pendingLogo = null;
@@ -592,21 +322,6 @@ async function saveApiKey() {
   } else {
     st.textContent = '✓ API key saved!';
     st.className = 'save-status ok';
-  }
-}
-
-// ── Role change ───────────────────────────────
-async function changeRole(select) {
-  const uid  = select.dataset.uid;
-  const role = select.value;
-  const { error } = await sb.from('profiles').update({ role }).eq('id', uid);
-  if (error) {
-    alert('Error updating role: ' + error.message);
-    select.value = select.dataset.prev || 'coach';
-  } else {
-    // Update badge in same row
-    const badge = select.closest('tr').querySelector('.role-badge');
-    if (badge) { badge.className = `role-badge ${role}`; badge.textContent = role; }
   }
 }
 

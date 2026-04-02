@@ -171,6 +171,7 @@
     players:   `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="5.5" cy="4" r="2.5" fill="currentColor"/><path d="M1 13c0-2.5 2-4.5 4.5-4.5S10 10.5 10 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="11.5" cy="4" r="2" fill="currentColor" opacity=".5"/><path d="M13.5 13c0-2-1.3-3.7-3-4.3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".5"/></svg>`,
     lineup:    `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/><circle cx="4.5" cy="7.5" r="1.3" fill="currentColor"/><circle cx="7.5" cy="4.5" r="1.3" fill="currentColor"/><circle cx="10.5" cy="7.5" r="1.3" fill="currentColor"/><circle cx="7.5" cy="10.5" r="1.3" fill="currentColor"/></svg>`,
     settings:  `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="2.2" stroke="currentColor" stroke-width="1.4"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M3.1 3.1l1 1M10.9 10.9l1 1M3.1 11.9l1-1M10.9 4.1l1-1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+    users:     `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="5" cy="4.5" r="2.2" stroke="currentColor" stroke-width="1.4"/><path d="M1 13c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="11.5" cy="4.5" r="1.8" stroke="currentColor" stroke-width="1.3"/><path d="M13.8 13c0-1.8-1-3.3-2.3-3.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`,
     help:      `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M5.8 5.8a1.8 1.8 0 0 1 3.4.8c0 1.2-1.7 1.5-1.7 2.9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="7.5" cy="11" r=".8" fill="currentColor"/></svg>`,
     soccer:    `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.4"/><polygon points="7.5,4 9.2,6.2 7.5,8.4 5.8,6.2" stroke="currentColor" stroke-width="1" fill="currentColor" opacity=".4"/></svg>`,
   };
@@ -227,6 +228,7 @@
           ${role === 'admin' ? `
             <div class="sb-divider"></div>
             <div class="sb-section-label">Admin</div>
+            ${item('users',    '/users.html',    IC.users,    'Users',    ['admin'])}
             ${item('settings', '/settings.html', IC.settings, 'Settings', ['admin'])}
           ` : ''}
 
@@ -337,8 +339,30 @@
       },
       {
         title: 'User Management',
-        body: 'See all registered users here. Change roles between Admin, Coach, and Parent as needed.',
+        body: 'Head to the Users page (in the sidebar) to manage coaches, admins, and parents — and send invite links.',
         target: null,
+      },
+    ],
+    users: [
+      {
+        title: 'User Management',
+        body: 'Every account with portal access appears here. See at a glance how many admins, coaches, and parents you have.',
+        target: '.stat-row',
+      },
+      {
+        title: 'Invite a New User',
+        body: 'Click "+ Invite User" to generate a unique invite link. Share it directly or use the "Open Email App" shortcut.',
+        target: null,
+      },
+      {
+        title: 'Change Roles',
+        body: 'Use the role dropdown next to any user to promote them to Admin, demote to Parent, or anything in between. Changes take effect on their next login.',
+        target: null,
+      },
+      {
+        title: 'Invite History',
+        body: 'Switch to the Invites tab to see all pending and used invite links.',
+        target: '.tab-bar',
       },
     ],
   };
