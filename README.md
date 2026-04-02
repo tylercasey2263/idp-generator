@@ -37,9 +37,23 @@ A full-stack web app for youth football coaches to generate AI-powered Individua
 - 🎙 Microphone dictation on the transcript field
 
 ### 📊 View IDP (`view-idp.html`)
-- Full IDP history for a player, sorted newest-first
-- **⇄ What Changed** diff panel between any two consecutive IDP versions — highlights new strengths, resolved improvements, focus/mantra/duration changes
-- Download or print any historical IDP
+Three-tab layout per player:
+
+**IDPs tab**
+- Full IDP history sorted newest-first
+- **⇄ What Changed** diff panel between consecutive versions — highlights new strengths, resolved improvements, focus/mantra/duration changes
+- Publish, edit, share, or print any IDP
+
+**Progress tab**
+- Visual timeline showing all IDPs in chronological order (oldest → newest)
+- Each entry shows: focus area, strength tags (green), improvement tags (amber), player mantra
+- Delta chip between entries (▲ +1 strength / ▼ fewer / — same) so growth is immediately visible
+- "View full IDP →" jumps directly to that plan in the IDPs tab
+
+**Coach Notes tab**
+- Private journal per player — visible only to the coach who wrote each note, never shared with parents
+- Timestamped entries; add with a textarea, delete with confirmation
+- Tab badge shows live count (e.g. `Coach Notes (3)`)
 
 ### 🏆 Team Development Plan (`team-plan.html`)
 - Aggregates all published player IDPs for a team
@@ -120,6 +134,7 @@ Fields with mic support:
 | `players` | Players per team (with notes column) |
 | `player_teams` | Many-to-many player↔team links |
 | `idps` | Generated IDPs (draft + published) |
+| `player_notes` | Private coach journal entries per player |
 | `team_plans` | Team Development Plans |
 | `lineups` | Named saved lineups per team |
 | `training_sessions` | Session logs per team |
@@ -134,6 +149,20 @@ Fields with mic support:
 All tables have RLS disabled. Run these if setting up from scratch:
 
 ```sql
+-- Player notes / coach journal (add if upgrading)
+CREATE TABLE IF NOT EXISTS public.player_notes (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  player_id  uuid REFERENCES public.players(id) ON DELETE CASCADE,
+  coach_id   uuid REFERENCES public.profiles(id) ON DELETE CASCADE,
+  content    text NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE public.player_notes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "player_notes: coach own"
+  ON public.player_notes FOR ALL
+  USING (coach_id = auth.uid())
+  WITH CHECK (coach_id = auth.uid());
+
 -- Players notes column (if upgrading)
 ALTER TABLE public.players ADD COLUMN IF NOT EXISTS notes text;
 

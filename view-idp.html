@@ -322,6 +322,125 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
   transition: opacity .2s; pointer-events: none; white-space: nowrap;
 }
 .toast.show { opacity: 1; }
+
+/* ─── TABS ─── */
+.tab-nav {
+  display: flex; gap: 4px; margin-bottom: 1.75rem;
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 4px;
+}
+.tab-btn {
+  flex: 1; padding: 9px 16px; border: none; border-radius: 7px;
+  background: transparent; color: var(--text-dim);
+  font-family: 'Barlow Condensed', sans-serif; font-size: 13px;
+  font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  cursor: pointer; transition: background .15s, color .15s;
+}
+.tab-btn:hover { color: var(--text-muted); }
+.tab-btn.active { background: var(--navy); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ─── PROGRESS TRACKER ─── */
+.progress-need-more {
+  text-align: center; padding: 3rem 2rem; color: var(--text-dim);
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px; font-size: 14px; line-height: 1.7;
+}
+.progress-need-more strong { display: block; font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px; }
+.progress-timeline { position: relative; padding-left: 36px; }
+.progress-timeline::before {
+  content: ''; position: absolute; left: 12px; top: 20px;
+  bottom: 20px; width: 2px; background: var(--border-strong);
+}
+.pt-entry { position: relative; margin-bottom: 18px; }
+.pt-dot {
+  position: absolute; left: -34px; top: 16px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--teal); border: 2px solid var(--navy); z-index: 1;
+}
+.pt-dot.latest { background: var(--teal-light); box-shadow: 0 0 0 4px rgba(34,168,130,.2); }
+.pt-card {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 16px 18px; transition: border-color .15s;
+}
+.pt-card:hover { border-color: rgba(34,168,130,.3); }
+.pt-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
+}
+.pt-date { font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 700; color: var(--text); }
+.pt-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pt-focus {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--teal-light);
+  font-family: 'Barlow Condensed', sans-serif;
+  background: var(--teal-faint); border: 1px solid rgba(27,138,107,.3);
+  padding: 3px 9px; border-radius: 4px;
+}
+.pt-delta {
+  font-size: 11px; font-weight: 700; letter-spacing: .05em;
+  font-family: 'Barlow Condensed', sans-serif;
+  padding: 3px 9px; border-radius: 4px;
+}
+.pt-delta.up   { background: rgba(56,160,80,.15);  color: #38A050; }
+.pt-delta.down { background: rgba(224,80,80,.15);  color: #E05050; }
+.pt-delta.same { background: rgba(255,255,255,.06); color: var(--text-dim); }
+.pt-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.pt-tag {
+  font-size: 12px; padding: 4px 10px; border-radius: 5px;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 600; letter-spacing: .04em;
+}
+.pt-tag.strength    { background: #0D2214; color: #38A050; border: 1px solid rgba(56,160,80,.2); }
+.pt-tag.improvement { background: #2E1E05; color: #F0A020; border: 1px solid rgba(212,135,10,.2); }
+.pt-mantra { font-size: 13px; color: var(--text-dim); font-style: italic; padding-top: 10px; border-top: 1px solid var(--border); }
+.pt-link-btn {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase; color: var(--teal-light);
+  background: none; border: none; cursor: pointer; padding: 0; margin-top: 8px;
+  display: block; opacity: .75; transition: opacity .15s;
+}
+.pt-link-btn:hover { opacity: 1; }
+
+/* ─── COACH NOTES ─── */
+.notes-compose {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 16px 18px; margin-bottom: 1.5rem;
+}
+.notes-compose-label {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px;
+}
+.notes-textarea {
+  width: 100%; background: var(--navy); border: 1px solid var(--border-strong);
+  color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px;
+  padding: 12px 14px; border-radius: 8px; resize: vertical; min-height: 80px;
+  line-height: 1.6; transition: border-color .15s;
+}
+.notes-textarea:focus { outline: none; border-color: var(--teal); }
+.notes-textarea::placeholder { color: var(--text-dim); }
+.notes-compose-footer { display: flex; justify-content: flex-end; margin-top: 10px; }
+.notes-list { display: flex; flex-direction: column; gap: 10px; }
+.note-item {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 14px 16px;
+}
+.note-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.note-date {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-dim); font-family: 'Barlow Condensed', sans-serif;
+}
+.note-delete {
+  background: none; border: none; color: var(--text-dim); cursor: pointer;
+  font-size: 16px; padding: 2px 6px; border-radius: 4px; transition: color .15s; line-height: 1;
+}
+.note-delete:hover { color: var(--red-light); }
+.note-body { font-size: 14px; color: var(--text-muted); line-height: 1.7; white-space: pre-wrap; }
+.notes-empty {
+  text-align: center; padding: 2.5rem 2rem; color: var(--text-dim);
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px; font-size: 14px;
+}
 </style>
 </head>
 <body>
@@ -338,30 +457,42 @@ const params   = new URLSearchParams(window.location.search);
 const playerId = params.get('player');
 const teamId   = params.get('team');
 
-let allIDPs   = [];
-let playerData = null;
+let allIDPs        = [];
+let allNotes       = [];
+let playerData     = null;
+let currentCoachId = null;
 
 if (!playerId) window.location.href = '/dashboard.html';
 
 (async () => {
   const ctx = await requireCoach();
   if (!ctx) return;
+  currentCoachId = ctx.id;
   await renderSidebar('');
 
   const { data: player } = await sb.from('players').select('*').eq('id', playerId).single();
   if (!player) { window.location.href = '/dashboard.html'; return; }
   playerData = player;
 
-  const { data: idps } = await sb
-    .from('idps').select('*').eq('player_id', playerId)
-    .order('updated_at', { ascending: false });
-  allIDPs = idps || [];
+  const [idpRes, notesRes] = await Promise.all([
+    sb.from('idps').select('*').eq('player_id', playerId).order('updated_at', { ascending: false }),
+    sb.from('player_notes').select('*').eq('player_id', playerId)
+      .eq('coach_id', currentCoachId).order('created_at', { ascending: false })
+  ]);
+  allIDPs  = idpRes.data  || [];
+  allNotes = notesRes.data || [];
 
   renderPage();
 })();
 
 function renderPage() {
   const root = document.getElementById('pageRoot');
+  const notesCount = allNotes.length;
+  const idpCount   = allIDPs.length;
+
+  const idpTabLabel   = idpCount   ? `IDPs (${idpCount})`   : 'IDPs';
+  const notesTabLabel = notesCount ? `Coach Notes (${notesCount})` : 'Coach Notes';
+
   root.innerHTML = `
     <div class="breadcrumb">
       <a href="/dashboard.html">My Teams</a>
@@ -382,41 +513,210 @@ function renderPage() {
       </div>
     </div>
 
-    ${allIDPs.length === 0 ? `
-      <div class="empty">
-        <div class="empty-icon">IDP</div>
-        <p>No IDPs yet for this player.</p>
-        <a href="/generate.html?player=${playerId}${teamId ? '&team='+teamId : ''}"
-           class="btn btn-primary" style="margin-top:1rem;display:inline-flex;">
-          ✦ Generate First IDP
-        </a>
-      </div>` : `
+    <div class="tab-nav">
+      <button class="tab-btn active" id="tab-btn-idps"     onclick="showTab('idps')">${idpTabLabel}</button>
+      <button class="tab-btn"        id="tab-btn-progress" onclick="showTab('progress')">Progress</button>
+      <button class="tab-btn"        id="tab-btn-notes"    onclick="showTab('notes')">${notesTabLabel}</button>
+    </div>
 
-      <div class="idp-list-label">${allIDPs.length} IDP${allIDPs.length !== 1 ? 's' : ''} — select one to view</div>
-      <div class="idp-list" id="idpList">
-        ${allIDPs.map((idp, i) => `
-          <div class="idp-list-item ${i === 0 ? 'selected' : ''}" id="item-${i}" onclick="selectIDP(${i})">
-            <div class="item-icon ${idp.published ? 'published' : 'draft'}">
-              ${idp.published ? '✓' : '✎'}
-            </div>
-            <div class="item-body">
-              <div class="item-date">${formatDate(idp.updated_at)}</div>
-              <div class="item-focus">${idp.data?.focus ? 'Focus: ' + esc(idp.data.focus) : 'Development Plan'}</div>
-            </div>
-            <div class="item-badges">
-              <span class="status-chip ${idp.published ? 'published' : 'draft'}">
-                ${idp.published ? 'Published' : 'Draft'}
-              </span>
-            </div>
-            <span class="item-arrow">▶</span>
-          </div>`).join('')}
-      </div>
+    <div id="panel-idps" class="tab-panel active">
+      ${idpCount === 0 ? `
+        <div class="empty">
+          <div class="empty-icon">IDP</div>
+          <p>No IDPs yet for this player.</p>
+          <a href="/generate.html?player=${playerId}${teamId ? '&team='+teamId : ''}"
+             class="btn btn-primary" style="margin-top:1rem;display:inline-flex;">
+            ✦ Generate First IDP
+          </a>
+        </div>` : `
+        <div class="idp-list-label">${idpCount} IDP${idpCount !== 1 ? 's' : ''} — select one to view</div>
+        <div class="idp-list" id="idpList">
+          ${allIDPs.map((idp, i) => `
+            <div class="idp-list-item ${i === 0 ? 'selected' : ''}" id="item-${i}" onclick="selectIDP(${i})">
+              <div class="item-icon ${idp.published ? 'published' : 'draft'}">
+                ${idp.published ? '✓' : '✎'}
+              </div>
+              <div class="item-body">
+                <div class="item-date">${formatDate(idp.updated_at)}</div>
+                <div class="item-focus">${idp.data?.focus ? 'Focus: ' + esc(idp.data.focus) : 'Development Plan'}</div>
+              </div>
+              <div class="item-badges">
+                <span class="status-chip ${idp.published ? 'published' : 'draft'}">
+                  ${idp.published ? 'Published' : 'Draft'}
+                </span>
+              </div>
+              <span class="item-arrow">▶</span>
+            </div>`).join('')}
+        </div>
+        <div class="idp-viewer visible" id="idpViewer">
+          ${renderViewer(allIDPs[0], 0)}
+        </div>
+      `}
+    </div>
 
-      <div class="idp-viewer visible" id="idpViewer">
-        ${renderViewer(allIDPs[0], 0)}
-      </div>
-    `}
+    <div id="panel-progress" class="tab-panel">
+      ${renderProgressTab()}
+    </div>
+
+    <div id="panel-notes" class="tab-panel">
+      ${renderNotesTab()}
+    </div>
   `;
+}
+
+function showTab(tab) {
+  ['idps','progress','notes'].forEach(t => {
+    document.getElementById('panel-' + t).classList.toggle('active', t === tab);
+    document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
+  });
+}
+
+function renderProgressTab() {
+  if (allIDPs.length < 2) {
+    return `<div class="progress-need-more">
+      <strong>Not enough data yet</strong>
+      Generate at least 2 IDPs to see how this player is progressing over time.
+    </div>`;
+  }
+
+  // Show oldest → newest so the timeline reads upward in time
+  const chrono = [...allIDPs].reverse();
+
+  const entries = chrono.map((idp, i) => {
+    const prev = i > 0 ? chrono[i - 1] : null;
+    const currStrengths  = idp.data?.strengths   || [];
+    const currImprovs    = idp.data?.improvements || [];
+    const prevStrengths  = prev ? (prev.data?.strengths || []) : null;
+
+    let deltaHtml = '';
+    if (prevStrengths !== null) {
+      const diff = currStrengths.length - prevStrengths.length;
+      if (diff > 0)      deltaHtml = `<span class="pt-delta up">▲ +${diff} strength${diff > 1 ? 's' : ''}</span>`;
+      else if (diff < 0) deltaHtml = `<span class="pt-delta down">▼ ${Math.abs(diff)} strength${Math.abs(diff) > 1 ? 's' : ''} fewer</span>`;
+      else               deltaHtml = `<span class="pt-delta same">— same strengths</span>`;
+    }
+
+    const strengthTags = currStrengths.slice(0, 4).map(s =>
+      `<span class="pt-tag strength">✦ ${esc(s.title)}</span>`).join('');
+    const improvTags = currImprovs.slice(0, 4).map(s =>
+      `<span class="pt-tag improvement">▲ ${esc(s.title)}</span>`).join('');
+
+    const isLatest = i === chrono.length - 1;
+    const origIdx  = allIDPs.indexOf(idp); // index in allIDPs (newest-first) for selectIDP()
+
+    return `
+      <div class="pt-entry">
+        <div class="pt-dot ${isLatest ? 'latest' : ''}"></div>
+        <div class="pt-card">
+          <div class="pt-card-header">
+            <div class="pt-date">${formatDate(idp.updated_at)}${isLatest ? ' <span style="font-size:11px;color:var(--teal-light);margin-left:6px;">Latest</span>' : ''}</div>
+            <div class="pt-badges">
+              ${idp.data?.focus ? `<span class="pt-focus">${esc(idp.data.focus)}</span>` : ''}
+              ${deltaHtml}
+            </div>
+          </div>
+          <div class="pt-tags">${strengthTags}${improvTags}</div>
+          ${idp.data?.mantra ? `<div class="pt-mantra">"${esc(idp.data.mantra)}"</div>` : ''}
+          <button class="pt-link-btn" onclick="showTab('idps');selectIDP(${origIdx})">View full IDP →</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `<div class="progress-timeline">${entries}</div>`;
+}
+
+function renderNotesTab() {
+  const noteItems = allNotes.map(note => `
+    <div class="note-item" id="note-${note.id}">
+      <div class="note-header">
+        <div class="note-date">${formatNoteDate(note.created_at)}</div>
+        <button class="note-delete" onclick="deleteNote('${note.id}')" title="Delete note">×</button>
+      </div>
+      <div class="note-body">${esc(note.content)}</div>
+    </div>
+  `).join('');
+
+  return `
+    <div class="notes-compose">
+      <div class="notes-compose-label">📝 Add coaching note</div>
+      <textarea class="notes-textarea" id="noteInput"
+        placeholder="Observations, match notes, injury flags, attitude check-ins… only visible to you."
+        rows="3"></textarea>
+      <div class="notes-compose-footer">
+        <button class="btn btn-primary" onclick="addNote()">+ Add Note</button>
+      </div>
+    </div>
+    <div class="notes-list" id="notesList">
+      ${allNotes.length === 0
+        ? '<div class="notes-empty">No notes yet. Add your first coaching observation above.</div>'
+        : noteItems}
+    </div>
+  `;
+}
+
+function formatNoteDate(iso) {
+  return new Date(iso).toLocaleString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+    year: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+}
+
+async function addNote() {
+  const input = document.getElementById('noteInput');
+  if (!input) return;
+  const content = input.value.trim();
+  if (!content) { input.focus(); return; }
+
+  input.disabled = true;
+  const { data, error } = await sb.from('player_notes').insert({
+    player_id: playerId,
+    coach_id: currentCoachId,
+    content
+  }).select().single();
+  input.disabled = false;
+
+  if (error) { showToast('Failed to save note'); return; }
+
+  allNotes.unshift(data);
+  input.value = '';
+
+  const list = document.getElementById('notesList');
+  if (list) {
+    if (list.querySelector('.notes-empty')) list.innerHTML = '';
+    list.insertAdjacentHTML('afterbegin', `
+      <div class="note-item" id="note-${data.id}">
+        <div class="note-header">
+          <div class="note-date">${formatNoteDate(data.created_at)}</div>
+          <button class="note-delete" onclick="deleteNote('${data.id}')" title="Delete note">×</button>
+        </div>
+        <div class="note-body">${esc(data.content)}</div>
+      </div>
+    `);
+  }
+
+  const tabBtn = document.getElementById('tab-btn-notes');
+  if (tabBtn) tabBtn.textContent = `Coach Notes (${allNotes.length})`;
+  showToast('Note saved ✓');
+}
+
+async function deleteNote(noteId) {
+  if (!confirm('Delete this note? This cannot be undone.')) return;
+  const { error } = await sb.from('player_notes').delete().eq('id', noteId);
+  if (error) { showToast('Failed to delete note'); return; }
+
+  allNotes = allNotes.filter(n => n.id !== noteId);
+  const el = document.getElementById('note-' + noteId);
+  if (el) el.remove();
+
+  const list = document.getElementById('notesList');
+  if (list && !list.querySelector('.note-item')) {
+    list.innerHTML = '<div class="notes-empty">No notes yet. Add your first coaching observation above.</div>';
+  }
+
+  const tabBtn = document.getElementById('tab-btn-notes');
+  if (tabBtn) tabBtn.textContent = allNotes.length ? `Coach Notes (${allNotes.length})` : 'Coach Notes';
+  showToast('Note deleted');
 }
 
 function selectIDP(idx) {

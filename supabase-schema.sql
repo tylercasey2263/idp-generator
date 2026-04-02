@@ -75,6 +75,15 @@ create table public.idps (
   updated_at timestamptz default now()
 );
 
+-- ─── PLAYER NOTES (private coach journal) ────────────
+create table public.player_notes (
+  id         uuid primary key default gen_random_uuid(),
+  player_id  uuid references public.players(id) on delete cascade,
+  coach_id   uuid references public.profiles(id) on delete cascade,
+  content    text not null,
+  created_at timestamptz default now()
+);
+
 -- ─── SETTINGS (stores the Claude API key for coaches) ─
 create table public.settings (
   key   text primary key,
@@ -89,13 +98,14 @@ create table public.settings (
 --  ROW LEVEL SECURITY
 -- ═══════════════════════════════════════════════════════
 
-alter table public.profiles      enable row level security;
-alter table public.teams         enable row level security;
-alter table public.coach_teams   enable row level security;
-alter table public.players       enable row level security;
+alter table public.profiles       enable row level security;
+alter table public.teams          enable row level security;
+alter table public.coach_teams    enable row level security;
+alter table public.players        enable row level security;
 alter table public.parent_players enable row level security;
-alter table public.idps          enable row level security;
-alter table public.settings      enable row level security;
+alter table public.idps           enable row level security;
+alter table public.player_notes   enable row level security;
+alter table public.settings       enable row level security;
 
 -- ─── PROFILES ─────────────────────────────────────────
 create policy "profiles: own read"
@@ -224,6 +234,13 @@ create policy "idps: parent read"
     )
   );
 
+-- ─── PLAYER NOTES ─────────────────────────────────────
+-- Coaches can only see and manage their own private notes
+create policy "player_notes: coach own"
+  on public.player_notes for all
+  using (coach_id = auth.uid())
+  with check (coach_id = auth.uid());
+
 -- ─── SETTINGS ─────────────────────────────────────────
 -- Only coaches and admins can read settings (e.g. the Claude API key)
 create policy "settings: coach read"
@@ -231,3 +248,21 @@ create policy "settings: coach read"
   using (
     auth.uid() in (select id from public.profiles where role in ('coach','admin'))
   );
+
+-- ═══════════════════════════════════════════════════════
+--  MIGRATIONS (run these if schema already exists)
+-- ═══════════════════════════════════════════════════════
+
+-- Add player_notes table (coach journal feature)
+-- create table if not exists public.player_notes (
+--   id         uuid primary key default gen_random_uuid(),
+--   player_id  uuid references public.players(id) on delete cascade,
+--   coach_id   uuid references public.profiles(id) on delete cascade,
+--   content    text not null,
+--   created_at timestamptz default now()
+-- );
+-- alter table public.player_notes enable row level security;
+-- create policy "player_notes: coach own"
+--   on public.player_notes for all
+--   using (coach_id = auth.uid())
+--   with check (coach_id = auth.uid());
