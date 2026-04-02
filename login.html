@@ -140,6 +140,46 @@ input::placeholder { color: var(--text-dim); }
 .footer-link a { color: var(--teal-light); text-decoration: none; cursor: pointer; }
 .footer-link a:hover { text-decoration: underline; }
 
+/* Magic link divider */
+.or-divider {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 11px; color: var(--text-dim); text-transform: uppercase;
+  letter-spacing: .08em; margin: 0;
+}
+.or-divider::before, .or-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border-strong);
+}
+
+/* Magic link ghost btn */
+.btn-magic {
+  width: 100%; padding: 11px 16px; border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  font-family: 'Barlow Condensed', sans-serif; font-size: 14px;
+  font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  cursor: pointer; transition: border-color .15s, color .15s, background .15s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: transparent; color: var(--text-muted);
+}
+.btn-magic:hover { border-color: var(--teal); color: var(--teal-light); background: var(--teal-faint); }
+.btn-magic:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Sent confirmation */
+.sent-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px; text-align: center; padding: 1rem 0;
+}
+.sent-icon {
+  width: 64px; height: 64px; border-radius: 16px;
+  background: var(--teal-faint); border: 1px solid rgba(34,168,130,.3);
+  display: flex; align-items: center; justify-content: center;
+}
+.sent-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 24px; font-weight: 800; color: var(--text);
+}
+.sent-body { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+.sent-hint { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+
 .spinner {
   display: inline-block; width: 14px; height: 14px;
   border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
@@ -209,35 +249,87 @@ input::placeholder { color: var(--text-dim); }
       <div class="card">
         <div class="card-title" id="cardTitle">Sign In</div>
 
-        <div class="tabs" id="modeTabs">
-          <button class="tab active" onclick="setMode('signin')">Sign In</button>
-          <button class="tab" onclick="setMode('signup')">Create Account</button>
+        <!-- Password form -->
+        <div id="passwordForm">
+          <div style="display:flex;flex-direction:column;gap:18px;">
+            <div class="tabs" id="modeTabs">
+              <button class="tab active" onclick="setMode('signin')">Sign In</button>
+              <button class="tab" onclick="setMode('signup')">Create Account</button>
+            </div>
+
+            <div class="field" id="nameField" style="display:none;">
+              <label>Full Name</label>
+              <input type="text" id="fullName" placeholder="Your name" autocomplete="name" />
+            </div>
+
+            <div class="field">
+              <label>Email</label>
+              <input type="email" id="email" placeholder="you@example.com" autocomplete="email"
+                     onkeydown="if(event.key==='Enter') submit()" />
+            </div>
+
+            <div class="field" id="passwordField">
+              <label>Password</label>
+              <input type="password" id="password" placeholder="Password" autocomplete="current-password"
+                     onkeydown="if(event.key==='Enter') submit()" />
+            </div>
+
+            <button class="btn btn-primary" id="submitBtn" onclick="submit()">Sign In</button>
+
+            <div class="status" id="statusMsg"></div>
+
+            <div class="footer-link" id="switchLink">
+              Don't have an account? <a onclick="setMode('signup')">Create one</a>
+            </div>
+
+            <!-- Magic link option — only shown on Sign In tab -->
+            <div id="magicDivider">
+              <div class="or-divider">or</div>
+              <button class="btn-magic" style="margin-top:12px;" onclick="setMode('magic')">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M1 3.5h13M1 3.5l5.5 5 2 0 5.5-5M1 3.5V12a1 1 0 001 1h11a1 1 0 001-1V3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Send me a magic link
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div class="field" id="nameField" style="display:none;">
-          <label>Full Name</label>
-          <input type="text" id="fullName" placeholder="Your name" autocomplete="name" />
+        <!-- Magic link email form -->
+        <div id="magicForm" style="display:none;">
+          <div style="display:flex;flex-direction:column;gap:18px;">
+            <div class="field">
+              <label>Email</label>
+              <input type="email" id="magicEmail" placeholder="you@example.com" autocomplete="email"
+                     onkeydown="if(event.key==='Enter') sendMagicLink()" />
+            </div>
+            <button class="btn btn-primary" id="magicBtn" onclick="sendMagicLink()">
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M1 3.5h13M1 3.5l5.5 5 2 0 5.5-5M1 3.5V12a1 1 0 001 1h11a1 1 0 001-1V3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Send Magic Link
+            </button>
+            <div class="status" id="magicStatus"></div>
+            <div class="footer-link">
+              <a onclick="setMode('signin')">← Back to Sign In</a>
+            </div>
+          </div>
         </div>
 
-        <div class="field">
-          <label>Email</label>
-          <input type="email" id="email" placeholder="you@example.com" autocomplete="email"
-                 onkeydown="if(event.key==='Enter') submit()" />
+        <!-- Sent confirmation -->
+        <div id="magicSent" style="display:none;">
+          <div class="sent-wrap">
+            <div class="sent-icon">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <path d="M4 8h20M4 8l8 8 2 0 8-8M4 8v13a1.5 1.5 0 001.5 1.5h17A1.5 1.5 0 0024 21V8" stroke="#22A882" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M10 19l2.5 2.5L18 14" stroke="#22A882" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="sent-title">Check your inbox!</div>
+            <div class="sent-body">We sent a sign-in link to<br><strong id="sentEmailDisplay" style="color:var(--teal-light);"></strong></div>
+            <div class="sent-hint">Click the link in the email to sign in instantly.<br>It expires in 1 hour — check your spam folder if needed.</div>
+            <div style="margin-top:6px;">
+              <a class="footer-link" style="cursor:pointer;" onclick="setMode('signin')">← Back to Sign In</a>
+            </div>
+          </div>
         </div>
 
-        <div class="field">
-          <label>Password</label>
-          <input type="password" id="password" placeholder="Password" autocomplete="current-password"
-                 onkeydown="if(event.key==='Enter') submit()" />
-        </div>
-
-        <button class="btn btn-primary" id="submitBtn" onclick="submit()">Sign In</button>
-
-        <div class="status" id="statusMsg"></div>
-
-        <div class="footer-link" id="switchLink">
-          Don't have an account? <a onclick="setMode('signup')">Create one</a>
-        </div>
       </div>
     </div>
   </div>
@@ -261,22 +353,77 @@ const _inviteToken = new URLSearchParams(window.location.search).get('invite');
 
 function setMode(m) {
   mode = m;
-  document.getElementById('nameField').style.display = m === 'signup' ? 'flex' : 'none';
-  document.getElementById('cardTitle').textContent = m === 'signin' ? 'Sign In' : 'Create Account';
-  document.getElementById('submitBtn').textContent = m === 'signin' ? 'Sign In' : 'Create Account';
-  document.getElementById('switchLink').innerHTML = m === 'signin'
-    ? 'Don\'t have an account? <a onclick="setMode(\'signup\')">Create one</a>'
-    : 'Already have an account? <a onclick="setMode(\'signin\')">Sign in</a>';
-  document.querySelectorAll('.tab').forEach((t, i) => {
-    t.classList.toggle('active', (i === 0 && m === 'signin') || (i === 1 && m === 'signup'));
-  });
-  setStatus('');
+
+  const isPassword = (m === 'signin' || m === 'signup');
+  const isMagic    = (m === 'magic');
+  const isSent     = (m === 'magic-sent');
+
+  // Toggle top-level panels
+  document.getElementById('passwordForm').style.display = isPassword ? 'block' : 'none';
+  document.getElementById('magicForm').style.display    = isMagic    ? 'block' : 'none';
+  document.getElementById('magicSent').style.display    = isSent     ? 'block' : 'none';
+
+  if (isPassword) {
+    const isSignup = (m === 'signup');
+    document.getElementById('nameField').style.display    = isSignup ? 'flex' : 'none';
+    document.getElementById('passwordField').style.display = 'flex';
+    document.getElementById('cardTitle').textContent      = isSignup ? 'Create Account' : 'Sign In';
+    document.getElementById('submitBtn').textContent      = isSignup ? 'Create Account' : 'Sign In';
+    document.getElementById('magicDivider').style.display = isSignup ? 'none' : 'block';
+    document.getElementById('switchLink').innerHTML = isSignup
+      ? 'Already have an account? <a onclick="setMode(\'signin\')">Sign in</a>'
+      : 'Don\'t have an account? <a onclick="setMode(\'signup\')">Create one</a>';
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', (i === 0 && !isSignup) || (i === 1 && isSignup));
+    });
+    setStatus('');
+  }
+
+  if (isMagic) {
+    document.getElementById('cardTitle').textContent = 'Magic Link';
+    document.getElementById('magicStatus').textContent = '';
+    // Pre-fill magic email from password email if already typed
+    const pwEmail = document.getElementById('email').value.trim();
+    if (pwEmail) document.getElementById('magicEmail').value = pwEmail;
+    setTimeout(() => document.getElementById('magicEmail').focus(), 60);
+  }
+
+  if (isSent) {
+    document.getElementById('cardTitle').textContent = 'Link Sent';
+  }
 }
 
 function setStatus(msg, type = '') {
   const el = document.getElementById('statusMsg');
   el.textContent = msg;
   el.className = 'status' + (type ? ' ' + type : '');
+}
+
+async function sendMagicLink() {
+  const email = document.getElementById('magicEmail').value.trim();
+  const st    = document.getElementById('magicStatus');
+  if (!email) { st.textContent = 'Please enter your email.'; st.className = 'status error'; return; }
+
+  const btn = document.getElementById('magicBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Sending…';
+
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.origin + '/login.html' }
+  });
+
+  btn.disabled = false;
+  btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M1 3.5h13M1 3.5l5.5 5 2 0 5.5-5M1 3.5V12a1 1 0 001 1h11a1 1 0 001-1V3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg> Send Magic Link`;
+
+  if (error) {
+    st.textContent = error.message;
+    st.className = 'status error';
+    return;
+  }
+
+  document.getElementById('sentEmailDisplay').textContent = email;
+  setMode('magic-sent');
 }
 
 async function submit() {
