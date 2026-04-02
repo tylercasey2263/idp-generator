@@ -7,8 +7,21 @@
 
   /* ─── INJECT SIDEBAR + ONBOARDING CSS ─────────────────────────────── */
   const CSS = `
-    /* ── Reset body margin ── */
-    body { margin: 0; }
+    /* ── Global typography & readability overrides ── */
+    /* These come after each page's own <style> block, so :root variables win here */
+    :root {
+      --text-dim:   #7A90A4;   /* was #64748B — lifted from ~3.5:1 to ~5:1 contrast */
+      --text-muted: #A8BDD0;   /* was #94A3B8 — slightly brighter */
+    }
+    html {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    body { margin: 0; line-height: 1.65; }
+
+    /* Ease the intensity of all-caps field labels site-wide */
+    .field label,
+    .modal .field label { letter-spacing: .04em; }
 
     /* ── Shell ── */
     .main-content { margin-left: 240px; min-height: 100vh; }
@@ -39,7 +52,7 @@
       color: #EDF2F7; line-height: 1.2; white-space: nowrap;
       overflow: hidden; text-overflow: ellipsis;
     }
-    .sb-club-sub { font-size: 10px; color: #475569; text-transform: uppercase; letter-spacing: .08em; }
+    .sb-club-sub { font-size: 10px; color: #546E80; text-transform: uppercase; letter-spacing: .05em; }
 
     /* Nav */
     .sb-nav {
@@ -49,18 +62,18 @@
     .sb-nav::-webkit-scrollbar { width: 4px; }
     .sb-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
     .sb-section-label {
-      font-size: 10px; font-weight: 700; color: #334155; text-transform: uppercase;
-      letter-spacing: .1em; padding: 8px 10px 3px;
+      font-size: 10px; font-weight: 700; color: #4B6577; text-transform: uppercase;
+      letter-spacing: .07em; padding: 8px 10px 3px;
     }
     .sb-divider { height: 1px; background: rgba(255,255,255,.05); margin: 6px 0; }
     .sb-item {
       display: flex; align-items: center; gap: 9px; padding: 8px 10px;
-      border-radius: 7px; font-size: 13px; font-weight: 500; color: #64748B;
+      border-radius: 7px; font-size: 13px; font-weight: 500; color: #7A8FA0;
       text-decoration: none; transition: background .15s, color .15s;
       cursor: pointer; border: 1px solid transparent;
       font-family: 'Inter', sans-serif; white-space: nowrap;
     }
-    .sb-item:hover { background: rgba(255,255,255,.04); color: #94A3B8; }
+    .sb-item:hover { background: rgba(255,255,255,.04); color: #A8BDD0; }
     .sb-item.active {
       background: rgba(27,138,107,.14); color: #22A882;
       border-color: rgba(27,138,107,.22);
@@ -84,32 +97,32 @@
     }
     .sb-role-badge {
       display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .06em; padding: 2px 6px; border-radius: 3px; margin-top: 2px;
+      letter-spacing: .05em; padding: 2px 6px; border-radius: 3px; margin-top: 2px;
     }
     .role-admin  { background: rgba(212,135,10,.2);  color: #F0A020; }
     .role-coach  { background: rgba(27,138,107,.2);  color: #22A882; }
     .role-parent { background: rgba(100,116,139,.2); color: #94A3B8; }
     .sb-signout {
       width: 100%; padding: 7px; border-radius: 6px; background: none;
-      border: 1px solid rgba(255,255,255,.08); color: #475569;
+      border: 1px solid rgba(255,255,255,.08); color: #546E80;
       font-size: 12px; font-weight: 600; cursor: pointer;
       font-family: 'Inter', sans-serif; transition: color .15s, border-color .15s;
     }
-    .sb-signout:hover { color: #94A3B8; border-color: rgba(255,255,255,.15); }
+    .sb-signout:hover { color: #A8BDD0; border-color: rgba(255,255,255,.15); }
 
     /* Mobile topbar */
     .sb-topbar {
       display: none; align-items: center; gap: 12px; padding: 0 1rem;
-      height: 52px; background: #07111C; border-bottom: 1px solid rgba(255,255,255,.07);
+      height: 56px; background: #07111C; border-bottom: 1px solid rgba(255,255,255,.07);
       position: sticky; top: 0; z-index: 201;
     }
     .sb-hamburger {
-      background: none; border: none; color: #94A3B8; cursor: pointer;
+      background: none; border: none; color: #A8BDD0; cursor: pointer;
       padding: 5px; border-radius: 6px; transition: background .15s; line-height: 1;
     }
     .sb-hamburger:hover { background: rgba(255,255,255,.05); }
-    .sb-topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 800; color: #EDF2F7; }
-    .sb-topbar-title em { color: #22A882; font-style: normal; }
+    .sb-topbar-club { font-family: 'Barlow Condensed', sans-serif; font-size: 17px; font-weight: 800; color: #EDF2F7; line-height: 1.15; }
+    .sb-topbar-sub  { font-size: 10px; color: #546E80; text-transform: uppercase; letter-spacing: .05em; line-height: 1; }
     .sb-overlay {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 199;
     }
@@ -140,19 +153,19 @@
       animation: obFadeIn .2s ease;
     }
     @keyframes obFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-    .ob-step-label { font-size: 10px; font-weight: 700; color: #22A882; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 5px; }
+    .ob-step-label { font-size: 10px; font-weight: 700; color: #22A882; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; }
     .ob-title { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 800; color: #EDF2F7; margin-bottom: 5px; }
-    .ob-body { font-size: 13px; color: #94A3B8; line-height: 1.6; margin-bottom: 14px; }
+    .ob-body { font-size: 13px; color: #A8BDD0; line-height: 1.65; margin-bottom: 14px; }
     .ob-footer { display: flex; align-items: center; gap: 8px; }
     .ob-dots { display: flex; gap: 4px; flex: 1; }
     .ob-dot { width: 5px; height: 5px; border-radius: 50%; background: #243B55; }
     .ob-dot.on { background: #22A882; }
     .ob-skip-btn {
-      background: none; border: none; color: #475569; font-size: 12px;
+      background: none; border: none; color: #546E80; font-size: 12px;
       cursor: pointer; padding: 5px 8px; border-radius: 5px;
       font-family: 'Inter', sans-serif; transition: color .15s;
     }
-    .ob-skip-btn:hover { color: #64748B; }
+    .ob-skip-btn:hover { color: #7A90A4; }
     .ob-next-btn {
       background: #1B8A6B; border: none; color: #fff; font-size: 12px; font-weight: 700;
       cursor: pointer; padding: 7px 15px; border-radius: 6px;
@@ -251,14 +264,17 @@
       <div class="sb-topbar">
         <button class="sb-hamburger" onclick="toggleSidebar()" aria-label="Menu">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M2 4.5h14M2 9h14M2 13.5h14" stroke="#94A3B8" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M2 4.5h14M2 9h14M2 13.5h14" stroke="#A8BDD0" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
         </button>
-        <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+        <div style="display:flex;align-items:center;gap:9px;min-width:0;flex:1;">
           ${clubLogo
-            ? `<img src="${clubLogo}" alt="" style="width:28px;height:28px;border-radius:6px;object-fit:cover;flex-shrink:0;">`
-            : `<div style="width:28px;height:28px;border-radius:6px;background:rgba(27,138,107,.2);border:1px solid rgba(27,138,107,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${IC.soccer}</div>`}
-          <span class="sb-topbar-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(clubName)}</span>
+            ? `<img src="${clubLogo}" alt="" style="width:30px;height:30px;border-radius:7px;object-fit:cover;flex-shrink:0;">`
+            : `<div style="width:30px;height:30px;border-radius:7px;background:rgba(27,138,107,.2);border:1px solid rgba(27,138,107,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${IC.soccer}</div>`}
+          <div style="min-width:0;">
+            <div class="sb-topbar-club" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(clubName)}</div>
+            <div class="sb-topbar-sub">Player Development</div>
+          </div>
         </div>
       </div>
       <div class="sb-overlay" id="sbOverlay" onclick="closeSidebar()"></div>
