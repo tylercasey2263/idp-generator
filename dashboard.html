@@ -396,8 +396,8 @@ let allPlayers = [];   // populated after teams load for combined search
 })();
 
 async function loadStats() {
-  const { data: rows } = await sb.from('coach_teams').select('team_id').eq('coach_id', coachId);
-  const teamIds = (rows || []).map(r => r.team_id);
+  const { data: allTeams } = await sb.from('teams').select('id');
+  const teamIds = (allTeams || []).map(t => t.id);
   if (!teamIds.length) {
     document.getElementById('statPlayers').textContent  = '0';
     document.getElementById('statIDPs').textContent     = '0';
@@ -591,26 +591,26 @@ async function loadAllPlayers() {
 }
 
 async function loadTeams() {
-  const { data: rows, error } = await sb
-    .from('coach_teams')
-    .select('team_id, teams(id, name, season)')
-    .eq('coach_id', coachId);
+  const { data: teams, error } = await sb
+    .from('teams')
+    .select('id, name, season')
+    .order('name');
 
   const grid = document.getElementById('teamGrid');
 
-  if (error || !rows || rows.length === 0) {
+  if (error || !teams || teams.length === 0) {
     grid.innerHTML = `
       <div class="empty">
         <div class="empty-icon">IDP</div>
         <p>No teams yet. Add your first team to get started.</p>
         <button class="btn btn-primary" onclick="openAddTeam()">+ Add Team</button>
       </div>`;
-    window._allTeamRows = []; window._countMap = {};
+    window._allTeams = []; window._countMap = {};
     return;
   }
 
   // Fetch player counts per team
-  const teamIds = rows.map(r => r.team_id);
+  const teamIds = teams.map(t => t.id);
   const { data: players } = await sb
     .from('players')
     .select('team_id')
@@ -619,19 +619,18 @@ async function loadTeams() {
   const countMap = {};
   (players || []).forEach(p => { countMap[p.team_id] = (countMap[p.team_id] || 0) + 1; });
 
-  window._allTeamRows = rows;
-  window._countMap    = countMap;
-  renderTeamCards(rows, countMap);
+  window._allTeams = teams;
+  window._countMap = countMap;
+  renderTeamCards(teams, countMap);
 }
 
-function renderTeamCards(rows, countMap) {
+function renderTeamCards(teams, countMap) {
   const grid = document.getElementById('teamGrid');
-  if (!rows || rows.length === 0) {
+  if (!teams || teams.length === 0) {
     grid.innerHTML = `<div class="empty"><div class="empty-icon">IDP</div><p>No teams found.</p></div>`;
     return;
   }
-  grid.innerHTML = rows.map(r => {
-    const t = r.teams;
+  grid.innerHTML = teams.map(t => {
     const count = countMap[t.id] || 0;
     return `
       <div class="team-card">
@@ -652,12 +651,12 @@ function runSearch() {
   const q = document.getElementById('globalSearch').value.toLowerCase().trim();
 
   // ── Teams ──────────────────────────────────────────
-  if (window._allTeamRows) {
+  if (window._allTeams) {
     const filteredTeams = q
-      ? window._allTeamRows.filter(r =>
-          r.teams.name.toLowerCase().includes(q) ||
-          (r.teams.season||'').toLowerCase().includes(q))
-      : window._allTeamRows;
+      ? window._allTeams.filter(t =>
+          t.name.toLowerCase().includes(q) ||
+          (t.season||'').toLowerCase().includes(q))
+      : window._allTeams;
 
     // Show/hide label only when searching
     const teamsSection = document.getElementById('teamsSection');
@@ -739,9 +738,10 @@ async function confirmDelete() {
   await sb.from('coach_teams').delete().eq('team_id', _pendingDeleteId);
   await sb.from('teams').delete().eq('id', _pendingDeleteId);
 
-  window._allTeamRows = (window._allTeamRows || []).filter(r => r.team_id !== _pendingDeleteId);
+  window._allTeams = (window._allTeams || []).filter(t => t.id !== _pendingDeleteId);
+  if (window._countMap) delete window._countMap[_pendingDeleteId];
   closeDeleteConfirm();
-  renderTeamCards(window._allTeamRows, window._countMap || {});
+  renderTeamCards(window._allTeams, window._countMap || {});
   loadStats();
   showToast('Team deleted');
 }
