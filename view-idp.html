@@ -263,6 +263,25 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
   margin-top: 1.5rem; border-left: 3px solid rgba(255,255,255,.12);
   padding: 12px 18px; background: var(--navy-light); border-radius: 0 10px 10px 0;
 }
+/* ─── PLAYER PHOTO ─── */
+.player-photo {
+  width: 72px; height: 72px; border-radius: 50%; flex-shrink: 0;
+  background: var(--teal-faint); border: 2px solid rgba(27,138,107,.3);
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 700;
+  color: var(--teal-light); cursor: pointer; position: relative;
+  transition: border-color .15s;
+}
+.player-photo:hover { border-color: var(--teal); }
+.player-photo img { width: 100%; height: 100%; object-fit: cover; }
+.player-photo-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,.5);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .15s; font-size: 11px; color: #fff;
+  border-radius: 50%;
+}
+.player-photo:hover .player-photo-overlay { opacity: 1; }
+
 .ig-parent-note-label {
   font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
   letter-spacing: .14em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 7px;
@@ -536,10 +555,26 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
 .stat-pill.pts .sp-val { color: var(--text); }
 .results-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .result-row {
-  display: grid; grid-template-columns: 1fr auto auto; align-items: center;
-  gap: 10px; background: var(--navy-mid); border: 1px solid var(--border);
-  border-radius: 8px; padding: 10px 14px;
+  background: var(--navy-mid); border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden; cursor: pointer; transition: border-color .15s;
 }
+.result-row:hover { border-color: var(--border-strong); }
+.result-row.expanded { border-color: var(--teal); }
+.result-row.no-expand { cursor: default; }
+.result-row.no-expand:hover { border-color: var(--border); }
+.result-row-main {
+  display: grid; grid-template-columns: 1fr auto auto 18px;
+  align-items: center; gap: 10px; padding: 10px 14px;
+}
+.result-expand-icon { font-size: 10px; color: var(--text-dim); transition: transform .2s; text-align: right; }
+.result-row.expanded .result-expand-icon { transform: rotate(180deg); }
+.result-detail {
+  display: none; padding: 8px 14px 10px; border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--text-dim); gap: 16px; flex-wrap: wrap; align-items: center;
+}
+.result-row.expanded .result-detail { display: flex; }
+.result-detail-item { display: flex; align-items: center; gap: 5px; }
+.result-detail-item svg { opacity: .5; flex-shrink: 0; }
 .result-opp { font-size: 13px; color: var(--text-muted); }
 .result-score { font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); }
 .result-badge {
@@ -613,6 +648,21 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
 </div>
 </div>
 <div id="toast" class="toast"></div>
+
+<!-- COPY IDP MODAL -->
+<div class="share-overlay" id="copyOverlay" onclick="closeCopyModal(event)">
+  <div class="share-modal" onclick="event.stopPropagation()" style="max-width:420px;">
+    <div class="share-modal-title">⎘ Copy IDP</div>
+    <div class="share-modal-sub">Duplicate this IDP as a new draft so you can adapt it for a different session or team.</div>
+    <div style="margin:14px 0 4px;font-size:12px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Source IDP</div>
+    <div id="copySourceLabel" style="font-size:13px;color:var(--text-muted);background:var(--navy-mid);border-radius:6px;padding:8px 12px;margin-bottom:12px;"></div>
+    <div class="share-actions" style="margin-top:12px;">
+      <button class="share-done-btn" onclick="document.getElementById('copyOverlay').classList.remove('open');_copySourceIdx=null;">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="copyConfirmBtn" onclick="confirmCopyIDP()" style="padding:8px 18px;">Duplicate as New Draft</button>
+    </div>
+    <div style="font-size:12px;min-height:16px;margin-top:8px;color:var(--teal-light);" id="copyStatus"></div>
+  </div>
+</div>
 
 <!-- SHARE MODAL -->
 <div class="share-overlay" id="shareOverlay" onclick="closeShareModal(event)">
@@ -706,11 +756,18 @@ function renderPage() {
     </div>
 
     <div class="player-header">
-      <div>
-        <div class="player-name">${esc(playerData.name)}</div>
-        ${playerData.positions ? `<div class="player-pos">${esc(playerData.positions)}</div>` : ''}
-        ${teamChips ? `<div class="player-team-chips" style="margin-top:8px;">${teamChips}</div>` : ''}
-        ${playerData.notes ? `<div class="player-notes-preview">${esc(playerData.notes)}</div>` : ''}
+      <div style="display:flex;align-items:flex-start;gap:16px;">
+        <div class="player-photo" onclick="document.getElementById('vpPhotoInput').click()" title="Upload photo">
+          ${playerData.photo_url
+            ? `<img src="${playerData.photo_url}" alt="${esc(playerData.name)}"><div class="player-photo-overlay">📷</div>`
+            : `${(playerData.name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}<div class="player-photo-overlay">📷</div>`}
+        </div>
+        <div>
+          <div class="player-name">${esc(playerData.name)}</div>
+          ${playerData.positions ? `<div class="player-pos">${esc(playerData.positions)}</div>` : ''}
+          ${teamChips ? `<div class="player-team-chips" style="margin-top:8px;">${teamChips}</div>` : ''}
+          ${playerData.notes ? `<div class="player-notes-preview">${esc(playerData.notes)}</div>` : ''}
+        </div>
       </div>
       <div class="header-actions">
         <button class="btn btn-ghost" onclick="window.print()">⬒ Print / PDF</button>
@@ -718,6 +775,7 @@ function renderPage() {
            class="btn btn-primary">✦ Generate New IDP</a>
       </div>
     </div>
+    <input type="file" id="vpPhotoInput" accept="image/*" style="display:none" onchange="handleVpPhotoUpload(event)" />
 
     <div class="tab-nav">
       <button class="tab-btn active" id="tab-btn-idps"     onclick="showTab('idps')">${idpTabLabel}</button>
@@ -971,6 +1029,7 @@ function renderViewer(idp, idx) {
         ${idp.published
           ? `<button class="btn btn-ghost btn-sm" onclick="shareIDP('${idp.id}', ${idx})">🔗 Share with Player</button>`
           : `<button class="btn btn-primary btn-sm" onclick="publishIDP('${idp.id}', ${idx})">⬆ Publish</button>`}
+        <button class="btn btn-ghost btn-sm" onclick="openCopyIDP(${idx})" title="Duplicate this IDP as a starting point for a new one">⎘ Copy IDP</button>
       </div>
     </div>
     ${showDiff ? `<div class="diff-panel" id="diffPanel-${idx}" style="display:none;">${buildDiff(prevIDP.data, idp.data)}</div>` : ''}
@@ -1229,6 +1288,36 @@ function timeAgo(iso) {
   return Math.floor(days / 365) + 'yr ago';
 }
 
+// ─── PLAYER PHOTO UPLOAD ───────────────────────────────────────────────
+async function handleVpPhotoUpload(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { showToast('Image must be under 2MB'); return; }
+
+  showToast('Uploading…');
+  const ext  = file.name.split('.').pop().toLowerCase() || 'jpg';
+  const path = `${playerId}/photo.${ext}`;
+
+  const { error: upErr } = await sb.storage
+    .from('player-photos')
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (upErr) { showToast('Upload failed: ' + upErr.message); return; }
+
+  const { data: urlData } = sb.storage.from('player-photos').getPublicUrl(path);
+  const photoUrl = urlData.publicUrl + '?t=' + Date.now();
+
+  await sb.from('players').update({ photo_url: photoUrl }).eq('id', playerId);
+  playerData.photo_url = photoUrl;
+
+  const photoEl = document.querySelector('.player-photo');
+  if (photoEl) {
+    photoEl.innerHTML = `<img src="${photoUrl}" alt="${esc(playerData.name)}"><div class="player-photo-overlay">📷</div>`;
+  }
+  showToast('Photo updated ✓');
+}
+
 // ─── PARENT FEEDBACK TAB ───────────────────────────────────────────────
 function renderFeedbackTab() {
   if (allFeedback.length === 0) {
@@ -1327,7 +1416,7 @@ async function loadSeasonData() {
     // Load standings + results for this team
     var [standingsRes, resultsRes] = await Promise.all([
       sb.from('league_standings').select('*').eq('gotsport_group_id', groupId),
-      sb.from('league_results').select('*').eq('gotsport_group_id', groupId).order('opponent', { ascending: true }),
+      sb.from('league_results').select('*').eq('gotsport_group_id', groupId).order('match_date', { ascending: true, nullsFirst: false }).order('opponent', { ascending: true }),
     ]);
 
     // Filter standings to our team's row
@@ -1372,13 +1461,42 @@ async function loadSeasonData() {
         'letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-top:.75rem;margin-bottom:8px;">Match Results</div>';
       html += '<div class="results-list">';
       results.forEach(function(r) {
-        var score = (r.goals_for != null && r.goals_against != null)
-          ? r.goals_for + '-' + r.goals_against : '-';
-        var badge = r.result || 'U';
-        html += '<div class="result-row">' +
-          '<div class="result-opp">' + esc(r.opponent || '-') + '</div>' +
-          '<div class="result-score">' + score + '</div>' +
-          '<div class="result-badge ' + badge + '">' + (badge === 'U' ? '-' : badge) + '</div>' +
+        var score    = (r.goals_for != null && r.goals_against != null) ? r.goals_for + '-' + r.goals_against : 'vs';
+        var badge    = r.result || 'U';
+        var homeAway = r.is_home === true ? 'Home' : r.is_home === false ? 'Away' : null;
+        var venue    = r.venue || null;
+
+        var detailItems = '';
+        if (r.match_date) {
+          var d = new Date(r.match_date + 'T12:00:00');
+          var dateFull = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+          detailItems += '<div class="result-detail-item">' +
+            '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="1" y="2" width="10" height="9" rx="1.5" stroke="#94A3B8" stroke-width="1.2"/><path d="M1 5h10" stroke="#94A3B8" stroke-width="1.2"/><path d="M4 1v2M8 1v2" stroke="#94A3B8" stroke-width="1.2" stroke-linecap="round"/></svg>' +
+            '<span>' + dateFull + '</span></div>';
+        }
+        if (homeAway) {
+          detailItems += '<div class="result-detail-item">' +
+            '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1L1.5 5.5V11h3V7.5h3V11h3V5.5L6 1z" stroke="#94A3B8" stroke-width="1.2" stroke-linejoin="round"/></svg>' +
+            '<span>' + homeAway + '</span></div>';
+        }
+        if (venue) {
+          detailItems += '<div class="result-detail-item">' +
+            '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="5" r="2" stroke="#94A3B8" stroke-width="1.2"/><path d="M6 1a4 4 0 014 4c0 3-4 7-4 7S2 8 2 5a4 4 0 014-4z" stroke="#94A3B8" stroke-width="1.2"/></svg>' +
+            '<span>' + esc(venue) + '</span></div>';
+        }
+
+        var hasDetail = !!(r.match_date || homeAway || venue);
+        var detailHtml = hasDetail ? '<div class="result-detail">' + detailItems + '</div>' : '';
+
+        html += '<div class="result-row' + (hasDetail ? '' : ' no-expand') + '"' +
+          (hasDetail ? ' onclick="toggleResultRow(this)"' : '') + '>' +
+          '<div class="result-row-main">' +
+            '<div class="result-opp">' + esc(r.opponent || '-') + '</div>' +
+            '<div class="result-score">' + score + '</div>' +
+            '<div class="result-badge ' + badge + '">' + (badge === 'U' ? '-' : badge) + '</div>' +
+            (hasDetail ? '<div class="result-expand-icon">▼</div>' : '<div></div>') +
+          '</div>' +
+          detailHtml +
         '</div>';
       });
       html += '</div>';
@@ -1395,6 +1513,84 @@ async function loadSeasonData() {
   }
 
   container.innerHTML = html;
+}
+
+function toggleResultRow(row) {
+  row.classList.toggle('expanded');
+}
+
+// ─── COPY IDP ──────────────────────────────────────────────────────────────
+var _copySourceIdx = null;
+
+function openCopyIDP(idx) {
+  _copySourceIdx = idx;
+  var idp  = allIDPs[idx];
+  var date = formatDate(idp.updated_at);
+  var focus = idp.data?.focus || 'Development Plan';
+  document.getElementById('copySourceLabel').textContent = date + ' — ' + focus;
+  document.getElementById('copyStatus').textContent = '';
+  document.getElementById('copyConfirmBtn').disabled = false;
+  document.getElementById('copyConfirmBtn').textContent = 'Duplicate as New Draft';
+  document.getElementById('copyOverlay').classList.add('open');
+}
+
+function closeCopyModal(e) {
+  if (e && e.target !== document.getElementById('copyOverlay')) return;
+  document.getElementById('copyOverlay').classList.remove('open');
+  _copySourceIdx = null;
+}
+
+async function confirmCopyIDP() {
+  if (_copySourceIdx === null) return;
+  var idp = allIDPs[_copySourceIdx];
+  var btn = document.getElementById('copyConfirmBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+
+  var { error, data } = await sb.from('idps').insert({
+    player_id:  idp.player_id,
+    created_by: currentCoachId,
+    data:       JSON.parse(JSON.stringify(idp.data || {})),
+    published:  false,
+    updated_at: new Date().toISOString(),
+  }).select().single();
+
+  if (error) {
+    document.getElementById('copyStatus').textContent = 'Error: ' + error.message;
+    btn.disabled = false; btn.textContent = 'Duplicate as New Draft';
+    return;
+  }
+
+  // Prepend new IDP and refresh view
+  allIDPs.unshift(data);
+  document.getElementById('copyStatus').textContent = 'Copied! Opening new draft…';
+  setTimeout(function() {
+    document.getElementById('copyOverlay').classList.remove('open');
+    // Rebuild the IDP list and select the new one
+    var listEl = document.getElementById('idpList');
+    if (listEl) {
+      listEl.insertAdjacentHTML('afterbegin',
+        `<div class="idp-list-item selected" id="item-0" onclick="selectIDP(0)">
+          <div class="item-icon draft">✎</div>
+          <div class="item-body">
+            <div class="item-date">${formatDate(data.updated_at)}</div>
+            <div class="item-focus">Focus: ${esc(data.data?.focus || 'Development Plan')} <span style="font-size:11px;color:var(--amber-light);">(copy)</span></div>
+          </div>
+          <div class="item-badges"><span class="status-chip draft">Draft</span></div>
+          <span class="item-arrow">▶</span>
+        </div>`
+      );
+      // Deselect all others and bump their indices
+      listEl.querySelectorAll('.idp-list-item').forEach(function(el, i) {
+        if (i > 0) {
+          el.id = 'item-' + i;
+          el.setAttribute('onclick', 'selectIDP(' + i + ')');
+          el.classList.remove('selected');
+        }
+      });
+    }
+    selectIDP(0);
+    showToast('IDP duplicated as new draft');
+  }, 800);
 }
 </script>
 </body>

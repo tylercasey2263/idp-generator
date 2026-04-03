@@ -136,6 +136,19 @@ input::placeholder { color: var(--text-dim); }
 .access-denied p { font-size: 14px; margin-bottom: 1.5rem; }
 .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── MY PROFILE ─── */
+.avatar-upload-row { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.25rem; }
+.avatar-circle {
+  width: 72px; height: 72px; border-radius: 50%; flex-shrink: 0;
+  background: var(--teal-faint); border: 2px dashed var(--border-strong);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; cursor: pointer; transition: border-color .2s;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 700;
+  color: var(--teal-light);
+}
+.avatar-circle:hover { border-color: var(--teal); }
+.avatar-circle img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 </style>
 </head>
 <body>
@@ -158,23 +171,57 @@ let coachId = null;
 
   await renderSidebar('settings');
 
+  // ── My Profile — visible to ALL coaches ─────────────────────────────────
+  const initials = (ctx.profile?.full_name || '?').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+  const avatarInner = ctx.profile?.avatar_url
+    ? `<img src="${ctx.profile.avatar_url}" alt="Avatar">`
+    : initials;
+
+  const profileHTML = `
+    <div class="settings-section">
+      <div class="section-header">
+        <div>
+          <div class="section-title">My Profile</div>
+          <div class="section-desc">Your name and photo — visible to other coaches on the team page.</div>
+        </div>
+      </div>
+      <div class="avatar-upload-row">
+        <div class="avatar-circle" id="avatarCircle" onclick="document.getElementById('avatarFileInput').click()" title="Upload photo">
+          ${avatarInner}
+        </div>
+        <div>
+          <label class="logo-upload-btn" for="avatarFileInput">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 9V2M3 5l3.5-3.5L10 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 10.5h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            Upload Photo
+          </label>
+          <input type="file" id="avatarFileInput" accept="image/*" style="display:none" onchange="handleAvatarUpload(event)" />
+          <div class="field-hint" style="margin-top:6px;">PNG or JPG, square recommended. Max 2MB.</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Display Name</label>
+        <input type="text" id="profileName" value="${esc(ctx.profile?.full_name || '')}" placeholder="Your name" />
+      </div>
+      <div class="save-row">
+        <button class="btn btn-primary" onclick="saveProfile()">Save Profile</button>
+        <span class="save-status" id="profileStatus"></span>
+      </div>
+    </div>`;
+
   if (ctx.profile.role !== 'admin') {
-    document.getElementById('pageContent').innerHTML = `
-      <div class="access-denied">
-        <h2>Access Restricted</h2>
-        <p>Only admins can access Settings. Contact your club admin to change your role.</p>
-        <a href="/dashboard.html" class="btn btn-primary" style="text-decoration:none;display:inline-flex;">← Back to Dashboard</a>
-      </div>`;
+    document.getElementById('pageContent').innerHTML = `<div class="page-title">Settings</div>${profileHTML}`;
     return;
   }
 
-  // Load current settings
+  // Load current settings (admin only from here)
   const { data: rows } = await sb.from('settings').select('key,value');
   const S = {};
   (rows || []).forEach(r => S[r.key] = r.value);
 
   document.getElementById('pageContent').innerHTML = `
     <div class="page-title">Settings</div>
+
+    ${profileHTML}
 
     <!-- ── CLUB INFO ── -->
     <div class="settings-section" id="clubSection">
@@ -356,6 +403,46 @@ async function saveApiKey() {
 
 function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── My Profile ────────────────────────────────
+async function handleAvatarUpload(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { alert('Image must be under 2MB'); return; }
+
+  const st = document.getElementById('profileStatus');
+  st.textContent = 'Uploading…'; st.className = 'save-status';
+
+  const ext  = file.name.split('.').pop().toLowerCase() || 'jpg';
+  const path = `${coachId}/avatar.${ext}`;
+
+  const { error: upErr } = await sb.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (upErr) { st.textContent = 'Upload failed: ' + upErr.message; st.className = 'save-status err'; return; }
+
+  const { data: urlData } = sb.storage.from('avatars').getPublicUrl(path);
+  const avatarUrl = urlData.publicUrl + '?t=' + Date.now();
+
+  const { error: dbErr } = await sb.from('profiles').update({ avatar_url: avatarUrl }).eq('id', coachId);
+  if (dbErr) { st.textContent = 'Error: ' + dbErr.message; st.className = 'save-status err'; return; }
+
+  const circle = document.getElementById('avatarCircle');
+  if (circle) circle.innerHTML = `<img src="${avatarUrl}" alt="Avatar">`;
+  st.textContent = '✓ Photo updated!'; st.className = 'save-status ok';
+  setTimeout(() => st.textContent = '', 3000);
+}
+
+async function saveProfile() {
+  const name = (document.getElementById('profileName')?.value || '').trim();
+  const st   = document.getElementById('profileStatus');
+  if (!name) { st.textContent = 'Name cannot be empty'; st.className = 'save-status err'; return; }
+  const { error } = await sb.from('profiles').update({ full_name: name }).eq('id', coachId);
+  if (error) { st.textContent = 'Error: ' + error.message; st.className = 'save-status err'; }
+  else { st.textContent = '✓ Saved!'; st.className = 'save-status ok'; setTimeout(() => st.textContent = '', 2500); }
 }
 </script>
 </body>

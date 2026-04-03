@@ -235,6 +235,60 @@ input::placeholder { color: var(--text-dim); }
 }
 .toast.show { opacity: 1; }
 
+/* ─── PLAYER AVATAR ─── */
+.player-avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  background: var(--navy-light); border: 2px solid var(--border-strong);
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 700;
+  color: var(--text-dim); cursor: pointer; transition: border-color .15s;
+  position: relative;
+}
+.player-avatar:hover { border-color: var(--teal); }
+.player-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.player-avatar-upload {
+  position: absolute; inset: 0; background: rgba(0,0,0,.55);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .15s; font-size: 11px; color: #fff;
+  border-radius: 50%;
+}
+.player-avatar:hover .player-avatar-upload { opacity: 1; }
+
+/* ─── COACHES SECTION ─── */
+.coaches-section {
+  margin-top: 2rem; padding-top: 1.75rem; border-top: 1px solid var(--border);
+}
+.coaches-label {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim);
+  margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;
+}
+.coaches-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+.coach-card {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 10px 14px; min-width: 180px;
+}
+.coach-avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  background: var(--teal-faint); border: 1px solid rgba(27,138,107,.3);
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 700;
+  color: var(--teal-light);
+}
+.coach-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.coach-info { min-width: 0; }
+.coach-name { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.coach-role-lbl { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+.btn-link-team {
+  padding: 6px 14px; border-radius: 7px; border: 1px solid rgba(27,138,107,.4);
+  background: var(--teal-faint); color: var(--teal-light);
+  font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.btn-link-team:hover { border-color: var(--teal); background: rgba(27,138,107,.15); }
+
 /* ─── POSITION PICKER ─── */
 .pos-picker { position: relative; }
 .pos-trigger {
@@ -416,6 +470,15 @@ input::placeholder { color: var(--text-dim); }
     </div>
   </div>
 
+  <!-- COACHES SECTION -->
+  <div class="coaches-section" id="coachesSection" style="display:none;">
+    <div class="coaches-label">
+      <span>Coaching Staff</span>
+      <span id="linkTeamBtnWrap"></span>
+    </div>
+    <div class="coaches-grid" id="coachesGrid"></div>
+  </div>
+
   <div class="sessions-header">
     <div class="sessions-label">Training Sessions</div>
     <button class="btn btn-ghost" onclick="openAddSession()"
@@ -489,6 +552,12 @@ input::placeholder { color: var(--text-dim); }
           color:var(--text);font-family:'Inter',sans-serif;font-size:13px;
           padding:10px 13px;width:100%;outline:none;resize:vertical;min-height:80px;
           transition:border-color .2s;line-height:1.5;"></textarea>
+    </div>
+    <div class="field">
+      <label>Additional Teams</label>
+      <div id="editTeamsList" style="display:flex;flex-direction:column;gap:6px;min-height:24px;">
+        <span style="font-size:12px;color:var(--text-dim);">Loading teams…</span>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeEditPlayer()">Cancel</button>
@@ -626,6 +695,7 @@ input::placeholder { color: var(--text-dim); }
   </div>
 </div>
 
+<input type="file" id="photoFileInput" accept="image/*" style="display:none" onchange="handlePhotoUpload(event)" />
 <div class="toast" id="toast"></div>
 
 <script>
@@ -756,6 +826,7 @@ async function loadPlayers() {
     <table class="player-table">
       <thead>
         <tr>
+          <th style="width:44px;"></th>
           <th>Player</th>
           <th>Latest IDP</th>
           <th style="text-align:right;">Actions</th>
@@ -773,8 +844,18 @@ async function loadPlayers() {
               : '<span class="idp-badge draft">Draft \xb7 ' + age + '</span>';
           }
           if (isDue) badge += ' <span class="idp-badge due">\u23f0 Due</span>';
+          const initials = p.name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+          const avatarInner = p.photo_url
+            ? `<img src="${p.photo_url}" alt="${esc(p.name)}"><div class="player-avatar-upload">📷</div>`
+            : `${initials}<div class="player-avatar-upload">📷</div>`;
           return `
             <tr class="player-row">
+              <td style="padding:10px 8px 10px 14px;">
+                <div class="player-avatar" data-avatar-id="${p.id}"
+                  onclick="openPhotoUpload('${p.id}')" title="Upload photo">
+                  ${avatarInner}
+                </div>
+              </td>
               <td>
                 <div class="player-name"><a href="${_base}/view-idp.html?player=${p.id}&team=${teamId}" style="color:inherit;text-decoration:none;" onmouseover="this.style.color='var(--teal-light)'" onmouseout="this.style.color=''">${esc(p.name)}</a>${p._shared ? ' <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--teal-light);background:var(--teal-faint);border:1px solid rgba(27,138,107,.3);border-radius:4px;padding:2px 6px;vertical-align:middle;">Shared</span>' : ''}</div>
                 ${p.positions ? `<div class="player-pos">${esc(p.positions)}</div>` : ''}
@@ -798,6 +879,8 @@ async function loadPlayers() {
         }).join('')}
       </tbody>
     </table>`;
+
+  loadCoaches();
 }
 
 function generateIDP(playerId) {
@@ -1016,8 +1099,33 @@ function openEditPlayer(id, name, positions, notes) {
   document.getElementById('editPlayerNotes').value  = notes || '';
   setPosValue('editPosPicker', positions || '');
   document.getElementById('editPlayerStatus').textContent = '';
+  document.getElementById('editTeamsList').innerHTML = '<span style="font-size:12px;color:var(--text-dim);">Loading…</span>';
   document.getElementById('editPlayerModal').classList.add('open');
   setTimeout(() => document.getElementById('editPlayerName').focus(), 80);
+  loadEditTeams(id);
+}
+
+async function loadEditTeams(playerId) {
+  const [allTeamsRes, linkedRes] = await Promise.all([
+    sb.from('teams').select('id, name').order('name'),
+    sb.from('player_teams').select('team_id').eq('player_id', playerId),
+  ]);
+  const allTeams   = allTeamsRes.data || [];
+  const linkedIds  = new Set((linkedRes.data || []).map(r => r.team_id));
+  const container  = document.getElementById('editTeamsList');
+
+  const otherTeams = allTeams.filter(t => t.id !== teamId);
+  if (otherTeams.length === 0) {
+    container.innerHTML = '<span style="font-size:12px;color:var(--text-dim);">No other teams in this club.</span>';
+    return;
+  }
+
+  container.innerHTML = otherTeams.map(t => `
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-muted);cursor:pointer;">
+      <input type="checkbox" value="${t.id}" ${linkedIds.has(t.id) ? 'checked' : ''}
+        style="accent-color:var(--teal-light);width:15px;height:15px;cursor:pointer;">
+      ${esc(t.name)}
+    </label>`).join('');
 }
 function closeEditPlayer() {
   document.getElementById('editPlayerModal').classList.remove('open');
@@ -1033,15 +1141,38 @@ async function saveEditPlayer() {
   if (!name) { st.textContent = 'Name is required.'; st.className = 'modal-status error'; return; }
   const btn = document.getElementById('saveEditPlayerBtn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
-  const { error } = await sb.from('players')
-    .update({ name, positions: pos || null, notes: notes || null })
-    .eq('id', editingPlayerId);
-  btn.disabled = false; btn.textContent = 'Save Changes';
+
+  // Collect checked secondary teams
+  const checkboxes   = document.querySelectorAll('#editTeamsList input[type=checkbox]');
+  const selectedIds  = new Set(Array.from(checkboxes).filter(c => c.checked).map(c => c.value));
+
+  const [{ error }, linkedRes] = await Promise.all([
+    sb.from('players').update({ name, positions: pos || null, notes: notes || null }).eq('id', editingPlayerId),
+    sb.from('player_teams').select('team_id').eq('player_id', editingPlayerId),
+  ]);
+
   if (error) {
+    btn.disabled = false; btn.textContent = 'Save Changes';
     st.textContent = 'Error: ' + error.message; st.className = 'modal-status error';
-  } else {
-    closeEditPlayer(); loadPlayers(); showToast('Changes saved \u2713');
+    return;
   }
+
+  // Sync player_teams: add new, remove unchecked
+  const currentIds = new Set((linkedRes.data || []).map(r => r.team_id));
+  const toAdd      = [...selectedIds].filter(id => !currentIds.has(id));
+  const toRemove   = [...currentIds].filter(id => !selectedIds.has(id));
+
+  const ops = [];
+  if (toAdd.length > 0) {
+    ops.push(sb.from('player_teams').insert(toAdd.map(team_id => ({ player_id: editingPlayerId, team_id }))));
+  }
+  if (toRemove.length > 0) {
+    ops.push(sb.from('player_teams').delete().eq('player_id', editingPlayerId).in('team_id', toRemove));
+  }
+  await Promise.all(ops);
+
+  btn.disabled = false; btn.textContent = 'Save Changes';
+  closeEditPlayer(); loadPlayers(); showToast('Changes saved \u2713');
 }
 
 // ─── CSV IMPORT ───────────────────────────────
@@ -1456,6 +1587,118 @@ function toggleLeagueSection(e) {
 
 function toggleResultRow(row) {
   row.classList.toggle('expanded');
+}
+
+// ─── PLAYER PHOTO UPLOAD ──────────────────────
+let _photoUploadPlayerId = null;
+
+function openPhotoUpload(playerId) {
+  _photoUploadPlayerId = playerId;
+  document.getElementById('photoFileInput').click();
+}
+
+async function handlePhotoUpload(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file || !_photoUploadPlayerId) return;
+  if (file.size > 2 * 1024 * 1024) { showToast('Image must be under 2MB'); return; }
+
+  showToast('Uploading…');
+  const ext  = file.name.split('.').pop().toLowerCase() || 'jpg';
+  const path = `${_photoUploadPlayerId}/photo.${ext}`;
+
+  const { error: upErr } = await sb.storage
+    .from('player-photos')
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (upErr) { showToast('Upload failed: ' + upErr.message); return; }
+
+  const { data: urlData } = sb.storage.from('player-photos').getPublicUrl(path);
+  const photoUrl = urlData.publicUrl + '?t=' + Date.now();
+
+  await sb.from('players').update({ photo_url: photoUrl }).eq('id', _photoUploadPlayerId);
+
+  const avatarEl = document.querySelector(`[data-avatar-id="${_photoUploadPlayerId}"]`);
+  if (avatarEl) {
+    avatarEl.innerHTML = `<img src="${photoUrl}" alt="Player photo"><div class="player-avatar-upload">📷</div>`;
+  }
+  showToast('Photo updated ✓');
+}
+
+// ─── COACHES SECTION ──────────────────────────
+async function loadCoaches() {
+  const section = document.getElementById('coachesSection');
+  const grid    = document.getElementById('coachesGrid');
+  const btnWrap = document.getElementById('linkTeamBtnWrap');
+  if (!section || !grid) return;
+
+  const [linkedRes, gsRes] = await Promise.all([
+    sb.from('coach_teams')
+      .select('coach_id, profiles(id, full_name, avatar_url, role)')
+      .eq('team_id', teamId),
+    sb.from('team_coaches')
+      .select('id, name, role')
+      .eq('team_id', teamId),
+  ]);
+
+  const appCoaches = (linkedRes.data || []).map(lc => lc.profiles).filter(Boolean);
+  const gsCoaches  = gsRes.data || [];
+
+  const alreadyLinked = appCoaches.some(c => c.id === coachId);
+
+  let html = '';
+  appCoaches.forEach(c => {
+    const initials = (c.full_name || '?').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+    const avatarHTML = c.avatar_url
+      ? `<img src="${c.avatar_url}" alt="${esc(c.full_name)}">`
+      : initials;
+    html += `
+      <div class="coach-card">
+        <div class="coach-avatar">${avatarHTML}</div>
+        <div class="coach-info">
+          <div class="coach-name">${esc(c.full_name || 'Coach')}</div>
+          <div class="coach-role-lbl">${c.role === 'admin' ? 'Admin' : 'Coach'}</div>
+        </div>
+      </div>`;
+  });
+
+  gsCoaches.forEach(c => {
+    const duplicate = appCoaches.some(a => (a.full_name || '').toLowerCase() === c.name.toLowerCase());
+    if (duplicate) return;
+    const initials = (c.name || '?').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+    html += `
+      <div class="coach-card">
+        <div class="coach-avatar" style="background:var(--navy-light);border-color:var(--border-strong);color:var(--text-dim);">${initials}</div>
+        <div class="coach-info">
+          <div class="coach-name">${esc(c.name)}</div>
+          <div class="coach-role-lbl">${esc(c.role)} · GotSport</div>
+        </div>
+      </div>`;
+  });
+
+  if (!html) {
+    html = `<div style="font-size:13px;color:var(--text-dim);">No coaches linked yet.</div>`;
+  }
+
+  grid.innerHTML = html;
+
+  if (!alreadyLinked && btnWrap) {
+    btnWrap.innerHTML = `<button class="btn-link-team" onclick="linkMeToTeam()">+ Link me to this team</button>`;
+  } else if (btnWrap) {
+    btnWrap.innerHTML = '';
+  }
+
+  section.style.display = '';
+}
+
+async function linkMeToTeam() {
+  const { error } = await sb.from('coach_teams')
+    .insert({ coach_id: coachId, team_id: teamId });
+  if (error && !error.message.includes('duplicate') && !error.code === '23505') {
+    showToast('Error: ' + error.message); return;
+  }
+  showToast('You are now linked to this team ✓');
+  loadCoaches();
 }
 </script>
 </body>

@@ -411,6 +411,231 @@ async function upsertResults(matches) {
   }
 }
 
+// ─── Fetch & Parse Schedules ───────────────────────────────────────────────
+
+/**
+ * Fetch the games/schedule page for a group and return a map of:
+ *   opponent_name (lowercased) => { match_date: 'YYYY-MM-DD', is_home: bool, venue: string|null }
+ *
+ * GotSport games pages list all matches for the group with columns like:
+ *   Date | Time | Home | Away | Score | Location
+ * We look for rows where one team contains "steamer's crew" and extract:
+ *   - date from the date cell
+ *   - is_home = our team is in the Home column
+ *   - opponent = the other team name
+ *   - venue = location cell if present
+ */
+async function fetchGroupSchedules(groupId) {
+  const url = `${GOTSPORT_BASE}/org_event/events/${EVENT_ID}/games?group=${groupId}`;
+  console.log(`  Fetching schedule: ${url}`);
+
+  let html;
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; IDP-Sync/1.0)', 'Accept': 'text/html' },
+      timeout: 15000,
+    });
+    if (!res.ok) {
+      console.warn(`  WARNING: HTTP ${res.status} for schedule group ${groupId}`);
+      return {};
+    }
+    html = await res.text();
+  } catch (err) {
+    console.warn(`  WARNING: fetch error for schedule group ${groupId}: ${err.message}`);
+    return {};
+  }
+
+  const $ = cheerio.load(html);
+  const scheduleMap = {}; // opponent_lower -> { match_date, is_home, venue }
+  const OUR_TEAM = "steamer's crew";
+
+  $('table tr').each((_, tr) => {
+    const cells = $(tr).find('td');
+    if (cells.length < 4) return;
+
+    const texts = [];
+    cells.each((_, td) => texts.push($(td).text().trim()));
+
+    // Look for a row where one cell contains our team name
+    const ourIdx  = texts.findIndex(t => t.toLowerCase().includes(OUR_TEAM));
+    if (ourIdx === -1) return;
+
+    // Try to parse date — look for a cell that looks like a date string
+    let matchDate = null;
+    for (const t of texts) {
+      // Match patterns: "4/5/2026", "Apr 5, 2026", "2026-04-05", "Sat Apr 5 2026"
+      const d = new Date(t);
+      if (!isNaN(d.getTime()) && d.getFullYear() > 2020) {
+        const iso = d.toISOString().split('T')[0];
+        matchDate = iso;
+        break;
+      }
+    }
+
+    // Determine home vs away: find cells for home team and away team
+    // Heuristic: look for two adjacent non-date, non-score cells containing team names
+    // Usually layout is: Date | Time | Home | Away | Score | Venue
+    // Try to find our team's column index relative to opponent
+    let isHome  = null;
+    let opponent = null;
+
+    // Strategy: check if there are two cells with team names adjacent to each other
+    // A team name cell is one that contains a club/team keyword but not a score pattern
+    const teamCells = texts.map((t, i) => ({
+      idx: i,
+      text: t,
+      isOurs: t.toLowerCase().includes(OUR_TEAM),
+      // A "team-like" cell has letters and is not a short score (not "2-1" pattern)
+      isTeam: t.length > 3 && !/^\d+[-–]\d+$/.test(t) && /[a-zA-Z]{3}/.test(t),
+    }));
+
+    const teamLikePairs = [];
+    for (let i = 0; i < teamCells.length - 1; i++) {
+      if (teamCells[i].isTeam && teamCells[i + 1].isTeam) {
+        teamLikePairs.push([teamCells[i], teamCells[i + 1]]);
+      }
+    }
+
+    if (teamLikePairs.length > 0) {
+      const [home, away] = teamLikePairs[0];
+      if (home.isOurs) {
+        isHome   = true;
+        opponent = away.text;
+      } else if (away.isOurs) {
+        isHome   = false;
+        opponent = home.text;
+      }
+    }
+
+    // Fallback: just find any non-our team-like cell
+    if (!opponent) {
+      const other = teamCells.find(c => c.isTeam && !c.isOurs);
+      if (other) opponent = other.text;
+    }
+
+    // Venue: last reasonable cell that looks like a location (longer text, not a team name)
+    let venue = null;
+    for (let i = texts.length - 1; i >= 0; i--) {
+      const t = texts[i];
+      if (t.length > 5 && !t.toLowerCase().includes(OUR_TEAM) && !t.toLowerCase().includes('steamer') && !/^\d/.test(t)) {
+        if (t !== opponent) { venue = t; break; }
+      }
+    }
+
+    if (opponent && matchDate) {
+      const key = opponent.toLowerCase().trim();
+      scheduleMap[key] = { match_date: matchDate, is_home: isHome, venue };
+      console.log(`    Schedule: ${matchDate} vs ${opponent} (${isHome === true ? 'Home' : isHome === false ? 'Away' : '?'})`);
+    }
+  });
+
+  console.log(`  Found ${Object.keys(scheduleMap).length} schedule entries for group ${groupId}`);
+  return scheduleMap;
+}
+
+// ─── Fetch & upsert coaches ────────────────────────────────────────────────
+
+/**
+ * GotSport lists coaching staff on the event roster page:
+ *   /org_event/events/{EVENT_ID}/roster?group={groupId}
+ *
+ * The page contains a table or list with staff rows. We look for any element
+ * that contains a role keyword (Coach, Manager, etc.) alongside a name.
+ * This is best-effort — if the page structure differs we log and skip.
+ */
+async function fetchGroupCoaches(groupId) {
+  const url = `${GOTSPORT_BASE}/org_event/events/${EVENT_ID}/roster?group=${groupId}`;
+  console.log(`  Fetching coaches: ${url}`);
+
+  let html;
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; IDP-Sync/1.0)', 'Accept': 'text/html' },
+      timeout: 15000,
+    });
+    if (!res.ok) {
+      console.warn(`  WARNING: HTTP ${res.status} for coaches group ${groupId}`);
+      return [];
+    }
+    html = await res.text();
+  } catch (err) {
+    console.warn(`  WARNING: fetch error for coaches group ${groupId}: ${err.message}`);
+    return [];
+  }
+
+  const $ = cheerio.load(html);
+  const coaches = [];
+  const STAFF_ROLES = /coach|manager|director|trainer|assistant|staff/i;
+
+  // Strategy 1: look for table rows containing a role keyword
+  $('table tr').each((_, tr) => {
+    const cells = $(tr).find('td');
+    if (cells.length < 2) return;
+    const rowText = $(tr).text();
+    if (!STAFF_ROLES.test(rowText)) return;
+
+    let name = '', role = 'Coach';
+    cells.each((_, td) => {
+      const txt = $(td).text().trim();
+      if (STAFF_ROLES.test(txt)) { role = txt; }
+      else if (txt && txt.length > 2 && txt.length < 60 && !name) { name = txt; }
+    });
+    if (name) coaches.push({ name, role });
+  });
+
+  // Strategy 2: look for elements with a role class/label near a name
+  if (coaches.length === 0) {
+    $('[class*="staff"],[class*="coach"],[class*="roster"]').each((_, el) => {
+      const txt = $(el).text().trim();
+      if (!txt || txt.length > 100) return;
+      const lines = txt.split(/\n+/).map(l => l.trim()).filter(Boolean);
+      lines.forEach(line => {
+        if (STAFF_ROLES.test(line)) return; // role label, not name
+        if (line.length > 3 && line.length < 50) {
+          const role = STAFF_ROLES.exec(txt)?.[0] || 'Coach';
+          coaches.push({ name: line, role });
+        }
+      });
+    });
+  }
+
+  // Deduplicate by name
+  const seen = new Set();
+  const unique = coaches.filter(c => {
+    if (seen.has(c.name)) return false;
+    seen.add(c.name); return true;
+  });
+
+  console.log(`  Found ${unique.length} coach(es) for group ${groupId}`);
+  return unique;
+}
+
+async function upsertCoaches(groupId, coaches) {
+  if (coaches.length === 0) return;
+
+  const groupToTeamId = await buildGroupToTeamId();
+  const teamId = groupToTeamId[groupId] || null;
+  const now    = new Date().toISOString();
+
+  const rows = coaches.map(c => ({
+    gotsport_group_id: String(groupId),
+    team_id:           teamId,
+    name:              c.name,
+    role:              c.role,
+    last_synced:       now,
+  }));
+
+  const { error } = await sb
+    .from('team_coaches')
+    .upsert(rows, { onConflict: 'gotsport_group_id,name' });
+
+  if (error) {
+    console.error('  Coaches upsert error:', error.message);
+  } else {
+    console.log(`  Upserted ${rows.length} coach(es): ${rows.map(r => r.name).join(', ')}`);
+  }
+}
+
 // ─── Main ──────────────────────────────────────────────────────────────────
 async function main() {
   console.log('=== GotSport League Sync ===');
@@ -432,7 +657,24 @@ async function main() {
     const teamLabel = KNOWN_GROUPS[groupId];
     console.log(`\n[${i + 1}/${groupIds.length}] ${teamLabel} (group ${groupId})`);
 
-    const { standings, matches } = await fetchGroupResults(groupId);
+    const [{ standings, matches }, coaches, scheduleMap] = await Promise.all([
+      fetchGroupResults(groupId),
+      fetchGroupCoaches(groupId),
+      fetchGroupSchedules(groupId),
+    ]);
+
+    // Merge schedule data (date, home/away, venue) into match rows
+    if (Object.keys(scheduleMap).length > 0) {
+      matches.forEach(m => {
+        const key = (m.opponent || '').toLowerCase().trim();
+        const sched = scheduleMap[key];
+        if (sched) {
+          if (m.match_date === null) m.match_date = sched.match_date;
+          if (m.is_home  === null) m.is_home  = sched.is_home;
+          if (m.venue    === null) m.venue    = sched.venue;
+        }
+      });
+    }
 
     if (standings.length > 0) {
       await upsertStandings(standings);
@@ -442,6 +684,10 @@ async function main() {
     if (matches.length > 0) {
       await upsertResults(matches);
       totalMatches += matches.length;
+    }
+
+    if (coaches.length > 0) {
+      await upsertCoaches(groupId, coaches);
     }
 
     // Be polite to GotSport servers

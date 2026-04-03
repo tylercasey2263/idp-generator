@@ -183,6 +183,25 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text);
   color: #64748B; margin-bottom: 7px; }
 .idp-ig .parent-note p { font-size: 13px; color: #A8B8CC; line-height: 1.7; font-style: italic; }
 
+/* ─── PLAYER PHOTO ─── */
+.player-photo-sm {
+  width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+  background: var(--teal-faint); border: 2px solid rgba(27,138,107,.3);
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700;
+  color: var(--teal-light); cursor: pointer; position: relative;
+  transition: border-color .15s;
+}
+.player-photo-sm:hover { border-color: var(--teal); }
+.player-photo-sm img { width: 100%; height: 100%; object-fit: cover; }
+.player-photo-sm-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,.5);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .15s; font-size: 10px; color: #fff;
+  border-radius: 50%;
+}
+.player-photo-sm:hover .player-photo-sm-overlay { opacity: 1; }
+
 /* ─── PARENT FEEDBACK ─── */
 .feedback-section {
   margin-top: 1.25rem;
@@ -287,7 +306,7 @@ async function loadIDPsByTokens(tokens) {
   // Fetch all parent_players rows matching any of the stored tokens
   const { data: rawLinks } = await sb
     .from('parent_players')
-    .select('player_id, invite_token, players(id, name, positions)')
+    .select('player_id, invite_token, players(id, name, positions, photo_url)')
     .in('invite_token', tokens);
 
   const seen = new Set();
@@ -317,7 +336,7 @@ async function loadIDPs(userId) {
   // Get all players this parent is linked to (deduplicate by player_id)
   const { data: rawLinks } = await sb
     .from('parent_players')
-    .select('player_id, players(id, name, positions)')
+    .select('player_id, players(id, name, positions, photo_url)')
     .eq('parent_id', userId)
     .eq('accepted', true);
   // Deduplicate — same player may have multiple invite rows
@@ -401,12 +420,25 @@ async function renderIDPs(links, container) {
           </button>`).join('')}
       </div>` : '';
 
+    const pInitials = (player.name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const pAvatarInner = player.photo_url
+      ? `<img src="${player.photo_url}" alt="${esc(player.name)}"><div class="player-photo-sm-overlay">📷</div>`
+      : `${pInitials}<div class="player-photo-sm-overlay">📷</div>`;
+
     html += `
       <div class="idp-section">
+        <input type="file" id="pp-input-${playerIdx}" accept="image/*" style="display:none"
+          onchange="handleParentPhotoUpload(event,'${player.id}',${playerIdx})" />
         <div class="idp-meta">
-          <div>
-            <strong style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;">${esc(player.name)}</strong>
-            ${player.positions ? `<span style="font-size:13px;color:var(--text-dim);margin-left:10px;">${esc(player.positions)}</span>` : ''}
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="player-photo-sm" id="pp-circle-${playerIdx}"
+              onclick="document.getElementById('pp-input-${playerIdx}').click()" title="Upload photo">
+              ${pAvatarInner}
+            </div>
+            <div>
+              <strong style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;">${esc(player.name)}</strong>
+              ${player.positions ? `<div style="font-size:13px;color:var(--text-dim);margin-top:2px;">${esc(player.positions)}</div>` : ''}
+            </div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <span class="idp-date" id="pdate-${playerIdx}">Last updated ${firstDate}</span>
@@ -502,6 +534,32 @@ function buildInfographicHTML(d) {
       <div class="plabel">Note for parents</div>
       <p>${esc(d.parentNote||'')}</p>
     </div>`;
+}
+
+async function handleParentPhotoUpload(e, playerId, playerIdx) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { alert('Image must be under 2MB'); return; }
+
+  const ext  = file.name.split('.').pop().toLowerCase() || 'jpg';
+  const path = `${playerId}/photo.${ext}`;
+
+  const { error: upErr } = await sb.storage
+    .from('player-photos')
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (upErr) { alert('Upload failed: ' + upErr.message); return; }
+
+  const { data: urlData } = sb.storage.from('player-photos').getPublicUrl(path);
+  const photoUrl = urlData.publicUrl + '?t=' + Date.now();
+
+  await sb.from('players').update({ photo_url: photoUrl }).eq('id', playerId);
+
+  const circle = document.getElementById(`pp-circle-${playerIdx}`);
+  if (circle) {
+    circle.innerHTML = `<img src="${photoUrl}" alt="Player photo"><div class="player-photo-sm-overlay">📷</div>`;
+  }
 }
 
 async function submitFeedback(playerIdx) {
