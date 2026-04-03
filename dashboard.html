@@ -703,7 +703,8 @@ function runSearch() {
 }
 
 function viewTeam(id) {
-  window.location.href = `/team.html?team=${id}`;
+  const base = window.location.pathname.replace(/\/[^/]*$/, '');
+  window.location.href = `${base}/team.html?team=${id}`;
 }
 
 let _pendingDeleteId   = null;

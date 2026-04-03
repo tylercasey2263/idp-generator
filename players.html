@@ -498,6 +498,7 @@ function filterPlayers() {
 }
 
 function renderTable(players) {
+  const _base = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
   const container = document.getElementById('playerContent');
   const countEl   = document.getElementById('playerCount');
   countEl.textContent = `${players.length} player${players.length !== 1 ? 's' : ''}`;
@@ -537,7 +538,7 @@ function renderTable(players) {
               <tr class="player-row">
                 <td>
                   <div class="player-name">
-                    <a href="/view-idp.html?player=${p.id}&team=${primaryTeamId}">${esc(p.name)}</a>
+                    <a href="${_base}/view-idp.html?player=${p.id}&team=${primaryTeamId}">${esc(p.name)}</a>
                   </div>
                   ${p.positions ? `<div class="player-pos">${esc(p.positions)}</div>` : ''}
                 </td>
@@ -547,7 +548,7 @@ function renderTable(players) {
                   <div class="row-actions">
                     <button class="btn-action btn-edit" onclick="openEditPlayer('${p.id}')">Edit</button>
                     <button class="btn-action btn-add-team" onclick="openAddToTeam('${p.id}','${esc(p.name)}')">+ Team</button>
-                    <button class="btn-action btn-idp" onclick="window.location.href='/view-idp.html?player=${p.id}&team=${primaryTeamId}'">View IDP</button>
+                    <button class="btn-action btn-idp" onclick="window.location.href=\`${_base}/view-idp.html?player=${p.id}&team=${primaryTeamId}\`">View IDP</button>
                     <button class="btn-action btn-danger" onclick="deletePlayer('${p.id}', '${esc(p.name)}')">Remove</button>
                   </div>
                 </td>

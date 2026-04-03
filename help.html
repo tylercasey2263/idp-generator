@@ -127,7 +127,7 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
   <div class="page-sub">Everything you need to get the most out of Player IDP.</div>
 
   <div class="quick-bar">
-    <button class="quick-btn primary" onclick="window.location.href='/dashboard.html'">
+    <button class="quick-btn primary" onclick="window.location.href=window.location.pathname.replace(/\/[^/]+\.html.*$/,'')+'/dashboard.html'">
       ← Back to Dashboard
     </button>
     <button class="quick-btn" onclick="document.getElementById('tourSection').scrollIntoView({behavior:'smooth'})">

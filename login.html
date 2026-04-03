@@ -479,11 +479,12 @@ async function redirectAfterLogin(session) {
   await checkPendingParentLinks(session.user.id, session.user.email);
   const profile = await getProfile(session.user.id);
 
+  const base = window.location.pathname.replace(/\/[^/]*$/, '');
   // Highest permission wins — coach/admin always go to dashboard
   if (['coach', 'admin'].includes(profile?.role)) {
-    window.location.href = '/dashboard.html';
+    window.location.href = `${base}/dashboard.html`;
   } else {
-    window.location.href = '/parent.html';
+    window.location.href = `${base}/parent.html`;
   }
 }
 </script>

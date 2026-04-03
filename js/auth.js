@@ -77,12 +77,19 @@ async function checkPendingParentLinks(userId, email) {
   return true;
 }
 
+// Compute the app's base path so redirects work on both localhost
+// (served from /) and GitHub Pages subdirectories (/idp-generator/).
+function appBase() {
+  // Strip the filename (and anything after) from the current path
+  return window.location.pathname.replace(/\/[^/]*$/, '');
+}
+
 // Redirect to login if no active session. Returns session or null.
 async function requireAuth() {
   const session = await getSession();
   if (!session) {
     const next = encodeURIComponent(window.location.pathname + window.location.search);
-    window.location.href = `/login.html?next=${next}`;
+    window.location.href = `${appBase()}/login.html?next=${next}`;
     return null;
   }
   return session;
@@ -95,7 +102,7 @@ async function requireCoach() {
   await ensureProfile(session);
   const profile = await getProfile(session.user.id);
   if (!profile || !['coach', 'admin'].includes(profile.role)) {
-    window.location.href = '/login.html';
+    window.location.href = `${appBase()}/login.html`;
     return null;
   }
   return { session, profile };
@@ -113,7 +120,7 @@ async function requireParent() {
 
 async function signOut() {
   await sb.auth.signOut();
-  window.location.href = '/login.html';
+  window.location.href = `${appBase()}/login.html`;
 }
 
 // ─── CLAUDE API KEY ───────────────────────────────────

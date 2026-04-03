@@ -634,7 +634,7 @@ let currentInviteLink = '';
 let teamPlayerIds    = [];   // populated by loadPlayers(), used by loadSessions()
 let teamIDPsByDate   = {};   // { 'YYYY-MM-DD': [{player_id, player_name, idp_id}] }
 
-if (!teamId) window.location.href = '/dashboard.html';
+if (!teamId) window.location.href = window.location.pathname.replace(/\/[^/]*$/, '') + '/dashboard.html';
 
 (async () => {
   const ctx = await requireCoach();
@@ -648,7 +648,7 @@ if (!teamId) window.location.href = '/dashboard.html';
 
 async function loadTeam() {
   const { data } = await sb.from('teams').select('*').eq('id', teamId).single();
-  if (!data) { window.location.href = '/dashboard.html'; return; }
+  if (!data) { window.location.href = window.location.pathname.replace(/\/[^/]*$/, '') + '/dashboard.html'; return; }
   document.getElementById('teamTitle').textContent = data.name;
   document.getElementById('breadTeam').textContent = data.name;
   document.title = `${data.name} — Player IDP`;
@@ -741,6 +741,7 @@ async function loadPlayers() {
     summaryEl.style.display = '';
   }
 
+  const _base = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
   const dueBanner = dueSet.size > 0
     ? `<div class="due-review-banner">
         ⏰ <strong>${dueSet.size} player${dueSet.size > 1 ? 's' : ''}</strong>
@@ -782,7 +783,7 @@ async function loadPlayers() {
                   <button class="btn-action btn-generate"
                     onclick="generateIDP('${p.id}')">✦ Generate IDP</button>
                   <button class="btn-action btn-generate" style="background:rgba(96,165,250,.08);color:#60A5FA;border-color:rgba(96,165,250,.3);"
-                    onclick="window.location.href='/view-idp.html?player=${p.id}&team=${teamId}'">👁 View IDP</button>
+                    onclick="window.location.href=\`${_base}/view-idp.html?player=${p.id}&team=${teamId}\`">👁 View IDP</button>
                   <button class="btn-action btn-invite"
                     onclick="openEditPlayer('${p.id}', '${esc(p.name)}', '${esc(p.positions||'')}', '${esc(p.notes||'')}')">Edit</button>
                   <button class="btn-action btn-invite"
@@ -798,7 +799,8 @@ async function loadPlayers() {
 }
 
 function generateIDP(playerId) {
-  window.location.href = `/generate.html?player=${playerId}&team=${teamId}`;
+  const _base = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
+  window.location.href = `${_base}/generate.html?player=${playerId}&team=${teamId}`;
 }
 
 // ─── LINK PARENT ──────────────────────────────
@@ -918,7 +920,8 @@ function resetLinkParent() {
 }
 
 function goToTeamPlan() {
-  if (teamId) window.location.href = '/team-plan.html?team=' + teamId;
+  const _base = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
+  if (teamId) window.location.href = `${_base}/team-plan.html?team=` + teamId;
 }
 
 function timeAgo(iso) {
@@ -1333,12 +1336,13 @@ async function loadLeagueResults() {
   const groupId = team.gotsport_group_id;
   linkEl.href = 'https://system.gotsport.com/org_event/events/50274/results?group=' + groupId;
 
-  // Load standings for our team in this group
+  // Load standings for our team in this group — filter by team_id so we get
+  // exactly one row (our team's row) even when the group has many teams.
   const { data: standing } = await sb
     .from('league_standings')
     .select('*')
     .eq('gotsport_group_id', groupId)
-    .ilike('gotsport_team_name', '%Steamer%')
+    .eq('team_id', teamId)
     .maybeSingle();
 
   // Load match results for our team
@@ -1346,7 +1350,6 @@ async function loadLeagueResults() {
     .from('league_results')
     .select('*')
     .eq('gotsport_group_id', groupId)
-    .ilike('gotsport_team_name', '%Steamer%')
     .order('match_date', { ascending: false });
 
   let html = '';

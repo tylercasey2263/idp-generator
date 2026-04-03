@@ -217,6 +217,10 @@
       ? `<img src="${clubLogo}" alt="Club Logo">`
       : IC.soccer;
 
+    // Compute base path so nav works on both localhost and GitHub Pages subdirs
+    const _base = window.location.pathname.replace(/\/[^/]*$/, '');
+    function p(file) { return `${_base}/${file}`; }
+
     function item(page, href, icon, label, roles) {
       if (!roles.includes(role)) return '';
       const active = activePage === page ? ' active' : '';
@@ -234,19 +238,19 @@
         </div>
 
         <nav class="sb-nav">
-          ${item('dashboard', '/dashboard.html', IC.dashboard, 'Dashboard',       ['admin','coach','parent'])}
-          ${item('players',   '/players.html',   IC.players,   'All Players',     ['admin','coach'])}
-          ${item('lineup',    '/lineup.html',    IC.lineup,    'Lineup Manager',  ['admin','coach'])}
+          ${item('dashboard', p('dashboard.html'), IC.dashboard, 'Dashboard',       ['admin','coach','parent'])}
+          ${item('players',   p('players.html'),   IC.players,   'All Players',     ['admin','coach'])}
+          ${item('lineup',    p('lineup.html'),    IC.lineup,    'Lineup Manager',  ['admin','coach'])}
 
           ${role === 'admin' ? `
             <div class="sb-divider"></div>
             <div class="sb-section-label">Admin</div>
-            ${item('users',    '/users.html',    IC.users,    'Users',    ['admin'])}
-            ${item('settings', '/settings.html', IC.settings, 'Settings', ['admin'])}
+            ${item('users',    p('users.html'),    IC.users,    'Users',    ['admin'])}
+            ${item('settings', p('settings.html'), IC.settings, 'Settings', ['admin'])}
           ` : ''}
 
           <div class="sb-divider"></div>
-          ${item('help', '/help.html', IC.help, 'Help & How-To', ['admin','coach','parent'])}
+          ${item('help', p('help.html'), IC.help, 'Help & How-To', ['admin','coach','parent'])}
         </nav>
 
         <div class="sb-footer">

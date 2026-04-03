@@ -590,7 +590,8 @@ if (!playerId) window.location.href = '/dashboard.html';
   await renderSidebar('');
 
   const { data: player } = await sb.from('players').select('*').eq('id', playerId).single();
-  if (!player) { window.location.href = '/dashboard.html'; return; }
+  const _appBase = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
+  if (!player) { window.location.href = `${_appBase}/dashboard.html`; return; }
   playerData = player;
 
   const [idpRes, notesRes] = await Promise.all([
@@ -605,6 +606,7 @@ if (!playerId) window.location.href = '/dashboard.html';
 })();
 
 function renderPage() {
+  const _base = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
   const root = document.getElementById('pageRoot');
   const notesCount = allNotes.length;
   const idpCount   = allIDPs.length;
@@ -614,9 +616,9 @@ function renderPage() {
 
   root.innerHTML = `
     <div class="breadcrumb">
-      <a href="/dashboard.html">My Teams</a>
+      <a href="${_base}/dashboard.html">My Teams</a>
       <span>›</span>
-      ${teamId ? `<a href="/team.html?team=${teamId}">Team</a><span>›</span>` : ''}
+      ${teamId ? `<a href="${_base}/team.html?team=${teamId}">Team</a><span>›</span>` : ''}
       <span>${esc(playerData.name)}</span>
     </div>
 
@@ -627,7 +629,7 @@ function renderPage() {
       </div>
       <div class="header-actions">
         <button class="btn btn-ghost" onclick="window.print()">⬒ Print / PDF</button>
-        <a href="/generate.html?player=${playerId}${teamId ? '&team='+teamId : ''}"
+        <a href="${_base}/generate.html?player=${playerId}${teamId ? '&team='+teamId : ''}"
            class="btn btn-primary">✦ Generate New IDP</a>
       </div>
     </div>
@@ -644,7 +646,7 @@ function renderPage() {
         <div class="empty">
           <div class="empty-icon">IDP</div>
           <p>No IDPs yet for this player.</p>
-          <a href="/generate.html?player=${playerId}${teamId ? '&team='+teamId : ''}"
+          <a href="${_base}/generate.html?player=${playerId}${teamId ? '&team='+teamId : ''}"
              class="btn btn-primary" style="margin-top:1rem;display:inline-flex;">
             ✦ Generate First IDP
           </a>
@@ -857,6 +859,7 @@ function selectIDP(idx) {
 }
 
 function renderViewer(idp, idx) {
+  const _base    = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
   const date     = formatDate(idp.updated_at);
   const prevIDP  = allIDPs[idx + 1] || null;
   const showDiff = prevIDP && prevIDP.data;
@@ -870,7 +873,7 @@ function renderViewer(idp, idx) {
       </div>
       <div class="viewer-actions">
         ${showDiff ? `<button class="btn btn-ghost btn-sm" id="compareBtn-${idx}" onclick="toggleDiff(${idx})">⇄ What Changed</button>` : ''}
-        <a href="/generate.html?idp=${idp.id}&player=${idp.player_id}${teamId ? '&team='+teamId : ''}"
+        <a href="${_base}/generate.html?idp=${idp.id}&player=${idp.player_id}${teamId ? '&team='+teamId : ''}"
            class="btn btn-ghost btn-sm">✎ Edit</a>
         ${idp.published
           ? `<button class="btn btn-ghost btn-sm" onclick="shareIDP('${idp.id}', ${idx})">🔗 Share with Player</button>`
@@ -1153,20 +1156,23 @@ async function loadSeasonData() {
     return;
   }
 
-  var groupId = team.gotsport_group_id;
+  var groupId  = team.gotsport_group_id;
+  var teamName = team.name || '';
+
+  // Use the team name from the DB to filter — no hardcoded club name
+  // Pull the first word of the team name as the keyword (e.g. "Steamer's", "City", "United")
+  var teamKeyword = teamName.split(/\s+/)[0].replace(/'/g, '').replace(/s$/i, '');
 
   var standingRes = await sb
     .from('league_standings')
     .select('*')
     .eq('gotsport_group_id', groupId)
-    .ilike('gotsport_team_name', '%Steamer%')
     .maybeSingle();
 
   var resultsRes = await sb
     .from('league_results')
     .select('*')
     .eq('gotsport_group_id', groupId)
-    .ilike('gotsport_team_name', '%Steamer%')
     .order('match_date', { ascending: false });
 
   var standing = standingRes.data;

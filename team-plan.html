@@ -8,6 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/js/config.js"></script>
 <script src="/js/auth.js"></script>
+<script src="/js/nav.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -301,6 +302,7 @@
 </style>
 </head>
 <body>
+<div id="sidebarMount"></div>
 <div class="app">
 
   <nav class="topnav">
@@ -437,13 +439,16 @@ let playerIDPs  = [];  // [{player, idp}] — idp may be null
   if (!ctx) return;
   coachId = ctx.session.user.id;
   document.getElementById('navName').textContent = ctx.profile.full_name || ctx.session.user.email;
+  await renderSidebar('team-plan');
+
+  const base = window.location.pathname.replace(/\/[^/]*$/, '');
 
   if (!teamId) {
     setStatus('No team ID in URL. Go back and click "Generate Team Plan" from a team page.', 'error');
     return;
   }
 
-  document.getElementById('backBtn').href = '/team.html?team=' + teamId;
+  document.getElementById('backBtn').href = `${base}/team.html?team=` + teamId;
 
   await loadTeamAndPlayers();
 })();

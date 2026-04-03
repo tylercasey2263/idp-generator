@@ -36,6 +36,7 @@ const KNOWN_GROUPS = {
   '448129': "Steamer's Crew U13 2013B Blue",
   '448093': "Steamer's Crew U11 2015B Blue",
   '448134': "Steamer's Crew U13 2013B White",
+  '448074': "Steamer's Crew U10 2016B YDP Peru",
 };
 
 // ─── Supabase client ───────────────────────────────────────────────────────
