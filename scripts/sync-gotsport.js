@@ -63,18 +63,23 @@ function parseFloatSafe(val) {
 }
 
 /**
- * Extract U-age and team keyword from a GotSport team name.
- * E.g. "Steamer's Crew U13 2013B Gray" => { age: 'U13', keyword: 'Gray' }
+ * Extract U-age, year+gender code, and team keyword from a GotSport team name.
+ * E.g. "Steamer's Crew U13 2013B Gray" => { age: 'U13', yearGender: '2013B', keyword: 'Gray' }
+ * The yearGender code ("2013B" / "2014G") uniquely identifies boys vs girls.
  */
 function extractTeamIdentifiers(name) {
   const ageMatch = name.match(/U\d+/i);
   const age = ageMatch ? ageMatch[0].toUpperCase() : null;
 
+  // Extract year+gender token like "2013B" or "2014G"
+  const ygMatch = name.match(/\b(20\d{2}[BG])\b/i);
+  const yearGender = ygMatch ? ygMatch[1].toUpperCase() : null;
+
   // The keyword is typically the last word in the team name
   const parts = name.trim().split(/\s+/);
   const keyword = parts.length > 0 ? parts[parts.length - 1] : null;
 
-  return { age, keyword };
+  return { age, yearGender, keyword };
 }
 
 // ─── Fetch & Parse ─────────────────────────────────────────────────────────
@@ -308,32 +313,44 @@ async function autoMatchTeams() {
 
   let matched = 0;
   for (const [groupId, gsName] of Object.entries(KNOWN_GROUPS)) {
-    const { age, keyword } = extractTeamIdentifiers(gsName);
+    const { age, yearGender, keyword } = extractTeamIdentifiers(gsName);
     if (!age || !keyword) continue;
 
-    // Find app teams that match both the U-age and keyword
+    // Find app teams that match U-age + keyword, using yearGender to break ties
     const candidates = appTeams.filter(t => {
       const nameLower = (t.name || '').toLowerCase();
       return nameLower.includes(age.toLowerCase()) && nameLower.includes(keyword.toLowerCase());
     });
 
+    let match = null;
     if (candidates.length === 1) {
-      const appTeam = candidates[0];
-      if (appTeam.gotsport_group_id === groupId) continue; // Already matched
+      match = candidates[0];
+    } else if (candidates.length > 1 && yearGender) {
+      // Use year+gender code (e.g. "2013B" or "2014G") to pick the right one
+      const narrowed = candidates.filter(t =>
+        (t.name || '').toUpperCase().includes(yearGender)
+      );
+      if (narrowed.length === 1) {
+        match = narrowed[0];
+      } else {
+        console.log(`  Ambiguous match for "${gsName}" (${age} + ${yearGender} + ${keyword}): ${candidates.map(c => c.name).join(', ')}`);
+      }
+    }
+
+    if (match) {
+      if (match.gotsport_group_id === groupId) continue; // Already matched
 
       const { error: upErr } = await sb
         .from('teams')
         .update({ gotsport_group_id: groupId })
-        .eq('id', appTeam.id);
+        .eq('id', match.id);
 
       if (upErr) {
-        console.warn(`  Failed to link ${appTeam.name}: ${upErr.message}`);
+        console.warn(`  Failed to link ${match.name}: ${upErr.message}`);
       } else {
-        console.log(`  Linked: "${appTeam.name}" => group ${groupId} (${gsName})`);
+        console.log(`  Linked: "${match.name}" => group ${groupId} (${gsName})`);
         matched++;
       }
-    } else if (candidates.length > 1) {
-      console.log(`  Ambiguous match for "${gsName}" (${age} + ${keyword}): ${candidates.map(c => c.name).join(', ')}`);
     }
   }
 
