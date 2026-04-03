@@ -36,6 +36,18 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
 }
 .player-name { font-family: 'Barlow Condensed', sans-serif; font-size: 36px; font-weight: 800; line-height: 1.1; }
 .player-pos  { font-size: 14px; color: var(--text-dim); margin-top: 4px; }
+.player-team-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 600; color: var(--teal-light);
+  background: var(--teal-faint); border: 1px solid rgba(27,138,107,.3);
+  border-radius: 5px; padding: 3px 9px; text-decoration: none;
+  margin-right: 5px; transition: border-color .15s;
+}
+.player-team-chip:hover { border-color: var(--teal-light); }
+.player-notes-preview {
+  font-size: 13px; color: var(--text-dim); margin-top: 8px;
+  font-style: italic; max-width: 480px; line-height: 1.55;
+}
 .header-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
 
 /* Buttons */
@@ -524,11 +536,10 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
 .stat-pill.pts .sp-val { color: var(--text); }
 .results-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .result-row {
-  display: grid; grid-template-columns: 80px 1fr auto auto; align-items: center;
+  display: grid; grid-template-columns: 1fr auto auto; align-items: center;
   gap: 10px; background: var(--navy-mid); border: 1px solid var(--border);
   border-radius: 8px; padding: 10px 14px;
 }
-.result-date { font-size: 11px; color: var(--text-dim); font-family: 'Barlow Condensed', sans-serif; font-weight: 600; letter-spacing: .04em; }
 .result-opp { font-size: 13px; color: var(--text-muted); }
 .result-score { font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); }
 .result-badge {
@@ -579,6 +590,7 @@ const teamId   = params.get('team');
 let allIDPs        = [];
 let allNotes       = [];
 let playerData     = null;
+let allPlayerTeams = [];   // all teams this player belongs to
 let currentCoachId = null;
 
 if (!playerId) window.location.href = '/dashboard.html';
@@ -594,13 +606,25 @@ if (!playerId) window.location.href = '/dashboard.html';
   if (!player) { window.location.href = `${_appBase}/dashboard.html`; return; }
   playerData = player;
 
-  const [idpRes, notesRes] = await Promise.all([
+  const [idpRes, notesRes, linkedTeamsRes] = await Promise.all([
     sb.from('idps').select('*').eq('player_id', playerId).order('updated_at', { ascending: false }),
     sb.from('player_notes').select('*').eq('player_id', playerId)
-      .eq('coach_id', currentCoachId).order('created_at', { ascending: false })
+      .eq('coach_id', currentCoachId).order('created_at', { ascending: false }),
+    sb.from('player_teams').select('teams(id,name,season,gotsport_group_id)').eq('player_id', playerId),
   ]);
   allIDPs  = idpRes.data  || [];
   allNotes = notesRes.data || [];
+
+  // Build full team list: primary team + any linked teams (deduped)
+  const teamMap = {};
+  if (player.team_id) {
+    const { data: primaryTeam } = await sb.from('teams').select('id,name,season,gotsport_group_id').eq('id', player.team_id).maybeSingle();
+    if (primaryTeam) teamMap[primaryTeam.id] = primaryTeam;
+  }
+  (linkedTeamsRes.data || []).forEach(pt => {
+    if (pt.teams) teamMap[pt.teams.id] = pt.teams;
+  });
+  allPlayerTeams = Object.values(teamMap);
 
   renderPage();
 })();
@@ -614,6 +638,10 @@ function renderPage() {
   const idpTabLabel   = idpCount   ? `IDPs (${idpCount})`   : 'IDPs';
   const notesTabLabel = notesCount ? `Coach Notes (${notesCount})` : 'Coach Notes';
 
+  const teamChips = allPlayerTeams.map(t =>
+    `<a href="${_base}/team.html?team=${t.id}" class="player-team-chip">${esc(t.name)}${t.season ? ' <span style="opacity:.6;">(${esc(t.season)})</span>' : ''}</a>`
+  ).join('');
+
   root.innerHTML = `
     <div class="breadcrumb">
       <a href="${_base}/dashboard.html">My Teams</a>
@@ -626,6 +654,8 @@ function renderPage() {
       <div>
         <div class="player-name">${esc(playerData.name)}</div>
         ${playerData.positions ? `<div class="player-pos">${esc(playerData.positions)}</div>` : ''}
+        ${teamChips ? `<div class="player-team-chips" style="margin-top:8px;">${teamChips}</div>` : ''}
+        ${playerData.notes ? `<div class="player-notes-preview">${esc(playerData.notes)}</div>` : ''}
       </div>
       <div class="header-actions">
         <button class="btn btn-ghost" onclick="window.print()">⬒ Print / PDF</button>
@@ -638,7 +668,7 @@ function renderPage() {
       <button class="tab-btn active" id="tab-btn-idps"     onclick="showTab('idps')">${idpTabLabel}</button>
       <button class="tab-btn"        id="tab-btn-progress" onclick="showTab('progress')">Progress</button>
       <button class="tab-btn"        id="tab-btn-notes"    onclick="showTab('notes')">${notesTabLabel}</button>
-      <button class="tab-btn"        id="tab-btn-season"   onclick="showTab('season')">Season</button>
+      <button class="tab-btn"        id="tab-btn-season"   onclick="showTab('season')">Teams &amp; Season</button>
     </div>
 
     <div id="panel-idps" class="tab-panel active">
@@ -1140,94 +1170,105 @@ function timeAgo(iso) {
 async function loadSeasonData() {
   var container = document.getElementById('seasonContent');
 
-  // Get the player's team to find gotsport_group_id
-  var pTeamId = playerData.team_id || teamId;
-  if (!pTeamId) {
-    container.innerHTML = '<div style="font-size:13px;color:var(--text-dim);">No team linked to this player.</div>';
+  if (allPlayerTeams.length === 0) {
+    container.innerHTML = '<div style="font-size:13px;color:var(--text-dim);padding:.5rem 0;">No teams linked to this player.</div>';
     return;
   }
 
-  var teamRes = await sb.from('teams').select('gotsport_group_id, name').eq('id', pTeamId).single();
-  var team = teamRes.data;
-
-  if (!team || !team.gotsport_group_id) {
-    container.innerHTML = '<div style="font-size:13px;color:var(--text-dim);">No league data linked for this team. ' +
-      '<a href="https://system.gotsport.com/org_event/events/50274/schedules?club=10769" target="_blank" style="color:var(--teal-light);">Find on GotSport</a></div>';
-    return;
-  }
-
-  var groupId  = team.gotsport_group_id;
-  var teamName = team.name || '';
-
-  // Use the team name from the DB to filter — no hardcoded club name
-  // Pull the first word of the team name as the keyword (e.g. "Steamer's", "City", "United")
-  var teamKeyword = teamName.split(/\s+/)[0].replace(/'/g, '').replace(/s$/i, '');
-
-  var standingRes = await sb
-    .from('league_standings')
-    .select('*')
-    .eq('gotsport_group_id', groupId)
-    .maybeSingle();
-
-  var resultsRes = await sb
-    .from('league_results')
-    .select('*')
-    .eq('gotsport_group_id', groupId)
-    .order('match_date', { ascending: false });
-
-  var standing = standingRes.data;
-  var results  = resultsRes.data;
   var html = '';
 
-  if (standing) {
-    var pos = standing.position || '-';
-    var posColor = pos === 1 ? 'var(--teal-light)' : pos <= 3 ? 'var(--amber-light)' : 'var(--text-muted)';
+  for (var i = 0; i < allPlayerTeams.length; i++) {
+    var team = allPlayerTeams[i];
+    var _base = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
 
-    html += '<div class="season-meta">' + esc(standing.season || '') + ' &middot; ' + esc(standing.division_name || '') +
-      ' &middot; <a href="https://system.gotsport.com/org_event/events/50274/results?group=' + groupId +
-      '" target="_blank">View on GotSport</a>';
-    if (standing.last_synced) html += ' &middot; Synced ' + timeAgo(standing.last_synced);
-    html += '</div>';
-
-    html += '<div class="standing-card">' +
-      '<div class="standing-pos" style="color:' + posColor + '">' + pos + '</div>' +
-      '<div>' +
-        '<div class="standing-team">' + esc(standing.gotsport_team_name) + '</div>' +
-        '<div class="standing-div">' + esc(standing.division_name || '') + '</div>' +
-      '</div>' +
-      '<div class="standing-stats">' +
-        '<div class="stat-pill wins"><div class="sp-val">' + standing.w + '</div><div class="sp-lbl">W</div></div>' +
-        '<div class="stat-pill losses"><div class="sp-val">' + standing.l + '</div><div class="sp-lbl">L</div></div>' +
-        '<div class="stat-pill draws"><div class="sp-val">' + standing.d + '</div><div class="sp-lbl">D</div></div>' +
-        '<div class="stat-pill pts"><div class="sp-val">' + standing.pts + '</div><div class="sp-lbl">PTS</div></div>' +
-        '<div class="stat-pill" style="margin-left:4px;">' +
-          '<div class="sp-val" style="color:var(--text-dim)">' + standing.gf + '-' + standing.ga + '</div>' +
-          '<div class="sp-lbl">GF-GA</div>' +
-        '</div>' +
+    // Team header
+    html += '<div style="margin-bottom:1.5rem;">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">' +
+      '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:700;color:var(--text);">' +
+        '<a href="' + _base + '/team.html?team=' + team.id + '" style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:6px;">' +
+          esc(team.name) +
+          '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="opacity:.4;"><path d="M2 10L10 2M10 2H5M10 2v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        '</a>' +
+        (team.season ? '<span style="font-size:13px;color:var(--text-dim);margin-left:8px;font-weight:400;">' + esc(team.season) + '</span>' : '') +
       '</div>' +
     '</div>';
-  }
 
-  if (results && results.length > 0) {
-    html += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-top:1rem;margin-bottom:8px;">Match Results</div>';
-    html += '<div class="results-list">';
-    results.forEach(function(r) {
-      var dateStr = r.match_date
-        ? new Date(r.match_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        : '-';
-      var score = (r.goals_for != null && r.goals_against != null)
-        ? r.goals_for + '-' + r.goals_against : '-';
-      var badge = r.result || 'U';
-      html += '<div class="result-row">' +
-        '<div class="result-date">' + dateStr + '</div>' +
-        '<div class="result-opp">' + esc(r.opponent || '-') + '</div>' +
-        '<div class="result-score">' + score + '</div>' +
-        '<div class="result-badge ' + badge + '">' + (badge === 'U' ? '-' : badge) + '</div>' +
+    if (!team.gotsport_group_id) {
+      html += '<div style="font-size:13px;color:var(--text-dim);background:var(--navy-mid);border-radius:8px;padding:10px 14px;">No league data linked for this team.</div>';
+      html += '</div>';
+      continue;
+    }
+
+    var groupId = team.gotsport_group_id;
+
+    // Load standings + results for this team
+    var [standingsRes, resultsRes] = await Promise.all([
+      sb.from('league_standings').select('*').eq('gotsport_group_id', groupId),
+      sb.from('league_results').select('*').eq('gotsport_group_id', groupId).order('opponent', { ascending: true }),
+    ]);
+
+    // Filter standings to our team's row
+    var standing = ((standingsRes.data || []).find(function(s) {
+      return s.gotsport_team_name && s.gotsport_team_name.toLowerCase().includes("steamer's crew");
+    })) || null;
+
+    var results = resultsRes.data || [];
+
+    if (standing) {
+      var pos      = standing.position || '-';
+      var posColor = pos === 1 ? 'var(--teal-light)' : pos <= 3 ? 'var(--amber-light)' : 'var(--text-muted)';
+
+      html += '<div class="season-meta">' + esc(standing.season || '') +
+        (standing.division_name ? ' &middot; ' + esc(standing.division_name) : '') +
+        ' &middot; <a href="https://system.gotsport.com/org_event/events/50274/results?group=' + groupId +
+        '" target="_blank" style="color:var(--teal-light);">View on GotSport ↗</a>';
+      if (standing.last_synced) html += ' &middot; Synced ' + timeAgo(standing.last_synced);
+      html += '</div>';
+
+      html += '<div class="standing-card">' +
+        '<div class="standing-pos" style="color:' + posColor + '">' + pos + '</div>' +
+        '<div>' +
+          '<div class="standing-team">' + esc(standing.gotsport_team_name) + '</div>' +
+          '<div class="standing-div">' + esc(standing.division_name || '') + '</div>' +
+        '</div>' +
+        '<div class="standing-stats">' +
+          '<div class="stat-pill wins"><div class="sp-val">' + (standing.w || 0) + '</div><div class="sp-lbl">W</div></div>' +
+          '<div class="stat-pill losses"><div class="sp-val">' + (standing.l || 0) + '</div><div class="sp-lbl">L</div></div>' +
+          '<div class="stat-pill draws"><div class="sp-val">' + (standing.d || 0) + '</div><div class="sp-lbl">D</div></div>' +
+          '<div class="stat-pill pts"><div class="sp-val">' + (standing.pts || 0) + '</div><div class="sp-lbl">PTS</div></div>' +
+          '<div class="stat-pill" style="margin-left:4px;">' +
+            '<div class="sp-val" style="color:var(--text-dim)">' + (standing.gf || 0) + '-' + (standing.ga || 0) + '</div>' +
+            '<div class="sp-lbl">GF-GA</div>' +
+          '</div>' +
+        '</div>' +
       '</div>';
-    });
+    }
+
+    if (results.length > 0) {
+      html += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;' +
+        'letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-top:.75rem;margin-bottom:8px;">Match Results</div>';
+      html += '<div class="results-list">';
+      results.forEach(function(r) {
+        var score = (r.goals_for != null && r.goals_against != null)
+          ? r.goals_for + '-' + r.goals_against : '-';
+        var badge = r.result || 'U';
+        html += '<div class="result-row">' +
+          '<div class="result-opp">' + esc(r.opponent || '-') + '</div>' +
+          '<div class="result-score">' + score + '</div>' +
+          '<div class="result-badge ' + badge + '">' + (badge === 'U' ? '-' : badge) + '</div>' +
+        '</div>';
+      });
+      html += '</div>';
+    } else if (!standing) {
+      html += '<div style="font-size:13px;color:var(--text-dim);background:var(--navy-mid);border-radius:8px;padding:10px 14px;">No league data yet. Run the sync to pull data from GotSport.</div>';
+    }
+
     html += '</div>';
-  } else if (!standing) {
-    html = '<div style="font-size:13px;color:var(--text-dim);">No league data found. The sync may not have run yet.</div>';
+
+    // Divider between teams
+    if (i < allPlayerTeams.length - 1) {
+      html += '<hr style="border:none;border-top:1px solid var(--border);margin:0 0 1.5rem;">';
+    }
   }
 
   container.innerHTML = html;

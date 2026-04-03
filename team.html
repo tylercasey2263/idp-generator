@@ -349,9 +349,11 @@ input::placeholder { color: var(--text-dim); }
 .result-row:hover { border-color: var(--border-strong); }
 .result-row.expanded { border-color: var(--teal); }
 .result-row-main {
-  display: grid; grid-template-columns: 80px 1fr auto auto 18px;
+  display: grid; grid-template-columns: 1fr auto auto 18px;
   align-items: center; gap: 10px; padding: 10px 14px;
 }
+.result-row.no-expand { cursor: default; }
+.result-row.no-expand:hover { border-color: var(--border); }
 .result-expand-icon {
   font-size: 10px; color: var(--text-dim);
   transition: transform .2s; text-align: right;
@@ -774,7 +776,7 @@ async function loadPlayers() {
           return `
             <tr class="player-row">
               <td>
-                <div class="player-name">${esc(p.name)}${p._shared ? ' <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--teal-light);background:var(--teal-faint);border:1px solid rgba(27,138,107,.3);border-radius:4px;padding:2px 6px;vertical-align:middle;">Shared</span>' : ''}</div>
+                <div class="player-name"><a href="${_base}/view-idp.html?player=${p.id}&team=${teamId}" style="color:inherit;text-decoration:none;" onmouseover="this.style.color='var(--teal-light)'" onmouseout="this.style.color=''">${esc(p.name)}</a>${p._shared ? ' <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--teal-light);background:var(--teal-faint);border:1px solid rgba(27,138,107,.3);border-radius:4px;padding:2px 6px;vertical-align:middle;">Shared</span>' : ''}</div>
                 ${p.positions ? `<div class="player-pos">${esc(p.positions)}</div>` : ''}
               </td>
               <td>${badge}</td>
@@ -1336,21 +1338,24 @@ async function loadLeagueResults() {
   const groupId = team.gotsport_group_id;
   linkEl.href = 'https://system.gotsport.com/org_event/events/50274/results?group=' + groupId;
 
-  // Load standings for our team in this group — filter by team_id so we get
-  // exactly one row (our team's row) even when the group has many teams.
-  const { data: standing } = await sb
+  // Load all standings for this group, then pick our team's row by name.
+  // (The sync now only stores our team's row, but we filter defensively in
+  //  case older data with multiple rows still exists in the table.)
+  const { data: allStandings } = await sb
     .from('league_standings')
     .select('*')
-    .eq('gotsport_group_id', groupId)
-    .eq('team_id', teamId)
-    .maybeSingle();
+    .eq('gotsport_group_id', groupId);
 
-  // Load match results for our team
+  const standing = (allStandings || []).find(s =>
+    s.gotsport_team_name && s.gotsport_team_name.toLowerCase().includes("steamer's crew")
+  ) || null;
+
+  // Load match results — sync only stores our team's rows, order by opponent name
   const { data: results } = await sb
     .from('league_results')
     .select('*')
     .eq('gotsport_group_id', groupId)
-    .order('match_date', { ascending: false });
+    .order('opponent', { ascending: true });
 
   let html = '';
 
@@ -1385,44 +1390,51 @@ async function loadLeagueResults() {
     html += '<div class="sessions-label" style="font-size:12px;margin-top:1rem;margin-bottom:8px;">Match Results</div>';
     html += '<div class="results-list">';
     results.forEach(function(r) {
-      var d = r.match_date ? new Date(r.match_date + 'T12:00:00') : null;
-      var dateShort = d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
-      var dateFull  = d ? d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '-';
       var score = (r.goals_for != null && r.goals_against != null)
         ? r.goals_for + '-' + r.goals_against : 'vs';
-      var badge = r.result || 'U';
+      var badge    = r.result || 'U';
       var homeAway = r.is_home === true ? 'Home' : r.is_home === false ? 'Away' : null;
-      var venue = r.venue || null;
+      var venue    = r.venue || null;
 
-      // detail items
-      var detailHtml = '<div class="result-detail">' +
-        '<div class="result-detail-item">' +
-          '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="1" y="2" width="10" height="9" rx="1.5" stroke="#94A3B8" stroke-width="1.2"/><path d="M1 5h10" stroke="#94A3B8" stroke-width="1.2"/><path d="M4 1v2M8 1v2" stroke="#94A3B8" stroke-width="1.2" stroke-linecap="round"/></svg>' +
-          '<span>' + dateFull + '</span>' +
-        '</div>';
+      // Build detail items only when data is available (date/home/venue may be null)
+      var detailItems = '';
+      if (r.match_date) {
+        var d = new Date(r.match_date + 'T12:00:00');
+        var dateFull = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        detailItems +=
+          '<div class="result-detail-item">' +
+            '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="1" y="2" width="10" height="9" rx="1.5" stroke="#94A3B8" stroke-width="1.2"/><path d="M1 5h10" stroke="#94A3B8" stroke-width="1.2"/><path d="M4 1v2M8 1v2" stroke="#94A3B8" stroke-width="1.2" stroke-linecap="round"/></svg>' +
+            '<span>' + dateFull + '</span>' +
+          '</div>';
+      }
       if (homeAway) {
-        detailHtml +=
+        detailItems +=
           '<div class="result-detail-item">' +
             '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1L1.5 5.5V11h3V7.5h3V11h3V5.5L6 1z" stroke="#94A3B8" stroke-width="1.2" stroke-linejoin="round"/></svg>' +
             '<span>' + homeAway + '</span>' +
           '</div>';
       }
       if (venue) {
-        detailHtml +=
+        detailItems +=
           '<div class="result-detail-item">' +
             '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="5" r="2" stroke="#94A3B8" stroke-width="1.2"/><path d="M6 1a4 4 0 014 4c0 3-4 7-4 7S2 8 2 5a4 4 0 014-4z" stroke="#94A3B8" stroke-width="1.2"/></svg>' +
             '<span>' + esc(venue) + '</span>' +
           '</div>';
       }
-      detailHtml += '</div>';
 
-      html += '<div class="result-row" onclick="toggleResultRow(this)">' +
+      // Only render the expandable detail row if there's something to show
+      var hasDetail = !!(r.match_date || homeAway || venue);
+      var detailHtml = hasDetail
+        ? '<div class="result-detail">' + detailItems + '</div>'
+        : '';
+
+      html += '<div class="result-row' + (hasDetail ? '' : ' no-expand') + '"' +
+        (hasDetail ? ' onclick="toggleResultRow(this)"' : '') + '>' +
         '<div class="result-row-main">' +
-          '<div class="result-date">' + dateShort + '</div>' +
           '<div class="result-opp">' + esc(r.opponent || '-') + '</div>' +
           '<div class="result-score">' + score + '</div>' +
           '<div class="result-badge ' + badge + '">' + (badge === 'U' ? '-' : badge) + '</div>' +
-          '<div class="result-expand-icon">▼</div>' +
+          (hasDetail ? '<div class="result-expand-icon">▼</div>' : '<div></div>') +
         '</div>' +
         detailHtml +
       '</div>';

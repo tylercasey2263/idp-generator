@@ -87,6 +87,13 @@ function extractTeamIdentifiers(name) {
 
 /**
  * Fetch the results page for a given group and parse standings + match results.
+ *
+ * GotSport results pages have exactly 2 tables:
+ *   Table 1 — Standings: Team | MP | W | L | D | GF | GA | GD | PTS | PPG
+ *   Table 2 — Head-to-head matrix: row=team, col=opponent, cell="X-Y" or "-"
+ *
+ * There are NO individual match rows with dates/times/venues on this page.
+ * Scores come exclusively from the matrix cells.
  */
 async function fetchGroupResults(groupId) {
   const url = `${GOTSPORT_BASE}/org_event/events/${EVENT_ID}/results?group=${groupId}`;
@@ -112,32 +119,43 @@ async function fetchGroupResults(groupId) {
   }
 
   const $ = cheerio.load(html);
+  const now = new Date().toISOString();
 
-  // Try to extract division name from page heading
+  // Try to extract division name from any heading on the page
   let divisionName = '';
-  const heading = $('h1, h2, h3').first().text().trim();
-  if (heading) divisionName = heading;
+  $('h1, h2, h3, h4').each((_, el) => {
+    const text = $(el).text().trim();
+    if (text && !divisionName) divisionName = text;
+  });
 
-  // ── Parse standings table ──
-  const standings = [];
   const tables = $('table');
+  const standings = [];
+  const matches = [];
 
-  // The first table is typically the standings table
+  // ── Table 1: Standings ─────────────────────────────────────────────────────
+  // Format: Team | MP | W | L | D | GF | GA | GD | PTS | PPG  (no position col)
+  // Some leagues may add a position column as the first cell.
   if (tables.length > 0) {
     const standingsTable = $(tables[0]);
-    standingsTable.find('tbody tr').each((i, tr) => {
-      const cells = $(tr).find('td');
-      if (cells.length < 8) return; // Skip rows that don't have enough columns
 
-      // Determine if first column is a position number or team name
-      const firstCellText = $(cells[0]).text().trim();
-      const isPositionFirst = /^\d+$/.test(firstCellText);
+    // Prefer tbody rows; fall back to all rows minus the first (header)
+    let rows = standingsTable.find('tbody tr');
+    if (rows.length === 0) rows = standingsTable.find('tr').slice(1);
 
+    rows.each((i, tr) => {
+      const cells = $(tr).find('td, th');
+      if (cells.length < 8) return;
+
+      const firstText = $(cells[0]).text().trim();
+
+      // Skip any residual header rows
+      if (!firstText || /^(team|#|pos|rank)$/i.test(firstText)) return;
+
+      const isPositionFirst = /^\d+$/.test(firstText);
       let pos, teamName, mp, w, l, d, gf, ga, gd, pts, ppg;
 
       if (isPositionFirst) {
-        // Position | Team | MP | W | L | D | GF | GA | GD | PTS | PPG
-        pos      = parseIntSafe(firstCellText);
+        pos      = parseIntSafe(firstText);
         teamName = $(cells[1]).text().trim();
         mp       = parseIntSafe($(cells[2]).text().trim());
         w        = parseIntSafe($(cells[3]).text().trim());
@@ -151,7 +169,7 @@ async function fetchGroupResults(groupId) {
       } else {
         // Team | MP | W | L | D | GF | GA | GD | PTS | PPG
         pos      = i + 1;
-        teamName = firstCellText;
+        teamName = firstText;
         mp       = parseIntSafe($(cells[1]).text().trim());
         w        = parseIntSafe($(cells[2]).text().trim());
         l        = parseIntSafe($(cells[3]).text().trim());
@@ -173,125 +191,74 @@ async function fetchGroupResults(groupId) {
         position: pos,
         mp, w, l, d, gf, ga, gd, pts, ppg,
         season: SEASON,
-        last_synced: new Date().toISOString(),
+        last_synced: now,
       });
     });
   }
 
-  // ── Parse match results ──
-  // Match results may be in subsequent tables or in a different section
-  const matches = [];
-
+  // ── Table 2: Head-to-Head Matrix ───────────────────────────────────────────
+  // The matrix is an N×N grid.
+  // First row (header): "Team Name" | TeamA | TeamB | TeamC | ...
+  // Data rows:          TeamA       | -     | 4-4   | 5-3   | ...
+  //                     TeamB       | 4-4   | -     | ...
+  // Cell value "X-Y" means row-team scored X, column-team scored Y.
+  // Cell value "-"   means the game hasn't been played yet (or diagonal).
   if (tables.length > 1) {
-    // Iterate through remaining tables looking for match results
-    for (let t = 1; t < tables.length; t++) {
-      $(tables[t]).find('tbody tr, tr').each((_, tr) => {
-        const cells = $(tr).find('td');
-        if (cells.length < 3) return;
+    const matrixTable = $(tables[1]);
 
-        // Try to parse match rows: typically Date | Home | Score | Away or similar
-        const cellTexts = [];
-        cells.each((_, td) => cellTexts.push($(td).text().trim()));
+    // Get column headers — first row of the table (thead or first tr)
+    const colHeaders = [];
+    let headerRow = matrixTable.find('thead tr').first();
+    if (headerRow.length === 0) headerRow = matrixTable.find('tr').first();
+    headerRow.find('th, td').each((_, cell) => {
+      colHeaders.push($(cell).text().trim());
+    });
+    // colHeaders[0] = "Team Name" (row-label header)
+    // colHeaders[1..N] = opponent team names
 
-        // Look for a score pattern like "2 - 1" or "2-1"
-        let scoreIdx = -1;
-        for (let c = 0; c < cellTexts.length; c++) {
-          if (/^\d+\s*[-–]\s*\d+$/.test(cellTexts[c]) || /^\d+$/.test(cellTexts[c])) {
-            // Check if next cell is also a number (home score, away score in separate cells)
-            if (/^\d+$/.test(cellTexts[c]) && c + 1 < cellTexts.length && /^\d+$/.test(cellTexts[c + 1])) {
-              scoreIdx = c;
-              break;
-            }
-            if (/^\d+\s*[-–]\s*\d+$/.test(cellTexts[c])) {
-              scoreIdx = c;
-              break;
-            }
-          }
-        }
+    // Parse data rows
+    let dataRows = matrixTable.find('tbody tr');
+    if (dataRows.length === 0) dataRows = matrixTable.find('tr').slice(1);
 
-        // Try to find date pattern
-        let matchDate = null;
-        let dateIdx = -1;
-        for (let c = 0; c < cellTexts.length; c++) {
-          const dateMatch = cellTexts[c].match(/(\d{1,2}\/\d{1,2}\/\d{2,4})/);
-          if (dateMatch) {
-            const parts = dateMatch[1].split('/');
-            const month = parts[0].padStart(2, '0');
-            const day   = parts[1].padStart(2, '0');
-            const year  = parts[2].length === 2 ? '20' + parts[2] : parts[2];
-            matchDate = `${year}-${month}-${day}`;
-            dateIdx = c;
-            break;
-          }
-        }
+    dataRows.each((_, tr) => {
+      const cells = $(tr).find('td, th');
+      if (cells.length < 2) return;
 
-        // Try to extract team names and scores
-        // Common patterns: Date | Time | Home | Score | Away | Venue
-        // Or: Home | Score | Away
-        if (scoreIdx >= 0) {
-          let homeTeam = '', awayTeam = '', homeScore = 0, awayScore = 0;
+      const rowTeamName = $(cells[0]).text().trim();
+      if (!rowTeamName) return;
 
-          const scoreText = cellTexts[scoreIdx];
-          const combinedScore = scoreText.match(/^(\d+)\s*[-–]\s*(\d+)$/);
+      cells.each((colIdx, td) => {
+        if (colIdx === 0) return; // skip row-label cell
 
-          if (combinedScore) {
-            homeScore = parseIntSafe(combinedScore[1]);
-            awayScore = parseIntSafe(combinedScore[2]);
-            // Home team is before score, away team is after
-            if (scoreIdx > 0) homeTeam = cellTexts[scoreIdx - 1];
-            if (scoreIdx + 1 < cellTexts.length) awayTeam = cellTexts[scoreIdx + 1];
-          } else if (/^\d+$/.test(cellTexts[scoreIdx]) && scoreIdx + 1 < cellTexts.length && /^\d+$/.test(cellTexts[scoreIdx + 1])) {
-            homeScore = parseIntSafe(cellTexts[scoreIdx]);
-            awayScore = parseIntSafe(cellTexts[scoreIdx + 1]);
-            if (scoreIdx > 0) homeTeam = cellTexts[scoreIdx - 1];
-            if (scoreIdx + 2 < cellTexts.length) awayTeam = cellTexts[scoreIdx + 2];
-          }
+        const cellText = $(td).text().trim();
+        if (!cellText || cellText === '-') return; // unplayed or diagonal
 
-          // Skip if we couldn't find team names or if scores are dashes (unplayed)
-          if (!homeTeam || !awayTeam) return;
-          if (homeTeam === '-' || awayTeam === '-') return;
+        // Expect "X-Y" with a plain ASCII hyphen
+        const scoreMatch = cellText.match(/^(\d+)-(\d+)$/);
+        if (!scoreMatch) return;
 
-          // Venue might be the last cell
-          let venue = '';
-          const lastCell = cellTexts[cellTexts.length - 1];
-          if (lastCell !== awayTeam && lastCell !== String(awayScore) && !/^\d+$/.test(lastCell)) {
-            venue = lastCell;
-          }
+        const opponentName = colHeaders[colIdx] || '';
+        if (!opponentName || opponentName === rowTeamName) return;
 
-          // Create result entries for both teams
-          const resultForHome = homeScore > awayScore ? 'W' : homeScore < awayScore ? 'L' : 'D';
-          const resultForAway = awayScore > homeScore ? 'W' : awayScore < homeScore ? 'L' : 'D';
+        const goalsFor     = parseIntSafe(scoreMatch[1]);
+        const goalsAgainst = parseIntSafe(scoreMatch[2]);
+        const result       = goalsFor > goalsAgainst ? 'W' : goalsFor < goalsAgainst ? 'L' : 'D';
 
-          matches.push({
-            gotsport_group_id: String(groupId),
-            gotsport_team_name: homeTeam,
-            match_date: matchDate,
-            opponent: awayTeam,
-            goals_for: homeScore,
-            goals_against: awayScore,
-            venue,
-            is_home: true,
-            result: resultForHome,
-            season: SEASON,
-            last_synced: new Date().toISOString(),
-          });
-
-          matches.push({
-            gotsport_group_id: String(groupId),
-            gotsport_team_name: awayTeam,
-            match_date: matchDate,
-            opponent: homeTeam,
-            goals_for: awayScore,
-            goals_against: homeScore,
-            venue,
-            is_home: false,
-            result: resultForAway,
-            season: SEASON,
-            last_synced: new Date().toISOString(),
-          });
-        }
+        matches.push({
+          gotsport_group_id: String(groupId),
+          gotsport_team_name: rowTeamName,
+          opponent: opponentName,
+          goals_for: goalsFor,
+          goals_against: goalsAgainst,
+          result,
+          match_date: null,   // not available on GotSport results page
+          is_home: null,      // not available on GotSport results page
+          venue: null,
+          season: SEASON,
+          last_synced: now,
+        });
       });
-    }
+    });
   }
 
   console.log(`  Found ${standings.length} standings rows, ${matches.length} match rows`);
@@ -359,22 +326,35 @@ async function autoMatchTeams() {
 }
 
 // ─── Upsert data ───────────────────────────────────────────────────────────
+
+/**
+ * Build a groupId → appTeamId lookup from the teams table.
+ */
+async function buildGroupToTeamId() {
+  const { data: appTeams } = await sb.from('teams').select('id, gotsport_group_id');
+  const map = {};
+  if (appTeams) appTeams.forEach(t => { if (t.gotsport_group_id) map[t.gotsport_group_id] = t.id; });
+  return map;
+}
+
+/**
+ * Upsert only our team's standings row for this group.
+ * Other teams in the division are discarded — we only track Steamer's Crew.
+ */
 async function upsertStandings(standings) {
   if (standings.length === 0) return;
 
-  // Resolve team_id for Steamer's Crew teams
-  const { data: appTeams } = await sb.from('teams').select('id, gotsport_group_id');
-  const groupToTeamId = {};
-  if (appTeams) {
-    appTeams.forEach(t => {
-      if (t.gotsport_group_id) groupToTeamId[t.gotsport_group_id] = t.id;
-    });
+  // Filter to just Steamer's Crew rows
+  const ours = standings.filter(s =>
+    s.gotsport_team_name && s.gotsport_team_name.toLowerCase().includes("steamer's crew")
+  );
+  if (ours.length === 0) {
+    console.log("  No Steamer's Crew row found in standings — skipping.");
+    return;
   }
 
-  const rows = standings.map(s => ({
-    ...s,
-    team_id: groupToTeamId[s.gotsport_group_id] || null,
-  }));
+  const groupToTeamId = await buildGroupToTeamId();
+  const rows = ours.map(s => ({ ...s, team_id: groupToTeamId[s.gotsport_group_id] || null }));
 
   const { error } = await sb
     .from('league_standings')
@@ -383,35 +363,51 @@ async function upsertStandings(standings) {
   if (error) {
     console.error('  Standings upsert error:', error.message);
   } else {
-    console.log(`  Upserted ${rows.length} standings rows.`);
+    console.log(`  Upserted standings for: ${rows.map(r => r.gotsport_team_name).join(', ')}`);
   }
 }
 
+/**
+ * Replace all results for this group with fresh data from the matrix.
+ * We delete-then-insert because match_date is null (from the matrix) and
+ * cannot be used as a unique conflict key.
+ * Only Steamer's Crew rows are stored.
+ */
 async function upsertResults(matches) {
   if (matches.length === 0) return;
 
-  // Resolve team_id
-  const { data: appTeams } = await sb.from('teams').select('id, gotsport_group_id');
-  const groupToTeamId = {};
-  if (appTeams) {
-    appTeams.forEach(t => {
-      if (t.gotsport_group_id) groupToTeamId[t.gotsport_group_id] = t.id;
-    });
+  // Filter to just Steamer's Crew rows
+  const ours = matches.filter(m =>
+    m.gotsport_team_name && m.gotsport_team_name.toLowerCase().includes("steamer's crew")
+  );
+  if (ours.length === 0) {
+    console.log("  No Steamer's Crew results found — skipping.");
+    return;
   }
 
-  const rows = matches.map(m => ({
-    ...m,
-    team_id: groupToTeamId[m.gotsport_group_id] || null,
-  }));
+  const groupToTeamId = await buildGroupToTeamId();
+  const rows = ours.map(m => ({ ...m, team_id: groupToTeamId[m.gotsport_group_id] || null }));
 
-  const { error } = await sb
+  // Delete existing results for this group+team, then insert fresh
+  const groupId  = rows[0].gotsport_group_id;
+  const teamName = rows[0].gotsport_team_name;
+
+  const { error: delErr } = await sb
     .from('league_results')
-    .upsert(rows, { onConflict: 'gotsport_group_id,gotsport_team_name,opponent,match_date,season' });
+    .delete()
+    .eq('gotsport_group_id', groupId)
+    .eq('gotsport_team_name', teamName);
+
+  if (delErr) {
+    console.warn('  Warning: could not clear old results:', delErr.message);
+  }
+
+  const { error } = await sb.from('league_results').insert(rows);
 
   if (error) {
-    console.error('  Results upsert error:', error.message);
+    console.error('  Results insert error:', error.message);
   } else {
-    console.log(`  Upserted ${rows.length} match result rows.`);
+    console.log(`  Inserted ${rows.length} results for ${teamName}.`);
   }
 }
 
