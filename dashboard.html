@@ -14,6 +14,7 @@
 :root {
   --navy: #0D1B2A; --navy-mid: #1A2E44; --navy-light: #243B55;
   --teal: #1B8A6B; --teal-light: #22A882; --teal-faint: #0D2E25;
+  --amber: #D4870A; --amber-light: #F0A020; --amber-faint: #2E1E05;
   --text: #EDF2F7; --text-muted: #94A3B8; --text-dim: #64748B;
   --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
   --red-light: #E05050;
@@ -233,7 +234,7 @@ input::placeholder { color: var(--text-dim); }
   <div class="stats-bar">
     <div class="stat-block"><div class="val" id="statPlayers">—</div><div class="lbl">Total Players</div></div>
     <div class="stat-block"><div class="val" id="statIDPs">—</div><div class="lbl">IDPs Generated</div></div>
-    <div class="stat-block"><div class="val" id="statPublished">—</div><div class="lbl">Published</div></div>
+    <div class="stat-block" id="statDueBlock"><div class="val" id="statDueReview">—</div><div class="lbl">Due for Review</div></div>
   </div>
 
   <div class="search-bar-wrap">
@@ -312,9 +313,9 @@ async function loadStats() {
   const { data: rows } = await sb.from('coach_teams').select('team_id').eq('coach_id', coachId);
   const teamIds = (rows || []).map(r => r.team_id);
   if (!teamIds.length) {
-    document.getElementById('statPlayers').textContent   = '0';
-    document.getElementById('statIDPs').textContent      = '0';
-    document.getElementById('statPublished').textContent = '—';
+    document.getElementById('statPlayers').textContent  = '0';
+    document.getElementById('statIDPs').textContent     = '0';
+    document.getElementById('statDueReview').textContent = '0';
     return;
   }
   const { data: players } = await sb.from('players').select('id').in('team_id', teamIds);
@@ -322,15 +323,42 @@ async function loadStats() {
   document.getElementById('statPlayers').textContent = playerCount;
   if (!playerCount) {
     document.getElementById('statIDPs').textContent      = '0';
-    document.getElementById('statPublished').textContent = '—';
+    document.getElementById('statDueReview').textContent = '0';
     return;
   }
   const playerIds = players.map(p => p.id);
-  const { data: idps } = await sb.from('idps').select('id, published').in('player_id', playerIds);
-  const total     = (idps || []).length;
-  const published = (idps || []).filter(i => i.published).length;
-  document.getElementById('statIDPs').textContent      = total;
-  document.getElementById('statPublished').textContent = total > 0 ? Math.round(published / total * 100) + '%' : '—';
+
+  // Fetch IDPs and review threshold in parallel
+  const [idpRes, reviewRes] = await Promise.all([
+    sb.from('idps').select('id, player_id, updated_at').in('player_id', playerIds),
+    sb.from('settings').select('value').eq('key', 'idp_review_days').maybeSingle()
+  ]);
+  const idps       = idpRes.data || [];
+  const reviewDays = parseInt(reviewRes.data?.value || '60');
+  const cutoff     = new Date();
+  cutoff.setDate(cutoff.getDate() - reviewDays);
+
+  document.getElementById('statIDPs').textContent = idps.length;
+
+  // Latest IDP date per player
+  const latestByPlayer = {};
+  idps.forEach(i => {
+    const cur = latestByPlayer[i.player_id];
+    if (!cur || new Date(i.updated_at) > new Date(cur)) latestByPlayer[i.player_id] = i.updated_at;
+  });
+
+  const dueCount = playerIds.filter(pid => {
+    const latest = latestByPlayer[pid];
+    return !latest || new Date(latest) < cutoff;
+  }).length;
+
+  const dueEl    = document.getElementById('statDueReview');
+  const dueBlock = document.getElementById('statDueBlock');
+  dueEl.textContent = dueCount;
+  if (dueCount > 0) {
+    dueEl.style.color         = 'var(--amber-light)';
+    dueBlock.style.borderColor = 'rgba(212,135,10,.35)';
+  }
 }
 
 function showToast(msg) {

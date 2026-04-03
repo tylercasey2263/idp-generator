@@ -136,6 +136,36 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text);
 .session-delete { background: none; border: none; color: var(--text-dim); cursor: pointer;
   font-size: 14px; padding: 2px 4px; border-radius: 4px; transition: color .15s; }
 .session-delete:hover { color: var(--red-light); }
+
+/* ─── DUE FOR REVIEW ─── */
+.due-review-banner {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--amber-faint); border: 1px solid rgba(212,135,10,.35);
+  border-radius: 10px; padding: 12px 16px; margin-bottom: 1rem;
+  font-size: 13px; color: var(--amber-light);
+}
+.due-review-banner strong { font-weight: 700; }
+.due-review-hint { color: var(--amber); font-size: 12px; }
+.idp-badge.due {
+  background: var(--amber-faint); color: var(--amber-light);
+  border: 1px solid rgba(212,135,10,.3);
+}
+
+/* ─── SESSION CARD improvements ─── */
+.session-card { cursor: pointer; }
+.session-idps {
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);
+  font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.session-idps-label { font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 10px; color: var(--teal-light); flex-shrink: 0; }
+.session-idp-chip {
+  background: var(--teal-faint); border: 1px solid rgba(27,138,107,.25);
+  color: var(--teal-light); border-radius: 4px; padding: 2px 8px;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; text-decoration: none; transition: border-color .15s;
+}
+.session-idp-chip:hover { border-color: var(--teal); }
 input[type="date"] {
   background: var(--navy); border: 1px solid var(--border-strong);
   border-radius: 8px; color: var(--text); font-family: 'Inter', sans-serif;
@@ -481,8 +511,10 @@ input::placeholder { color: var(--text-dim); }
 <script>
 const params  = new URLSearchParams(window.location.search);
 const teamId  = params.get('team');
-let coachId   = null;
+let coachId          = null;
 let currentInviteLink = '';
+let teamPlayerIds    = [];   // populated by loadPlayers(), used by loadSessions()
+let teamIDPsByDate   = {};   // { 'YYYY-MM-DD': [{player_id, player_name, idp_id}] }
 
 if (!teamId) window.location.href = '/dashboard.html';
 
@@ -492,8 +524,7 @@ if (!teamId) window.location.href = '/dashboard.html';
   coachId = ctx.session.user.id;
   await renderSidebar('team');
   loadTeam();
-  loadPlayers();
-  loadSessions();
+  loadPlayers();   // loadSessions() is called inside loadPlayers() once IDP date index is ready
 })();
 
 async function loadTeam() {
@@ -541,24 +572,49 @@ async function loadPlayers() {
     return;
   }
 
-  // Fetch latest IDP per player
+  // Fetch latest IDP per player + review threshold in parallel
   const playerIds = players.map(p => p.id);
-  const { data: idps } = await sb
-    .from('idps')
-    .select('player_id, published, updated_at, created_at')
-    .in('player_id', playerIds)
-    .order('updated_at', { ascending: false });
+  teamPlayerIds   = playerIds;
 
+  const [idpRes, reviewRes] = await Promise.all([
+    sb.from('idps')
+      .select('id, player_id, published, updated_at, created_at')
+      .in('player_id', playerIds)
+      .order('updated_at', { ascending: false }),
+    sb.from('settings').select('value').eq('key', 'idp_review_days').maybeSingle()
+  ]);
+  const allIDPs    = idpRes.data  || [];
+  const reviewDays = parseInt(reviewRes.data?.value || '60');
+  const cutoff     = new Date();
+  cutoff.setDate(cutoff.getDate() - reviewDays);
+
+  // Build IDP map (latest per player) + date index for session history
   const idpMap = {};
-  (idps || []).forEach(i => {
+  teamIDPsByDate = {};
+  allIDPs.forEach(i => {
     if (!idpMap[i.player_id]) idpMap[i.player_id] = i;
+    const dateKey = (i.created_at || i.updated_at || '').slice(0, 10);
+    if (dateKey) {
+      if (!teamIDPsByDate[dateKey]) teamIDPsByDate[dateKey] = [];
+      const player = players.find(p => p.id === i.player_id);
+      if (player) teamIDPsByDate[dateKey].push({ player_id: i.player_id, player_name: player.name, idp_id: i.id });
+    }
   });
+  // Reload sessions now that IDP date index is ready
+  loadSessions();
+
+  // Which players are due for review?
+  const dueSet = new Set(
+    players.filter(p => {
+      const idp = idpMap[p.id];
+      return !idp || new Date(idp.updated_at || idp.created_at) < cutoff;
+    }).map(p => p.id)
+  );
 
   // Build team summary
-  const withIDP      = players.filter(p => idpMap[p.id]).length;
-  const numPublished = players.filter(p => idpMap[p.id]?.published).length;
-  const pending      = players.length - withIDP;
-  const summaryEl    = document.getElementById('teamSummary');
+  const withIDP = players.filter(p => idpMap[p.id]).length;
+  const pending = players.length - withIDP;
+  const summaryEl = document.getElementById('teamSummary');
   if (summaryEl) {
     const parts = [`${players.length} player${players.length !== 1 ? 's' : ''}`, `${withIDP} with IDP${withIDP !== 1 ? 's' : ''}`];
     if (pending > 0) parts.push(`${pending} without`);
@@ -566,7 +622,15 @@ async function loadPlayers() {
     summaryEl.style.display = '';
   }
 
-  container.innerHTML = `
+  const dueBanner = dueSet.size > 0
+    ? `<div class="due-review-banner">
+        ⏰ <strong>${dueSet.size} player${dueSet.size > 1 ? 's' : ''}</strong>
+        ${dueSet.size > 1 ? 'are' : 'is'} due for an IDP review
+        <span class="due-review-hint">(no IDP or last updated over ${reviewDays} days ago)</span>
+       </div>`
+    : '';
+
+  container.innerHTML = dueBanner + `
     <table class="player-table">
       <thead>
         <tr>
@@ -577,14 +641,16 @@ async function loadPlayers() {
       </thead>
       <tbody>
         ${players.map(p => {
-          const idp = idpMap[p.id];
-          let badge = '<span class="idp-badge none">No IDP yet</span>';
+          const idp   = idpMap[p.id];
+          const isDue = dueSet.has(p.id);
+          let badge   = '<span class="idp-badge none">No IDP yet</span>';
           if (idp) {
             const age = timeAgo(idp.updated_at || idp.created_at);
             badge = idp.published
               ? '<span class="idp-badge published">\u2713 Published \xb7 ' + age + '</span>'
               : '<span class="idp-badge draft">Draft \xb7 ' + age + '</span>';
           }
+          if (isDue) badge += ' <span class="idp-badge due">\u23f0 Due</span>';
           return `
             <tr class="player-row">
               <td>
@@ -1050,14 +1116,36 @@ async function loadSessions() {
     list.innerHTML = '<div style="font-size:13px;color:var(--text-dim);padding:.5rem 0;">No sessions logged yet. Hit <strong style="color:var(--text-muted);">+ Log Session</strong> after practice to keep a record.</div>';
     return;
   }
+
   list.innerHTML = sessions.map(s => {
-    const d = new Date(s.session_date + 'T12:00:00');
-    const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const d       = new Date(s.session_date + 'T12:00:00');
+    const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' });
+
+    // IDPs generated on or within ±1 day of this session (teamIDPsByDate populated by loadPlayers)
+    const prevDay = new Date(d); prevDay.setDate(prevDay.getDate() - 1);
+    const nextDay = new Date(d); nextDay.setDate(nextDay.getDate() + 1);
+    const allNearby = [
+      ...(teamIDPsByDate[s.session_date] || []),
+      ...(teamIDPsByDate[prevDay.toISOString().slice(0,10)] || []),
+      ...(teamIDPsByDate[nextDay.toISOString().slice(0,10)] || [])
+    ];
+    const seen = new Set();
+    const uniqueIDPs = allNearby.filter(i => { if (seen.has(i.idp_id)) return false; seen.add(i.idp_id); return true; });
+
+    const idpSection = uniqueIDPs.length > 0
+      ? '<div class="session-idps"><span class="session-idps-label">IDPs generated</span>' +
+          uniqueIDPs.map(i =>
+            '<a class="session-idp-chip" href="/view-idp.html?player=' + i.player_id + '&team=' + teamId + '">' + esc(i.player_name) + '</a>'
+          ).join('') +
+        '</div>'
+      : '';
+
     return '<div class="session-card">' +
       '<div class="session-date">' + esc(dateStr) + '</div>' +
       '<div><div class="session-focus">' + esc(s.focus) + '</div>' +
         (s.notes ? '<div class="session-notes">' + esc(s.notes) + '</div>' : '') +
       '</div>' +
+      idpSection +
       '<button class="session-delete" onclick="deleteSession(\'' + s.id + '\')" title="Delete session">\u2715</button>' +
     '</div>';
   }).join('');
