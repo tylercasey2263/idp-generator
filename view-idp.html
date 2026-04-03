@@ -553,6 +553,56 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
 .season-meta { font-size: 11px; color: var(--text-dim); margin-bottom: 12px; }
 .season-meta a { color: var(--teal-light); text-decoration: none; }
 .season-meta a:hover { text-decoration: underline; }
+
+/* ─── PARENT FEEDBACK TAB ─── */
+.feedback-unread-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--amber-light); color: #0D1B2A;
+  font-size: 10px; font-weight: 800; border-radius: 10px;
+  padding: 1px 6px; margin-left: 5px; line-height: 1.4;
+  font-family: 'Barlow Condensed', sans-serif;
+}
+.fb-item {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 14px 16px; position: relative;
+  transition: border-color .15s;
+}
+.fb-item.unread {
+  border-color: rgba(240,160,32,.35);
+  background: rgba(240,160,32,.04);
+}
+.fb-item-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px; gap: 10px; flex-wrap: wrap;
+}
+.fb-item-meta {
+  display: flex; align-items: center; gap: 8px;
+}
+.fb-item-date {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text-dim);
+  font-family: 'Barlow Condensed', sans-serif;
+}
+.fb-new-chip {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; padding: 2px 7px; border-radius: 4px;
+  background: var(--amber-faint); color: var(--amber-light);
+  border: 1px solid rgba(240,160,32,.3);
+  font-family: 'Barlow Condensed', sans-serif;
+}
+.fb-item-body {
+  font-size: 14px; color: var(--text-muted); line-height: 1.7;
+  white-space: pre-wrap;
+}
+.fb-empty {
+  text-align: center; padding: 3rem 2rem; color: var(--text-dim);
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px; font-size: 14px; line-height: 1.6;
+}
+.fb-empty strong {
+  display: block; font-family: 'Barlow Condensed', sans-serif;
+  font-size: 22px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;
+}
 </style>
 </head>
 <body>
@@ -589,6 +639,7 @@ const teamId   = params.get('team');
 
 let allIDPs        = [];
 let allNotes       = [];
+let allFeedback    = [];
 let playerData     = null;
 let allPlayerTeams = [];   // all teams this player belongs to
 let currentCoachId = null;
@@ -606,14 +657,16 @@ if (!playerId) window.location.href = '/dashboard.html';
   if (!player) { window.location.href = `${_appBase}/dashboard.html`; return; }
   playerData = player;
 
-  const [idpRes, notesRes, linkedTeamsRes] = await Promise.all([
+  const [idpRes, notesRes, linkedTeamsRes, feedbackRes] = await Promise.all([
     sb.from('idps').select('*').eq('player_id', playerId).order('updated_at', { ascending: false }),
     sb.from('player_notes').select('*').eq('player_id', playerId)
       .eq('coach_id', currentCoachId).order('created_at', { ascending: false }),
     sb.from('player_teams').select('teams(id,name,season,gotsport_group_id)').eq('player_id', playerId),
+    sb.from('parent_feedback').select('*').eq('player_id', playerId).order('created_at', { ascending: false }),
   ]);
-  allIDPs  = idpRes.data  || [];
-  allNotes = notesRes.data || [];
+  allIDPs     = idpRes.data     || [];
+  allNotes    = notesRes.data   || [];
+  allFeedback = feedbackRes.data || [];
 
   // Build full team list: primary team + any linked teams (deduped)
   const teamMap = {};
@@ -635,8 +688,10 @@ function renderPage() {
   const notesCount = allNotes.length;
   const idpCount   = allIDPs.length;
 
+  const unreadCount   = allFeedback.filter(f => !f.is_read).length;
   const idpTabLabel   = idpCount   ? `IDPs (${idpCount})`   : 'IDPs';
   const notesTabLabel = notesCount ? `Coach Notes (${notesCount})` : 'Coach Notes';
+  const feedbackBadge = unreadCount ? `<span class="feedback-unread-badge">${unreadCount}</span>` : '';
 
   const teamChips = allPlayerTeams.map(t =>
     `<a href="${_base}/team.html?team=${t.id}" class="player-team-chip">${esc(t.name)}${t.season ? ' <span style="opacity:.6;">(${esc(t.season)})</span>' : ''}</a>`
@@ -669,6 +724,7 @@ function renderPage() {
       <button class="tab-btn"        id="tab-btn-progress" onclick="showTab('progress')">Progress</button>
       <button class="tab-btn"        id="tab-btn-notes"    onclick="showTab('notes')">${notesTabLabel}</button>
       <button class="tab-btn"        id="tab-btn-season"   onclick="showTab('season')">Teams &amp; Season</button>
+      <button class="tab-btn"        id="tab-btn-feedback" onclick="showTab('feedback')">Parent Feedback${feedbackBadge}</button>
     </div>
 
     <div id="panel-idps" class="tab-panel active">
@@ -717,17 +773,24 @@ function renderPage() {
     <div id="panel-season" class="tab-panel">
       <div id="seasonContent" style="padding-top:1rem;"><div class="spinner"></div></div>
     </div>
+
+    <div id="panel-feedback" class="tab-panel">
+      ${renderFeedbackTab()}
+    </div>
   `;
 }
 
 function showTab(tab) {
-  ['idps','progress','notes','season'].forEach(t => {
+  ['idps','progress','notes','season','feedback'].forEach(t => {
     document.getElementById('panel-' + t).classList.toggle('active', t === tab);
     document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
   });
   if (tab === 'season' && !window._seasonLoaded) {
     window._seasonLoaded = true;
     loadSeasonData();
+  }
+  if (tab === 'feedback') {
+    markFeedbackRead();
   }
 }
 
@@ -1164,6 +1227,66 @@ function timeAgo(iso) {
   if (days < 30) return Math.floor(days / 7) + 'w ago';
   if (days < 365) return Math.floor(days / 30) + 'mo ago';
   return Math.floor(days / 365) + 'yr ago';
+}
+
+// ─── PARENT FEEDBACK TAB ───────────────────────────────────────────────
+function renderFeedbackTab() {
+  if (allFeedback.length === 0) {
+    return `<div class="fb-empty">
+      <strong>No feedback yet</strong>
+      When parents leave comments or concerns from their child's page,<br>they'll appear here.
+    </div>`;
+  }
+
+  const items = allFeedback.map(f => {
+    const dateStr = new Date(f.created_at).toLocaleString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric',
+      year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+    return `
+      <div class="fb-item ${f.is_read ? '' : 'unread'}" id="fb-${f.id}">
+        <div class="fb-item-header">
+          <div class="fb-item-meta">
+            <span class="fb-item-date">${dateStr}</span>
+            ${!f.is_read ? '<span class="fb-new-chip">New</span>' : ''}
+          </div>
+        </div>
+        <div class="fb-item-body">${esc(f.message)}</div>
+      </div>`;
+  }).join('');
+
+  const unread = allFeedback.filter(f => !f.is_read).length;
+  const summary = unread > 0
+    ? `<div style="font-size:12px;color:var(--amber-light);margin-bottom:14px;">
+        ${unread} unread message${unread > 1 ? 's' : ''} — marked as read when you open this tab
+       </div>`
+    : '';
+
+  return summary + `<div class="notes-list">${items}</div>`;
+}
+
+async function markFeedbackRead() {
+  const unreadIds = allFeedback.filter(f => !f.is_read).map(f => f.id);
+  if (unreadIds.length === 0) return;
+
+  await sb.from('parent_feedback')
+    .update({ is_read: true })
+    .in('id', unreadIds);
+
+  // Update local state and DOM
+  allFeedback.forEach(f => { f.is_read = true; });
+  unreadIds.forEach(id => {
+    const el = document.getElementById('fb-' + id);
+    if (el) {
+      el.classList.remove('unread');
+      const chip = el.querySelector('.fb-new-chip');
+      if (chip) chip.remove();
+    }
+  });
+
+  // Clear the badge from the tab button
+  const tabBtn = document.getElementById('tab-btn-feedback');
+  if (tabBtn) tabBtn.innerHTML = 'Parent Feedback';
 }
 
 // ─── SEASON TAB: League Results ────────────────────────────────────────

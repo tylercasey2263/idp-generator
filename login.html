@@ -151,6 +151,19 @@ input::placeholder { color: var(--text-dim); }
   content: ''; flex: 1; height: 1px; background: var(--border-strong);
 }
 
+/* Google button */
+.btn-google {
+  width: 100%; padding: 11px 16px; border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  font-family: 'Inter', sans-serif; font-size: 14px;
+  font-weight: 600;
+  cursor: pointer; transition: border-color .15s, background .15s;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: #fff; color: #3c4043;
+}
+.btn-google:hover { background: #f8f8f8; border-color: rgba(255,255,255,.35); }
+.btn-google:disabled { opacity: .45; cursor: not-allowed; }
+
 /* Magic link ghost btn */
 .btn-magic {
   width: 100%; padding: 11px 16px; border-radius: 8px;
@@ -237,7 +250,7 @@ input::placeholder { color: var(--text-dim); }
         <div class="brand-name" id="brandName">Player Development</div>
         <div class="brand-sub">Player Development</div>
       </div>
-      <div class="brand-tagline">Develop every player, every session.</div>
+      <div class="brand-tagline">All Development. All The Time.</div>
     </div>
     <div class="panel-left-footer">&copy; Player IDP</div>
   </div>
@@ -256,6 +269,20 @@ input::placeholder { color: var(--text-dim); }
             <div class="tabs" id="modeTabs">
               <button class="tab active" onclick="setMode('signin')">Sign In</button>
               <button class="tab" onclick="setMode('signup')">Create Account</button>
+            </div>
+
+            <!-- Google sign-in (Sign In tab only) -->
+            <div id="googleSection">
+              <button class="btn-google" id="googleBtn" onclick="signInWithGoogle()">
+                <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+                  <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+                  <path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+                  <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+                </svg>
+                Continue with Google
+              </button>
+              <div class="or-divider" style="margin-top:16px;">or continue with email</div>
             </div>
 
             <div class="field" id="nameField" style="display:none;">
@@ -371,6 +398,7 @@ function setMode(m) {
     document.getElementById('cardTitle').textContent      = isSignup ? 'Create Account' : 'Sign In';
     document.getElementById('submitBtn').textContent      = isSignup ? 'Create Account' : 'Sign In';
     document.getElementById('magicDivider').style.display = isSignup ? 'none' : 'block';
+    document.getElementById('googleSection').style.display = isSignup ? 'none' : 'block';
     document.getElementById('switchLink').innerHTML = isSignup
       ? 'Already have an account? <a onclick="setMode(\'signin\')">Sign in</a>'
       : 'Don\'t have an account? <a onclick="setMode(\'signup\')">Create one</a>';
@@ -464,6 +492,22 @@ async function submit() {
       btn.disabled = false;
       btn.textContent = 'Create Account';
     }
+  }
+}
+
+async function signInWithGoogle() {
+  const btn = document.getElementById('googleBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="border-top-color:#4285F4;border-color:rgba(0,0,0,.15);border-top-color:#4285F4;"></span>';
+  const base = window.location.pathname.replace(/\/[^/]*$/, '');
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin + base + '/login.html' }
+  });
+  if (error) {
+    setStatus(error.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/><path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg> Continue with Google`;
   }
 }
 

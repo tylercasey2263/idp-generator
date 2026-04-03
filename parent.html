@@ -183,9 +183,43 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text);
   color: #64748B; margin-bottom: 7px; }
 .idp-ig .parent-note p { font-size: 13px; color: #A8B8CC; line-height: 1.7; font-style: italic; }
 
+/* ─── PARENT FEEDBACK ─── */
+.feedback-section {
+  margin-top: 1.25rem;
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 12px; padding: 1.25rem 1.5rem;
+}
+.feedback-title {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim);
+  margin-bottom: 10px;
+}
+.feedback-textarea {
+  width: 100%; background: var(--navy); border: 1px solid var(--border-strong);
+  color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px;
+  padding: 12px 14px; border-radius: 8px; resize: vertical; min-height: 80px;
+  line-height: 1.6; transition: border-color .15s; box-sizing: border-box;
+}
+.feedback-textarea:focus { outline: none; border-color: var(--teal); }
+.feedback-textarea::placeholder { color: var(--text-dim); }
+.feedback-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; gap: 12px; flex-wrap: wrap; }
+.feedback-hint { font-size: 12px; color: var(--text-dim); line-height: 1.4; }
+.feedback-btn {
+  padding: 9px 18px; border: none; border-radius: 8px;
+  background: var(--teal); color: #fff;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 13px;
+  font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  cursor: pointer; transition: background .15s; white-space: nowrap; flex-shrink: 0;
+}
+.feedback-btn:hover { background: var(--teal-light); }
+.feedback-btn:disabled { opacity: .5; cursor: not-allowed; }
+.feedback-msg { font-size: 12px; margin-top: 8px; min-height: 16px; }
+.feedback-msg.ok  { color: var(--teal-light); }
+.feedback-msg.err { color: var(--red-light); }
+
 @media print {
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  .topnav, .idp-meta { display: none !important; }
+  .topnav, .idp-meta, .feedback-section { display: none !important; }
   body { background: #0D1B2A; }
   .idp-ig { border-radius: 0; }
 }
@@ -253,7 +287,7 @@ async function loadIDPsByTokens(tokens) {
   // Fetch all parent_players rows matching any of the stored tokens
   const { data: rawLinks } = await sb
     .from('parent_players')
-    .select('player_id, players(id, name, positions)')
+    .select('player_id, invite_token, players(id, name, positions)')
     .in('invite_token', tokens);
 
   const seen = new Set();
@@ -382,13 +416,26 @@ async function renderIDPs(links, container) {
         </div>
         ${tabsHTML}
         <div id="pidp-${playerIdx}" class="idp-ig">${buildInfographicHTML(firstIDP.data)}</div>
+      </div>
+      <div class="feedback-section">
+        <div class="feedback-title">💬 Message your coach</div>
+        <textarea class="feedback-textarea" id="fb-input-${playerIdx}"
+          placeholder="Share a question, concern, or observation about ${esc(player.name)}'s development…"
+          rows="3"></textarea>
+        <div class="feedback-footer">
+          <span class="feedback-hint">Your message goes directly to the coaching staff.</span>
+          <button class="feedback-btn" id="fb-btn-${playerIdx}"
+            onclick="submitFeedback(${playerIdx})">Send to Coach</button>
+        </div>
+        <div class="feedback-msg" id="fb-msg-${playerIdx}"></div>
       </div>`;
   });
 
   container.innerHTML = html;
 
-  // Store IDP data for tab switching
-  window._parentIDPs = links.map(l => idpsByPlayer[l.player_id] || []);
+  // Store IDP + link data for tab switching and feedback
+  window._parentIDPs  = links.map(l => idpsByPlayer[l.player_id] || []);
+  window._parentLinks = links;
 }
 
 function switchIDP(playerIdx, idpIdx) {
@@ -455,6 +502,47 @@ function buildInfographicHTML(d) {
       <div class="plabel">Note for parents</div>
       <p>${esc(d.parentNote||'')}</p>
     </div>`;
+}
+
+async function submitFeedback(playerIdx) {
+  const link  = (window._parentLinks || [])[playerIdx];
+  if (!link) return;
+
+  const input = document.getElementById(`fb-input-${playerIdx}`);
+  const btn   = document.getElementById(`fb-btn-${playerIdx}`);
+  const msgEl = document.getElementById(`fb-msg-${playerIdx}`);
+
+  const message = (input?.value || '').trim();
+  if (!message) { if (input) input.focus(); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  msgEl.textContent = '';
+  msgEl.className = 'feedback-msg';
+
+  const payload = { player_id: link.player_id, message };
+
+  // Token-based parent: include the invite_token so it can be traced
+  if (link.invite_token) payload.invite_token = link.invite_token;
+
+  // Logged-in parent: include parent_id
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user?.id) payload.parent_id = session.user.id;
+
+  const { error } = await sb.from('parent_feedback').insert(payload);
+
+  btn.disabled = false;
+  btn.textContent = 'Send to Coach';
+
+  if (error) {
+    msgEl.textContent = 'Failed to send. Please try again.';
+    msgEl.className = 'feedback-msg err';
+  } else {
+    input.value = '';
+    msgEl.textContent = '✓ Sent! Your coach will see this soon.';
+    msgEl.className = 'feedback-msg ok';
+    setTimeout(() => { if (msgEl) msgEl.textContent = ''; }, 5000);
+  }
 }
 
 function showMessage(msg, type) {
