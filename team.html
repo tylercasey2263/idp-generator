@@ -293,12 +293,22 @@ input::placeholder { color: var(--text-dim); }
   display: flex; align-items: center; justify-content: space-between;
   margin-top: 2.5rem; margin-bottom: 1rem;
   padding-top: 2rem; border-top: 1px solid var(--border);
+  cursor: pointer; user-select: none;
 }
+.league-header:hover .league-label { color: var(--text-muted); }
 .league-label { font-family: 'Barlow Condensed', sans-serif; font-size: 13px;
-  font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); }
+  font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim);
+  transition: color .15s; }
 .league-meta { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
 .league-meta a { color: var(--teal-light); text-decoration: none; }
 .league-meta a:hover { text-decoration: underline; }
+.league-chevron {
+  font-size: 11px; color: var(--text-dim); margin-left: 6px;
+  display: inline-block; transition: transform .2s;
+}
+.league-chevron.collapsed { transform: rotate(-90deg); }
+#leagueContent.league-hidden { display: none; }
+
 .standing-card {
   background: var(--navy-mid); border: 1px solid var(--border);
   border-radius: 10px; padding: 14px 18px; margin-bottom: 10px;
@@ -329,11 +339,37 @@ input::placeholder { color: var(--text-dim); }
 .stat-pill.draws .sp-val { color: var(--amber-light); }
 .stat-pill.pts .sp-val { color: var(--text); }
 .results-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+
+/* result row — collapsible */
 .result-row {
-  display: grid; grid-template-columns: 80px 1fr auto auto; align-items: center;
-  gap: 10px; background: var(--navy-mid); border: 1px solid var(--border);
-  border-radius: 8px; padding: 10px 14px;
+  background: var(--navy-mid); border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden; cursor: pointer;
+  transition: border-color .15s;
 }
+.result-row:hover { border-color: var(--border-strong); }
+.result-row.expanded { border-color: var(--teal); }
+.result-row-main {
+  display: grid; grid-template-columns: 80px 1fr auto auto 18px;
+  align-items: center; gap: 10px; padding: 10px 14px;
+}
+.result-expand-icon {
+  font-size: 10px; color: var(--text-dim);
+  transition: transform .2s; text-align: right;
+}
+.result-row.expanded .result-expand-icon { transform: rotate(180deg); }
+.result-detail {
+  display: none;
+  padding: 8px 14px 10px;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,.15);
+  font-size: 11px; color: var(--text-dim);
+  display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
+}
+.result-row:not(.expanded) .result-detail { display: none; }
+.result-row.expanded .result-detail { display: flex; }
+.result-detail-item { display: flex; align-items: center; gap: 5px; }
+.result-detail-item svg { opacity: .5; flex-shrink: 0; }
+
 .result-date { font-size: 11px; color: var(--text-dim); font-family: 'Barlow Condensed', sans-serif; font-weight: 600; letter-spacing: .04em; }
 .result-opp { font-size: 13px; color: var(--text-muted); }
 .result-score { font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); }
@@ -390,12 +426,12 @@ input::placeholder { color: var(--text-dim); }
   </div>
 
   <!-- LEAGUE RESULTS -->
-  <div class="league-header">
+  <div class="league-header" onclick="toggleLeagueSection(event)">
     <div>
-      <div class="league-label">League Results</div>
+      <div class="league-label">League Results <span class="league-chevron" id="leagueChevron">▼</span></div>
       <div class="league-meta" id="leagueMeta"></div>
     </div>
-    <div style="display:flex;gap:8px;align-items:center;">
+    <div style="display:flex;gap:8px;align-items:center;" onclick="event.stopPropagation()">
       <span id="leagueLastSync" style="font-size:11px;color:var(--text-dim);"></span>
       <a id="leagueGotSportLink" href="https://system.gotsport.com/org_event/events/50274/schedules?club=10769" target="_blank" rel="noopener"
         class="btn-action btn-invite" style="text-decoration:none;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:5px 12px;">
@@ -1435,17 +1471,46 @@ async function loadLeagueResults() {
     html += '<div class="sessions-label" style="font-size:12px;margin-top:1rem;margin-bottom:8px;">Match Results</div>';
     html += '<div class="results-list">';
     results.forEach(function(r) {
-      var dateStr = r.match_date
-        ? new Date(r.match_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        : '-';
+      var d = r.match_date ? new Date(r.match_date + 'T12:00:00') : null;
+      var dateShort = d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+      var dateFull  = d ? d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '-';
       var score = (r.goals_for != null && r.goals_against != null)
-        ? r.goals_for + '-' + r.goals_against : '-';
+        ? r.goals_for + '-' + r.goals_against : 'vs';
       var badge = r.result || 'U';
-      html += '<div class="result-row">' +
-        '<div class="result-date">' + dateStr + '</div>' +
-        '<div class="result-opp">' + esc(r.opponent || '-') + '</div>' +
-        '<div class="result-score">' + score + '</div>' +
-        '<div class="result-badge ' + badge + '">' + (badge === 'U' ? '-' : badge) + '</div>' +
+      var homeAway = r.is_home === true ? 'Home' : r.is_home === false ? 'Away' : null;
+      var venue = r.venue || null;
+
+      // detail items
+      var detailHtml = '<div class="result-detail">' +
+        '<div class="result-detail-item">' +
+          '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="1" y="2" width="10" height="9" rx="1.5" stroke="#94A3B8" stroke-width="1.2"/><path d="M1 5h10" stroke="#94A3B8" stroke-width="1.2"/><path d="M4 1v2M8 1v2" stroke="#94A3B8" stroke-width="1.2" stroke-linecap="round"/></svg>' +
+          '<span>' + dateFull + '</span>' +
+        '</div>';
+      if (homeAway) {
+        detailHtml +=
+          '<div class="result-detail-item">' +
+            '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1L1.5 5.5V11h3V7.5h3V11h3V5.5L6 1z" stroke="#94A3B8" stroke-width="1.2" stroke-linejoin="round"/></svg>' +
+            '<span>' + homeAway + '</span>' +
+          '</div>';
+      }
+      if (venue) {
+        detailHtml +=
+          '<div class="result-detail-item">' +
+            '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="5" r="2" stroke="#94A3B8" stroke-width="1.2"/><path d="M6 1a4 4 0 014 4c0 3-4 7-4 7S2 8 2 5a4 4 0 014-4z" stroke="#94A3B8" stroke-width="1.2"/></svg>' +
+            '<span>' + esc(venue) + '</span>' +
+          '</div>';
+      }
+      detailHtml += '</div>';
+
+      html += '<div class="result-row" onclick="toggleResultRow(this)">' +
+        '<div class="result-row-main">' +
+          '<div class="result-date">' + dateShort + '</div>' +
+          '<div class="result-opp">' + esc(r.opponent || '-') + '</div>' +
+          '<div class="result-score">' + score + '</div>' +
+          '<div class="result-badge ' + badge + '">' + (badge === 'U' ? '-' : badge) + '</div>' +
+          '<div class="result-expand-icon">▼</div>' +
+        '</div>' +
+        detailHtml +
       '</div>';
     });
     html += '</div>';
@@ -1454,6 +1519,17 @@ async function loadLeagueResults() {
   }
 
   container.innerHTML = html;
+}
+
+function toggleLeagueSection(e) {
+  var content = document.getElementById('leagueContent');
+  var chevron = document.getElementById('leagueChevron');
+  var hidden = content.classList.toggle('league-hidden');
+  chevron.classList.toggle('collapsed', hidden);
+}
+
+function toggleResultRow(row) {
+  row.classList.toggle('expanded');
 }
 </script>
 </body>
