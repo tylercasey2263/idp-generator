@@ -545,31 +545,37 @@ input::placeholder { color: var(--text-dim); }
   <div class="modal" style="max-width:480px;">
     <h2>Link Parent</h2>
     <p style="font-size:13px;color:var(--text-muted);line-height:1.6;">
-      Enter the parent's email to send them an invite link. They'll receive a magic link to access their child's plans.
+      Enter the parent's email, then send them the invite link. They click the link — no account or login needed.
     </p>
 
-    <div class="field">
-      <label>Parent's Email Address</label>
-      <input type="email" id="linkEmailInput" placeholder="parent@example.com"
-             onkeydown="if(event.key==='Enter') saveLinkParent()" />
+    <!-- Step 1: email entry -->
+    <div id="linkStep1">
+      <div class="field">
+        <label>Parent's Email Address</label>
+        <input type="email" id="linkEmailInput" placeholder="parent@example.com"
+               onkeydown="if(event.key==='Enter') saveLinkParent()" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeLinkParent()">Cancel</button>
+        <button class="btn btn-primary" id="saveLinkParentBtn" onclick="saveLinkParent()">Generate Invite Link</button>
+      </div>
+      <div class="modal-status" id="linkEmailStatus"></div>
     </div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeLinkParent()">Cancel</button>
-      <button class="btn btn-primary" id="saveLinkParentBtn" onclick="saveLinkParent()">Send Invite</button>
-    </div>
-    <div class="modal-status" id="linkEmailStatus"></div>
 
-    <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border);">
-      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
-                  color:var(--text-dim);margin-bottom:6px;">Or share this link manually</div>
-      <p style="font-size:12px;color:var(--text-dim);margin-bottom:10px;line-height:1.6;">
-        Copy and send this link directly — no email required.
-      </p>
-      <div class="invite-box" id="linkInviteBox" style="font-size:11px;">Generating link…</div>
-      <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">
-        <button class="btn btn-ghost" style="padding:7px 14px;" onclick="copyLinkInvite()">Copy Link</button>
-        <button class="btn btn-ghost" style="padding:7px 14px;" onclick="resendInviteEmail()" id="resendEmailBtn">📧 Resend Email</button>
-        <span style="font-size:12px;color:var(--teal-light);" id="linkCopyStatus"></span>
+    <!-- Step 2: share the link -->
+    <div id="linkStep2" style="display:none;">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px;line-height:1.6;">
+        Share this link with <strong id="linkTargetEmail" style="color:var(--text);"></strong>. They just click it — no login needed.
+      </div>
+      <div class="invite-box" id="linkInviteBox"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="copyLinkInvite()" id="linkCopyBtn">📋 Copy Link</button>
+        <a class="btn btn-ghost" id="linkEmailBtn" href="#" style="flex:1;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px;">✉ Open Email App</a>
+      </div>
+      <div style="font-size:12px;color:var(--teal-light);margin-top:8px;min-height:18px;" id="linkCopyStatus"></div>
+      <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;">
+        <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px;" onclick="resetLinkParent()">← Link another parent</button>
+        <button class="btn btn-ghost" onclick="closeLinkParent()">Done</button>
       </div>
     </div>
   </div>
@@ -780,7 +786,7 @@ async function loadPlayers() {
                   <button class="btn-action btn-invite"
                     onclick="openEditPlayer('${p.id}', '${esc(p.name)}', '${esc(p.positions||'')}', '${esc(p.notes||'')}')">Edit</button>
                   <button class="btn-action btn-invite"
-                    onclick="openLinkParent('${p.id}')">👤 Link Parent</button>
+                    onclick="openLinkParent('${p.id}', '${p.name.replace(/'/g,"\\'")}')">👤 Link Parent</button>
                   <button class="btn-action btn-danger"
                     onclick="deletePlayer('${p.id}', '${esc(p.name)}')">Remove</button>
                 </div>
@@ -798,42 +804,21 @@ function generateIDP(playerId) {
 // ─── LINK PARENT ──────────────────────────────
 let linkPlayerId = null;
 
-async function openLinkParent(playerId) {
+function openLinkParent(playerId, playerName) {
   linkPlayerId = playerId;
+  // Reset to step 1
+  document.getElementById('linkStep1').style.display = 'block';
+  document.getElementById('linkStep2').style.display = 'none';
   document.getElementById('linkEmailInput').value = '';
   document.getElementById('linkEmailStatus').textContent = '';
   document.getElementById('linkEmailStatus').className = 'modal-status';
   document.getElementById('linkCopyStatus').textContent = '';
-  document.getElementById('linkInviteBox').textContent  = 'Generating link…';
-  document.getElementById('saveLinkParentBtn').disabled  = false;
-  document.getElementById('saveLinkParentBtn').textContent = 'Link Parent';
+  document.getElementById('saveLinkParentBtn').disabled = false;
+  document.getElementById('saveLinkParentBtn').textContent = 'Generate Invite Link';
+  // Store player name for use in email body
+  document.getElementById('linkParentModal').dataset.playerName = playerName || '';
   document.getElementById('linkParentModal').classList.add('open');
   setTimeout(() => document.getElementById('linkEmailInput').focus(), 80);
-
-  // Fetch / create a dedicated invite-token row (no invite_email — for the share-link path)
-  let { data: existing } = await sb
-    .from('parent_players')
-    .select('invite_token')
-    .eq('player_id', playerId)
-    .is('parent_id', null)
-    .is('invite_email', null)
-    .maybeSingle();
-
-  if (!existing) {
-    const { data: created } = await sb
-      .from('parent_players')
-      .insert({ player_id: playerId, parent_id: null, accepted: false })
-      .select('invite_token').single();
-    existing = created;
-  }
-
-  const basePath = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
-  const siteRoot = window.location.origin + basePath;
-  const link = `${siteRoot}/parent.html?token=${existing?.invite_token}`;
-  const inviteBox = document.getElementById('linkInviteBox');
-  inviteBox.textContent = link;
-  inviteBox.dataset.token = existing?.invite_token || '';
-  document.getElementById('resendEmailBtn').dataset.email = '';
 }
 
 function closeLinkParent() {
@@ -844,10 +829,14 @@ document.getElementById('linkParentModal').addEventListener('click', function(e)
 });
 
 function copyLinkInvite() {
-  const link = document.getElementById('linkInviteBox').textContent;
+  const link = document.getElementById('linkInviteBox').textContent.trim();
+  const btn  = document.getElementById('linkCopyBtn');
   navigator.clipboard.writeText(link).then(() => {
-    document.getElementById('linkCopyStatus').textContent = 'Copied!';
-    setTimeout(() => { document.getElementById('linkCopyStatus').textContent = ''; }, 2000);
+    document.getElementById('linkCopyStatus').textContent = '✓ Link copied to clipboard!';
+    if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '📋 Copy Link'; }, 2000); }
+    setTimeout(() => { document.getElementById('linkCopyStatus').textContent = ''; }, 3000);
+  }).catch(() => {
+    prompt('Copy this invite link:', link);
   });
 }
 
@@ -865,145 +854,67 @@ async function saveLinkParent() {
   // Check if this email is already linked to this player
   const { data: alreadyLinked } = await sb
     .from('parent_players')
-    .select('id')
+    .select('id, invite_token')
     .eq('player_id', linkPlayerId)
     .eq('invite_email', email)
     .maybeSingle();
 
-  if (alreadyLinked) {
-    st.textContent = 'This parent is already linked to this player.';
-    st.className = 'modal-status error';
-    btn.disabled = false; btn.textContent = 'Link Parent'; return;
-  }
-
-  // Look up their profile by email
-  const { data: profile } = await sb
-    .from('profiles')
-    .select('id, role')
-    .eq('email', email)
-    .maybeSingle();
-
-  // Get the invite token for this player (create one if needed)
-  let inviteToken = document.getElementById('linkInviteBox').dataset.token;
-  if (!inviteToken) {
-    // Re-fetch in case modal was opened fresh
-    let { data: pp } = await sb.from('parent_players').select('invite_token')
-      .eq('player_id', linkPlayerId).is('parent_id', null).is('invite_email', null).maybeSingle();
-    if (!pp) {
-      const { data: created } = await sb.from('parent_players')
-        .insert({ player_id: linkPlayerId, parent_id: null, accepted: false })
-        .select('invite_token').single();
-      pp = created;
-    }
-    inviteToken = pp?.invite_token;
-  }
-
   const basePath = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
   const siteRoot = window.location.origin + basePath;
-  const inviteUrl = `${siteRoot}/parent.html?token=${inviteToken}`;
 
-  if (profile) {
-    // Check if already linked by parent_id
-    const { data: byId } = await sb
-      .from('parent_players')
-      .select('id')
-      .eq('player_id', linkPlayerId)
-      .eq('parent_id', profile.id)
-      .maybeSingle();
-
-    if (byId) {
-      st.textContent = 'This parent is already linked to this player.';
-      st.className = 'modal-status error';
-      btn.disabled = false; btn.textContent = 'Send Invite'; return;
-    }
-
-    // Create the link with parent_id set immediately
-    await sb.from('parent_players').insert({
-      player_id: linkPlayerId, parent_id: profile.id,
-      accepted: true, invite_email: email,
-    });
-    // Ensure they have the parent role
-    await sb.from('profiles').update({ role: 'parent' }).eq('id', profile.id);
-
-    // Send them a magic link to log in
-    const { error: emailErr } = await sb.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${siteRoot}/parent.html`, shouldCreateUser: false }
-    });
-
-    st.textContent = emailErr
-      ? '✓ Linked! Share the link below — email could not be sent automatically.'
-      : `✓ Invite sent to ${email}! They'll click the link in their email to access the plan.`;
-    st.className = 'modal-status success';
-  } else {
-    // No account yet — create invite row and send magic link
-    const { data: pp, error: ppErr } = await sb.from('parent_players').insert({
-      player_id: linkPlayerId, parent_id: null,
-      accepted: false, invite_email: email,
-    }).select('invite_token').single();
-
-    if (ppErr) {
-      st.textContent = 'Error: ' + ppErr.message;
-      st.className = 'modal-status error';
-      btn.disabled = false; btn.textContent = 'Send Invite'; return;
-    }
-
-    const newToken = pp.invite_token;
-    const newInviteUrl = `${siteRoot}/parent.html?token=${newToken}`;
-    document.getElementById('linkInviteBox').textContent = newInviteUrl;
-    document.getElementById('linkInviteBox').dataset.token = newToken;
-    document.getElementById('resendEmailBtn').dataset.email = email;
-
-    const { error: emailErr } = await sb.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: newInviteUrl, shouldCreateUser: true }
-    });
-
-    st.textContent = emailErr
-      ? '✓ Saved! Email could not be sent — share the link below manually.'
-      : `✓ Invite sent to ${email}! They'll click the link in their email to access the plan.`;
-    st.className = 'modal-status success';
-  }
-
-  btn.disabled = false; btn.textContent = 'Send Invite';
-  document.getElementById('linkEmailInput').value = '';
-}
-
-async function resendInviteEmail() {
-  const inviteBox = document.getElementById('linkInviteBox');
-  const inviteUrl = inviteBox.textContent.trim();
-  const btn = document.getElementById('resendEmailBtn');
-
-  // Try to get the email from the resend button dataset or prompt
-  let email = btn.dataset.email || '';
-  if (!email) {
-    email = document.getElementById('linkEmailInput').value.trim();
-  }
-  if (!email || !email.includes('@')) {
-    document.getElementById('linkCopyStatus').textContent = 'Enter the parent email above first.';
-    setTimeout(() => { document.getElementById('linkCopyStatus').textContent = ''; }, 2500);
+  if (alreadyLinked) {
+    // Already linked — just show the existing link
+    const inviteUrl = `${siteRoot}/parent.html?token=${alreadyLinked.invite_token}`;
+    showInviteStep2(email, inviteUrl, alreadyLinked.invite_token);
+    btn.disabled = false; btn.textContent = 'Generate Invite Link';
     return;
   }
 
-  btn.disabled = true;
-  const basePath = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
-  const siteRoot = window.location.origin + basePath;
+  // Create a new parent_players row with a fresh invite token
+  const { data: pp, error: ppErr } = await sb.from('parent_players').insert({
+    player_id: linkPlayerId, parent_id: null,
+    accepted: false, invite_email: email,
+  }).select('invite_token').single();
 
-  const { error } = await sb.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: inviteUrl || `${siteRoot}/parent.html`, shouldCreateUser: true }
-  });
-
-  btn.disabled = false;
-  const status = document.getElementById('linkCopyStatus');
-  if (error) {
-    status.style.color = 'var(--red-light)';
-    status.textContent = 'Could not send — try copying the link instead.';
-  } else {
-    status.style.color = 'var(--teal-light)';
-    status.textContent = `Email sent to ${email}!`;
+  if (ppErr) {
+    st.textContent = 'Error: ' + ppErr.message;
+    st.className = 'modal-status error';
+    btn.disabled = false; btn.textContent = 'Generate Invite Link'; return;
   }
-  setTimeout(() => { status.textContent = ''; status.style.color = ''; }, 3000);
+
+  const inviteUrl = `${siteRoot}/parent.html?token=${pp.invite_token}`;
+  showInviteStep2(email, inviteUrl, pp.invite_token);
+  btn.disabled = false; btn.textContent = 'Generate Invite Link';
+}
+
+function showInviteStep2(email, inviteUrl, token) {
+  document.getElementById('linkStep1').style.display = 'none';
+  const step2 = document.getElementById('linkStep2');
+  step2.style.display = 'block';
+
+  document.getElementById('linkTargetEmail').textContent = email;
+  const box = document.getElementById('linkInviteBox');
+  box.textContent = inviteUrl;
+  box.dataset.token = token;
+
+  const playerName = document.getElementById('linkParentModal').dataset.playerName || 'your player';
+  const subject = encodeURIComponent('Your player\'s development plan is ready');
+  const body = encodeURIComponent(
+    'Hi,\n\nYou\'ve been invited to view ' + playerName + '\'s Individual Development Plan.\n\n' +
+    'Click the link below to see the plan — no login or account needed:\n\n' +
+    inviteUrl + '\n\nSave this link to come back any time.\n\nThanks'
+  );
+  document.getElementById('linkEmailBtn').href = 'mailto:' + email + '?subject=' + subject + '&body=' + body;
+  document.getElementById('linkCopyStatus').textContent = '';
+}
+
+function resetLinkParent() {
+  document.getElementById('linkStep1').style.display = 'block';
+  document.getElementById('linkStep2').style.display = 'none';
+  document.getElementById('linkEmailInput').value = '';
+  document.getElementById('linkEmailStatus').textContent = '';
+  document.getElementById('linkEmailStatus').className = 'modal-status';
+  setTimeout(() => document.getElementById('linkEmailInput').focus(), 80);
 }
 
 function goToTeamPlan() {

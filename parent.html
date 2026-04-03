@@ -213,49 +213,70 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text);
 </div>
 
 <script>
-const token = new URLSearchParams(window.location.search).get('token');
+const urlToken = new URLSearchParams(window.location.search).get('token');
 
+// ── Entry point ────────────────────────────────────────────────────────────
 (async () => {
-  // Must be logged in (as any role — parent or coach)
-  const ctx = await requireParent();
-  if (!ctx) return;
+  const container = document.getElementById('pageContent');
 
-  const { session, profile } = ctx;
-  document.getElementById('navName').textContent = profile?.full_name || session.user.email;
-
-  // If a token is in the URL, process the invite first
-  if (token) {
-    await acceptInvite(session.user.id, token);
-    // Clean token from URL without reload
-    window.history.replaceState({}, '', '/parent.html');
-  }
-
-  loadIDPs(session.user.id);
-})();
-
-async function acceptInvite(userId, inviteToken) {
-  // Find the parent_players row with this token
-  const { data: row, error } = await sb
-    .from('parent_players')
-    .select('id, accepted, parent_id')
-    .eq('invite_token', inviteToken)
-    .maybeSingle();
-
-  if (!row) return; // Token not found — ignore silently
-
-  // If already accepted by someone else, don't overwrite
-  if (row.accepted && row.parent_id && row.parent_id !== userId) {
-    showMessage('This invite link has already been used.', 'warning');
+  // 1. Token in URL — token-only access, no login required
+  if (urlToken) {
+    // Persist to localStorage so return visits without token still work
+    const saved = JSON.parse(localStorage.getItem('parent_tokens') || '[]');
+    if (!saved.includes(urlToken)) { saved.push(urlToken); localStorage.setItem('parent_tokens', JSON.stringify(saved)); }
+    // Clean token from URL
+    window.history.replaceState({}, '', window.location.pathname);
+    document.getElementById('navName').textContent = 'Parent View';
+    await loadIDPsByTokens([urlToken]);
     return;
   }
 
-  // Accept
-  await sb
+  // 2. Tokens in localStorage — return visit without URL token
+  const savedTokens = JSON.parse(localStorage.getItem('parent_tokens') || '[]');
+  if (savedTokens.length > 0) {
+    document.getElementById('navName').textContent = 'Parent View';
+    await loadIDPsByTokens(savedTokens);
+    return;
+  }
+
+  // 3. Supabase auth (coaches / admins who navigate here directly)
+  const ctx = await requireParent();
+  if (!ctx) return;
+  const { session, profile } = ctx;
+  document.getElementById('navName').textContent = profile?.full_name || session.user.email;
+  await loadIDPs(session.user.id);
+})();
+
+// ── Token-based access (no Supabase auth) ─────────────────────────────────
+async function loadIDPsByTokens(tokens) {
+  const container = document.getElementById('pageContent');
+  // Fetch all parent_players rows matching any of the stored tokens
+  const { data: rawLinks } = await sb
     .from('parent_players')
-    .update({ parent_id: userId, accepted: true })
-    .eq('id', row.id);
+    .select('player_id, players(id, name, positions)')
+    .in('invite_token', tokens);
+
+  const seen = new Set();
+  const links = (rawLinks || []).filter(l => {
+    if (!l.player_id || seen.has(l.player_id)) return false;
+    seen.add(l.player_id); return true;
+  });
+
+  if (!links.length) {
+    container.innerHTML = `
+      <div class="page-header"><div class="page-title">Parent Portal</div></div>
+      <div class="info-card">
+        <div class="icon">🔗</div>
+        <h2>Link not found</h2>
+        <p>This invite link is no longer valid. Ask your coach to send a new one.</p>
+      </div>`;
+    return;
+  }
+
+  await renderIDPs(links, container);
 }
 
+// ── Auth-based access ──────────────────────────────────────────────────────
 async function loadIDPs(userId) {
   const container = document.getElementById('pageContent');
 
@@ -274,31 +295,20 @@ async function loadIDPs(userId) {
 
   if (!links || links.length === 0) {
     container.innerHTML = `
-      <div class="page-header">
-        <div class="page-title">Parent Portal</div>
-      </div>
+      <div class="page-header"><div class="page-title">Parent Portal</div></div>
       <div class="info-card">
         <div class="icon">👋</div>
         <h2>Welcome to Player IDP</h2>
-        <p>You're not linked to any players yet. Here's how to get connected:</p>
-        <div style="text-align:left;margin-top:1.25rem;display:flex;flex-direction:column;gap:12px;">
-          <div style="display:flex;align-items:flex-start;gap:12px;font-size:13px;color:var(--text-muted);line-height:1.6;">
-            <span style="background:var(--teal-faint);border:1px solid rgba(27,138,107,.35);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--teal-light);font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;flex-shrink:0;margin-top:1px;">1</span>
-            <span>Ask your coach to open the team page, click <strong style="color:var(--text);">👤 Link Parent</strong> next to your player, and send you the invite link.</span>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:12px;font-size:13px;color:var(--text-muted);line-height:1.6;">
-            <span style="background:var(--teal-faint);border:1px solid rgba(27,138,107,.35);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--teal-light);font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;flex-shrink:0;margin-top:1px;">2</span>
-            <span>Click the link they send. You'll be automatically connected to your player's account — no extra steps needed.</span>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:12px;font-size:13px;color:var(--text-muted);line-height:1.6;">
-            <span style="background:var(--teal-faint);border:1px solid rgba(27,138,107,.35);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--teal-light);font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;flex-shrink:0;margin-top:1px;">3</span>
-            <span>Their published development plans will appear here. You can view, print, or save them as PDF any time.</span>
-          </div>
-        </div>
+        <p>You're not linked to any players yet. Ask your coach to send you the invite link for your player.</p>
       </div>`;
     return;
   }
 
+  await renderIDPs(links, container);
+}
+
+// ── Shared renderer ────────────────────────────────────────────────────────
+async function renderIDPs(links, container) {
   // Fetch published IDPs for all linked players
   const playerIds = links.map(l => l.player_id);
   const { data: idps } = await sb
