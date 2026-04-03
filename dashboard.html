@@ -163,6 +163,76 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text);
   letter-spacing: .08em; margin-top: 4px; font-weight: 600;
 }
 
+/* ─── DUE REVIEW STAT — clickable ─── */
+#statDueBlock { cursor: pointer; transition: border-color .15s, background .15s; }
+#statDueBlock:hover { background: var(--navy-light); border-color: rgba(212,135,10,.45); }
+
+/* ─── DUE REVIEW PANEL ─── */
+.due-modal {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 14px; width: 100%; max-width: 640px;
+  max-height: 82vh; display: flex; flex-direction: column;
+}
+.due-modal-head {
+  padding: 1.5rem 1.75rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+}
+.due-modal-head h2 {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 800;
+}
+.due-modal-head .due-count-badge {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700;
+  background: var(--amber-faint); color: var(--amber-light);
+  border: 1px solid rgba(212,135,10,.35); border-radius: 6px; padding: 3px 10px;
+}
+.due-modal-body { overflow-y: auto; padding: 1rem 1.75rem 1.5rem; flex: 1; }
+.due-close {
+  background: none; border: none; color: var(--text-dim); cursor: pointer;
+  font-size: 20px; line-height: 1; padding: 2px 6px; border-radius: 4px;
+  transition: color .15s;
+}
+.due-close:hover { color: var(--text); }
+
+/* ─── TEAM ACCORDION ─── */
+.team-accordion { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
+.team-accordion-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; cursor: pointer; background: var(--navy);
+  transition: background .15s; user-select: none;
+}
+.team-accordion-head:hover { background: var(--navy-light); }
+.team-acc-left { display: flex; align-items: center; gap: 10px; }
+.team-acc-name {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 15px;
+  font-weight: 700; color: var(--text);
+}
+.team-acc-badge {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+  background: var(--amber-faint); color: var(--amber-light);
+  border: 1px solid rgba(212,135,10,.3); border-radius: 4px; padding: 2px 8px;
+}
+.team-acc-chevron { color: var(--text-dim); font-size: 12px; transition: transform .2s; }
+.team-accordion-head.open .team-acc-chevron { transform: rotate(180deg); }
+.team-accordion-body { display: none; border-top: 1px solid var(--border); }
+.team-accordion-body.open { display: block; }
+.due-player-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; border-bottom: 1px solid var(--border); gap: 12px;
+}
+.due-player-row:last-child { border-bottom: none; }
+.due-player-info { flex: 1; }
+.due-player-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.due-player-date { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.btn-generate-due {
+  padding: 5px 13px; border-radius: 6px; border: 1px solid rgba(27,138,107,.35);
+  font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; cursor: pointer;
+  background: var(--teal-faint); color: var(--teal-light); white-space: nowrap;
+  transition: border-color .15s;
+}
+.btn-generate-due:hover { border-color: var(--teal); }
+
 /* ─── TOAST ─── */
 .toast {
   position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
@@ -234,7 +304,7 @@ input::placeholder { color: var(--text-dim); }
   <div class="stats-bar">
     <div class="stat-block"><div class="val" id="statPlayers">—</div><div class="lbl">Total Players</div></div>
     <div class="stat-block"><div class="val" id="statIDPs">—</div><div class="lbl">IDPs Generated</div></div>
-    <div class="stat-block" id="statDueBlock"><div class="val" id="statDueReview">—</div><div class="lbl">Due for Review</div></div>
+    <div class="stat-block" id="statDueBlock" onclick="openDueReviewPanel()" title="Click to see players due for review"><div class="val" id="statDueReview">—</div><div class="lbl">Due for Review ↗</div></div>
   </div>
 
   <div class="search-bar-wrap">
@@ -259,6 +329,22 @@ input::placeholder { color: var(--text-dim); }
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- DUE FOR REVIEW PANEL -->
+<div class="overlay" id="dueReviewModal">
+  <div class="due-modal">
+    <div class="due-modal-head">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <h2>⏰ Due for Review</h2>
+        <span class="due-count-badge" id="dueCountBadge"></span>
+      </div>
+      <button class="due-close" onclick="closeDueReviewPanel()">✕</button>
+    </div>
+    <div class="due-modal-body" id="dueReviewBody">
+      <div style="font-size:13px;color:var(--text-dim);padding:1rem 0;">Loading…</div>
+    </div>
+  </div>
+</div>
 
 <!-- DELETE CONFIRM MODAL -->
 <div class="overlay" id="deleteConfirmModal">
@@ -328,10 +414,12 @@ async function loadStats() {
   }
   const playerIds = players.map(p => p.id);
 
-  // Fetch IDPs and review threshold in parallel
-  const [idpRes, reviewRes] = await Promise.all([
+  // Fetch IDPs, review threshold, and player details in parallel
+  const [idpRes, reviewRes, playerDetailRes, teamRes] = await Promise.all([
     sb.from('idps').select('id, player_id, updated_at').in('player_id', playerIds),
-    sb.from('settings').select('value').eq('key', 'idp_review_days').maybeSingle()
+    sb.from('settings').select('value').eq('key', 'idp_review_days').maybeSingle(),
+    sb.from('players').select('id, name, team_id').in('id', playerIds),
+    sb.from('teams').select('id, name').in('id', teamIds)
   ]);
   const idps       = idpRes.data || [];
   const reviewDays = parseInt(reviewRes.data?.value || '60');
@@ -347,18 +435,125 @@ async function loadStats() {
     if (!cur || new Date(i.updated_at) > new Date(cur)) latestByPlayer[i.player_id] = i.updated_at;
   });
 
-  const dueCount = playerIds.filter(pid => {
-    const latest = latestByPlayer[pid];
-    return !latest || new Date(latest) < cutoff;
-  }).length;
+  // Build due players list with names + team info
+  const playerMap = {};
+  (playerDetailRes.data || []).forEach(p => { playerMap[p.id] = p; });
+  const teamNameMap = {};
+  (teamRes.data || []).forEach(t => { teamNameMap[t.id] = t.name; });
 
+  duePlayers = playerIds
+    .filter(pid => {
+      const latest = latestByPlayer[pid];
+      return !latest || new Date(latest) < cutoff;
+    })
+    .map(pid => {
+      const p = playerMap[pid] || {};
+      return {
+        id:        pid,
+        name:      p.name || 'Unknown',
+        team_id:   p.team_id,
+        team_name: p.team_id ? (teamNameMap[p.team_id] || 'Unknown Team') : 'No Team',
+        last_idp:  latestByPlayer[pid] || null,
+      };
+    })
+    .sort((a, b) => a.team_name.localeCompare(b.team_name) || a.name.localeCompare(b.name));
+
+  const dueCount = duePlayers.length;
   const dueEl    = document.getElementById('statDueReview');
   const dueBlock = document.getElementById('statDueBlock');
   dueEl.textContent = dueCount;
   if (dueCount > 0) {
-    dueEl.style.color         = 'var(--amber-light)';
+    dueEl.style.color          = 'var(--amber-light)';
     dueBlock.style.borderColor = 'rgba(212,135,10,.35)';
   }
+}
+
+// ─── DUE FOR REVIEW PANEL ─────────────────────────────────────────────────
+let duePlayers = [];
+
+function openDueReviewPanel() {
+  const modal = document.getElementById('dueReviewModal');
+  modal.classList.add('open');
+  renderDueReviewPanel();
+}
+
+function closeDueReviewPanel() {
+  document.getElementById('dueReviewModal').classList.remove('open');
+}
+document.getElementById('dueReviewModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDueReviewPanel();
+});
+
+function renderDueReviewPanel() {
+  const body = document.getElementById('dueReviewBody');
+  const badge = document.getElementById('dueCountBadge');
+  badge.textContent = duePlayers.length + ' player' + (duePlayers.length !== 1 ? 's' : '');
+
+  if (duePlayers.length === 0) {
+    body.innerHTML = `<div style="text-align:center;padding:2.5rem 1rem;color:var(--text-dim);">
+      <div style="font-size:32px;margin-bottom:.75rem;">✓</div>
+      <div style="font-size:14px;">All players are up to date!</div>
+    </div>`;
+    return;
+  }
+
+  // Group by team
+  const byTeam = {};
+  duePlayers.forEach(p => {
+    const key = p.team_id || '__none__';
+    if (!byTeam[key]) byTeam[key] = { name: p.team_name, team_id: p.team_id, players: [] };
+    byTeam[key].players.push(p);
+  });
+
+  let html = '';
+  Object.values(byTeam).forEach((team, idx) => {
+    const accId = 'acc-' + idx;
+    html += `
+    <div class="team-accordion">
+      <div class="team-accordion-head" id="${accId}-head" onclick="toggleAccordion('${accId}')">
+        <div class="team-acc-left">
+          <div class="team-acc-name">${esc(team.name)}</div>
+          <div class="team-acc-badge">${team.players.length} player${team.players.length !== 1 ? 's' : ''}</div>
+        </div>
+        <div class="team-acc-chevron">▼</div>
+      </div>
+      <div class="team-accordion-body" id="${accId}-body">`;
+
+    team.players.forEach(p => {
+      const dateStr = p.last_idp
+        ? 'Last IDP: ' + new Date(p.last_idp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : 'No IDP yet';
+      const genHref = `/generate.html?player=${p.id}${team.team_id ? '&team=' + team.team_id : ''}`;
+      const viewHref = `/view-idp.html?player=${p.id}${team.team_id ? '&team=' + team.team_id : ''}`;
+      html += `
+        <div class="due-player-row">
+          <div class="due-player-info">
+            <div class="due-player-name">${esc(p.name)}</div>
+            <div class="due-player-date">${dateStr}</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <a href="${viewHref}" class="btn-generate-due" style="background:transparent;color:var(--text-dim);border-color:var(--border-strong);">View</a>
+            <a href="${genHref}" class="btn-generate-due">Generate IDP</a>
+          </div>
+        </div>`;
+    });
+
+    html += `</div></div>`;
+  });
+
+  body.innerHTML = html;
+}
+
+function toggleAccordion(id) {
+  const head = document.getElementById(id + '-head');
+  const body = document.getElementById(id + '-body');
+  const isOpen = body.classList.contains('open');
+  head.classList.toggle('open', !isOpen);
+  body.classList.toggle('open', !isOpen);
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function showToast(msg) {
