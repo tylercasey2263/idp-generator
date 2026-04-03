@@ -177,6 +177,19 @@ select.inv-role-select:focus { border-color: var(--teal); }
 .access-denied h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800; color: var(--text); margin-bottom: .5rem; }
 .access-denied p { font-size: 14px; margin-bottom: 1.5rem; }
 
+/* Confirm delete modal */
+.confirm-modal {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 2rem; width: 100%; max-width: 380px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.confirm-modal h3 { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 800; color: var(--text); }
+.confirm-modal p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+.confirm-actions { display: flex; gap: 10px; }
+.confirm-actions .btn { flex: 1; }
+.btn-danger { background: rgba(224,80,80,.15); color: #E05050; border: 1px solid rgba(224,80,80,.3); }
+.btn-danger:hover { background: rgba(224,80,80,.25); }
+
 .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -242,6 +255,19 @@ select.inv-role-select:focus { border-color: var(--teal); }
       <button class="btn btn-primary" id="createInviteBtn" onclick="createInvite()">Send Invite</button>
     </div>
     <div class="modal-status" id="inviteStatus"></div>
+  </div>
+</div>
+
+<!-- DELETE USER CONFIRM MODAL -->
+<div class="overlay" id="deleteUserModal">
+  <div class="confirm-modal">
+    <h3>Delete User</h3>
+    <p id="deleteUserMsg">Are you sure you want to delete this user? They will immediately lose access to the portal.</p>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" onclick="closeDeleteUser()">Cancel</button>
+      <button class="btn btn-danger" id="confirmDeleteUserBtn" onclick="confirmDeleteUser()">Delete User</button>
+    </div>
+    <div class="modal-status" id="deleteUserStatus"></div>
   </div>
 </div>
 
@@ -377,8 +403,9 @@ function buildUserTable(users) {
       <thead>
         <tr>
           <th>Name / Email</th>
-          <th>Current Role</th>
+          <th>Role</th>
           <th>Change Role</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -395,6 +422,9 @@ function buildUserTable(users) {
                 <option value="coach"  ${u.role==='coach'  ? 'selected':''}>Coach</option>
                 <option value="parent" ${u.role==='parent' ? 'selected':''}>Parent</option>
               </select>
+            </td>
+            <td>
+              ${u.id !== coachId ? `<button class="btn-danger-sm" onclick="openDeleteUser('${u.id}','${esc(u.full_name || u.email || 'this user')}')">Delete</button>` : '<span style="font-size:11px;color:var(--text-dim);">You</span>'}
             </td>
           </tr>`).join('')}
       </tbody>
@@ -414,6 +444,7 @@ function buildInviteTable(invites) {
           <th>Role</th>
           <th>Status</th>
           <th>Date</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -431,6 +462,7 @@ function buildInviteTable(invites) {
                 ? '<span class="chip chip-used">Used</span>'
                 : '<span class="chip chip-pending">Pending</span>'}</td>
               <td style="font-size:12px;color:var(--text-dim);white-space:nowrap;">${dateStr}</td>
+              <td>${!inv.used_at ? `<button class="btn-danger-sm" onclick="revokeInvite('${inv.id}', this)">Revoke</button>` : ''}</td>
             </tr>`;
         }).join('')}
       </tbody>
@@ -573,6 +605,73 @@ async function changeRole(select) {
     const coachCount  = allUsers.filter(u => u.role === 'coach').length;
     const parentCount = allUsers.filter(u => u.role === 'parent').length;
   }
+}
+
+// ── Delete User ──────────────────────────────────────
+let _deleteUserId = null;
+
+function openDeleteUser(uid, name) {
+  _deleteUserId = uid;
+  document.getElementById('deleteUserMsg').textContent =
+    `Are you sure you want to delete "${name}"? They will immediately lose all access to the portal.`;
+  document.getElementById('deleteUserStatus').textContent = '';
+  document.getElementById('confirmDeleteUserBtn').disabled = false;
+  document.getElementById('confirmDeleteUserBtn').textContent = 'Delete User';
+  document.getElementById('deleteUserModal').classList.add('open');
+}
+
+function closeDeleteUser() {
+  document.getElementById('deleteUserModal').classList.remove('open');
+  _deleteUserId = null;
+}
+document.getElementById('deleteUserModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDeleteUser();
+});
+
+async function confirmDeleteUser() {
+  if (!_deleteUserId) return;
+  const btn = document.getElementById('confirmDeleteUserBtn');
+  const st  = document.getElementById('deleteUserStatus');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Deleting…';
+
+  // Remove from coach_teams (team assignments)
+  await sb.from('coach_teams').delete().eq('coach_id', _deleteUserId);
+  // Remove from parent_players (parent links)
+  await sb.from('parent_players').delete().eq('parent_id', _deleteUserId);
+  // Remove player_notes authored by this user
+  await sb.from('player_notes').delete().eq('coach_id', _deleteUserId);
+  // Finally remove the profile (kills app access immediately)
+  const { error } = await sb.from('profiles').delete().eq('id', _deleteUserId);
+
+  if (error) {
+    st.textContent = 'Error: ' + error.message;
+    st.className = 'modal-status err';
+    btn.disabled = false;
+    btn.textContent = 'Delete User';
+    return;
+  }
+
+  // Remove from in-memory list and re-render
+  allUsers = allUsers.filter(u => u.id !== _deleteUserId);
+  closeDeleteUser();
+  renderPage();
+}
+
+// ── Revoke Invite ─────────────────────────────────────
+async function revokeInvite(inviteId, btn) {
+  if (!confirm('Revoke this invite? The link will no longer work.')) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  const { error } = await sb.from('invites').delete().eq('id', inviteId);
+  if (error) {
+    btn.disabled = false;
+    btn.textContent = 'Revoke';
+    alert('Error: ' + error.message);
+    return;
+  }
+  allInvites = allInvites.filter(i => i.id !== inviteId);
+  renderPage();
 }
 
 function esc(s) {
