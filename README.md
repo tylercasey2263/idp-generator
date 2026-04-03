@@ -22,6 +22,7 @@ A full-stack web app for youth football coaches to generate AI-powered Individua
 - Coach notes field on each player (with 🎙 microphone dictation)
 - CSV import for bulk player creation
 - Training Sessions log — add date, focus area, and freeform notes (with 🎙 mic), view history, delete sessions
+- **League Results** — live standings (position, W/L/D/GF/GA/PTS) and match-by-match results pulled from SLYSA GotSport, with a direct link to the division page
 - Quick links to generate/view IDPs and open the lineup manager
 - Team summary line: player count, IDP coverage at a glance
 
@@ -38,6 +39,11 @@ A full-stack web app for youth football coaches to generate AI-powered Individua
 
 ### 📊 View IDP (`view-idp.html`)
 Three-tab layout per player:
+
+**Season tab**
+- Live league standings and match results for the player's team pulled from GotSport
+- Shows team position, W/L/D record, goals for/against, points
+- Match-by-match results with opponent, score, and W/L/D badge
 
 **IDPs tab**
 - Full IDP history sorted newest-first
@@ -75,6 +81,8 @@ Three-tab layout per player:
 - Parents see published IDPs for their linked child/children
 - Step-by-step empty state guides parents on how to get connected
 - View and save-as-PDF any published plan
+- Coaches invite parents by email — Supabase sends a magic link automatically; "Resend Email" button available if needed
+- Manual invite link also available to copy and share directly
 
 ### ⚙️ Settings (`settings.html`)
 - Club name and logo
@@ -130,10 +138,10 @@ Fields with mic support:
 | Table | Purpose |
 |-------|---------|
 | `profiles` | Coach/admin users |
-| `teams` | Teams per coach |
+| `teams` | Teams per coach (includes `gotsport_group_id` for league sync) |
 | `players` | Players per team (with notes column) |
 | `player_teams` | Many-to-many player↔team links |
-| `idps` | Generated IDPs (draft + published) |
+| `idps` | Generated IDPs (draft + published, includes `share_token`) |
 | `player_notes` | Private coach journal entries per player |
 | `team_plans` | Team Development Plans |
 | `lineups` | Named saved lineups per team |
@@ -141,6 +149,8 @@ Fields with mic support:
 | `parent_links` | Player↔parent connections |
 | `invites` | Invite tokens for coach/parent onboarding |
 | `settings` | Club-level settings (name, logo, API key) |
+| `league_standings` | Cached SLYSA standings per team from GotSport |
+| `league_results` | Cached match results per team from GotSport |
 
 ---
 
@@ -204,6 +214,30 @@ CREATE TABLE public.invites (
 );
 ALTER TABLE public.invites DISABLE ROW LEVEL SECURITY;
 ```
+
+---
+
+## League Sync (GotSport / SLYSA)
+
+Match results and standings for Steamer's Crew are automatically pulled from the SLYSA GotSport platform every **Tuesday at 4am CST** via a GitHub Actions workflow.
+
+### How it works
+- `scripts/sync-gotsport.js` fetches all 15 Steamer's Crew divisions from `system.gotsport.com`
+- Standings and match results are upserted into `league_standings` and `league_results` in Supabase
+- Each team is auto-matched to the app's `teams` table via the `gotsport_group_id` column
+- The League Results section appears on each team page and the Season tab on player pages
+
+### Manual trigger
+Go to **Actions → Sync GotSport League Results → Run workflow** in GitHub to sync on demand.
+
+### Required GitHub Secrets
+| Secret | Value |
+|--------|-------|
+| `SUPABASE_URL` | Your Supabase project URL |
+| `SUPABASE_SERVICE_KEY` | Your Supabase service_role key |
+
+### New season setup
+When a new SLYSA season starts, update `EVENT_ID` and `KNOWN_GROUPS` in `scripts/sync-gotsport.js` with the new event ID and group IDs from GotSport.
 
 ---
 

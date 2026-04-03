@@ -441,6 +441,51 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
   background: var(--navy-mid); border: 1px solid var(--border-strong);
   border-radius: 10px; font-size: 14px;
 }
+
+/* ─── LEAGUE RESULTS (Season tab) ─── */
+.standing-card {
+  background: var(--navy-mid); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 18px; margin-bottom: 10px;
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px;
+}
+.standing-pos {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800;
+  color: var(--teal-light); line-height: 1; min-width: 32px; text-align: center;
+}
+.standing-team { font-size: 14px; font-weight: 600; color: var(--text); }
+.standing-div { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.standing-stats { display: flex; gap: 12px; align-items: center; }
+.stat-pill { text-align: center; }
+.stat-pill .sp-val {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 700; line-height: 1;
+}
+.stat-pill .sp-lbl {
+  font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .08em; margin-top: 1px;
+}
+.stat-pill.wins .sp-val { color: var(--teal-light); }
+.stat-pill.losses .sp-val { color: #E05050; }
+.stat-pill.draws .sp-val { color: var(--amber-light); }
+.stat-pill.pts .sp-val { color: var(--text); }
+.results-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.result-row {
+  display: grid; grid-template-columns: 80px 1fr auto auto; align-items: center;
+  gap: 10px; background: var(--navy-mid); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px;
+}
+.result-date { font-size: 11px; color: var(--text-dim); font-family: 'Barlow Condensed', sans-serif; font-weight: 600; letter-spacing: .04em; }
+.result-opp { font-size: 13px; color: var(--text-muted); }
+.result-score { font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); }
+.result-badge {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+  letter-spacing: .06em; padding: 2px 8px; border-radius: 4px; min-width: 24px; text-align: center;
+}
+.result-badge.W { background: var(--teal-faint); color: var(--teal-light); border: 1px solid rgba(27,138,107,.3); }
+.result-badge.L { background: rgba(224,80,80,.1); color: #E05050; border: 1px solid rgba(224,80,80,.25); }
+.result-badge.D { background: var(--amber-faint); color: var(--amber-light); border: 1px solid rgba(212,135,10,.25); }
+.result-badge.U { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+.season-meta { font-size: 11px; color: var(--text-dim); margin-bottom: 12px; }
+.season-meta a { color: var(--teal-light); text-decoration: none; }
+.season-meta a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -517,6 +562,7 @@ function renderPage() {
       <button class="tab-btn active" id="tab-btn-idps"     onclick="showTab('idps')">${idpTabLabel}</button>
       <button class="tab-btn"        id="tab-btn-progress" onclick="showTab('progress')">Progress</button>
       <button class="tab-btn"        id="tab-btn-notes"    onclick="showTab('notes')">${notesTabLabel}</button>
+      <button class="tab-btn"        id="tab-btn-season"   onclick="showTab('season')">Season</button>
     </div>
 
     <div id="panel-idps" class="tab-panel active">
@@ -561,14 +607,22 @@ function renderPage() {
     <div id="panel-notes" class="tab-panel">
       ${renderNotesTab()}
     </div>
+
+    <div id="panel-season" class="tab-panel">
+      <div id="seasonContent" style="padding-top:1rem;"><div class="spinner"></div></div>
+    </div>
   `;
 }
 
 function showTab(tab) {
-  ['idps','progress','notes'].forEach(t => {
+  ['idps','progress','notes','season'].forEach(t => {
     document.getElementById('panel-' + t).classList.toggle('active', t === tab);
     document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
   });
+  if (tab === 'season' && !window._seasonLoaded) {
+    window._seasonLoaded = true;
+    loadSeasonData();
+  }
 }
 
 function renderProgressTab() {
@@ -943,7 +997,8 @@ async function shareIDP(idpId, idx) {
     if (error) { showToast('Failed to create link'); return; }
     allIDPs[idx].share_token = token;
   }
-  const url = `${window.location.origin}/player-view.html?token=${token}`;
+  const basePath = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
+  const url = `${window.location.origin}${basePath}/player-view.html?token=${token}`;
   try {
     await navigator.clipboard.writeText(url);
     showToast('Player link copied! ✓');
@@ -962,6 +1017,111 @@ function showToast(msg) {
 
 function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function timeAgo(iso) {
+  var diff = Date.now() - new Date(iso).getTime();
+  var days = Math.floor(diff / 86400000);
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7)  return days + 'd ago';
+  if (days < 30) return Math.floor(days / 7) + 'w ago';
+  if (days < 365) return Math.floor(days / 30) + 'mo ago';
+  return Math.floor(days / 365) + 'yr ago';
+}
+
+// ─── SEASON TAB: League Results ────────────────────────────────────────
+async function loadSeasonData() {
+  var container = document.getElementById('seasonContent');
+
+  // Get the player's team to find gotsport_group_id
+  var pTeamId = playerData.team_id || teamId;
+  if (!pTeamId) {
+    container.innerHTML = '<div style="font-size:13px;color:var(--text-dim);">No team linked to this player.</div>';
+    return;
+  }
+
+  var teamRes = await sb.from('teams').select('gotsport_group_id, name').eq('id', pTeamId).single();
+  var team = teamRes.data;
+
+  if (!team || !team.gotsport_group_id) {
+    container.innerHTML = '<div style="font-size:13px;color:var(--text-dim);">No league data linked for this team. ' +
+      '<a href="https://system.gotsport.com/org_event/events/50274/schedules?club=10769" target="_blank" style="color:var(--teal-light);">Find on GotSport</a></div>';
+    return;
+  }
+
+  var groupId = team.gotsport_group_id;
+
+  var standingRes = await sb
+    .from('league_standings')
+    .select('*')
+    .eq('gotsport_group_id', groupId)
+    .ilike('gotsport_team_name', '%Steamer%')
+    .maybeSingle();
+
+  var resultsRes = await sb
+    .from('league_results')
+    .select('*')
+    .eq('gotsport_group_id', groupId)
+    .ilike('gotsport_team_name', '%Steamer%')
+    .order('match_date', { ascending: false });
+
+  var standing = standingRes.data;
+  var results  = resultsRes.data;
+  var html = '';
+
+  if (standing) {
+    var pos = standing.position || '-';
+    var posColor = pos === 1 ? 'var(--teal-light)' : pos <= 3 ? 'var(--amber-light)' : 'var(--text-muted)';
+
+    html += '<div class="season-meta">' + esc(standing.season || '') + ' &middot; ' + esc(standing.division_name || '') +
+      ' &middot; <a href="https://system.gotsport.com/org_event/events/50274/results?group=' + groupId +
+      '" target="_blank">View on GotSport</a>';
+    if (standing.last_synced) html += ' &middot; Synced ' + timeAgo(standing.last_synced);
+    html += '</div>';
+
+    html += '<div class="standing-card">' +
+      '<div class="standing-pos" style="color:' + posColor + '">' + pos + '</div>' +
+      '<div>' +
+        '<div class="standing-team">' + esc(standing.gotsport_team_name) + '</div>' +
+        '<div class="standing-div">' + esc(standing.division_name || '') + '</div>' +
+      '</div>' +
+      '<div class="standing-stats">' +
+        '<div class="stat-pill wins"><div class="sp-val">' + standing.w + '</div><div class="sp-lbl">W</div></div>' +
+        '<div class="stat-pill losses"><div class="sp-val">' + standing.l + '</div><div class="sp-lbl">L</div></div>' +
+        '<div class="stat-pill draws"><div class="sp-val">' + standing.d + '</div><div class="sp-lbl">D</div></div>' +
+        '<div class="stat-pill pts"><div class="sp-val">' + standing.pts + '</div><div class="sp-lbl">PTS</div></div>' +
+        '<div class="stat-pill" style="margin-left:4px;">' +
+          '<div class="sp-val" style="color:var(--text-dim)">' + standing.gf + '-' + standing.ga + '</div>' +
+          '<div class="sp-lbl">GF-GA</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  if (results && results.length > 0) {
+    html += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-top:1rem;margin-bottom:8px;">Match Results</div>';
+    html += '<div class="results-list">';
+    results.forEach(function(r) {
+      var dateStr = r.match_date
+        ? new Date(r.match_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        : '-';
+      var score = (r.goals_for != null && r.goals_against != null)
+        ? r.goals_for + '-' + r.goals_against : '-';
+      var badge = r.result || 'U';
+      html += '<div class="result-row">' +
+        '<div class="result-date">' + dateStr + '</div>' +
+        '<div class="result-opp">' + esc(r.opponent || '-') + '</div>' +
+        '<div class="result-score">' + score + '</div>' +
+        '<div class="result-badge ' + badge + '">' + (badge === 'U' ? '-' : badge) + '</div>' +
+      '</div>';
+    });
+    html += '</div>';
+  } else if (!standing) {
+    html = '<div style="font-size:13px;color:var(--text-dim);">No league data found. The sync may not have run yet.</div>';
+  }
+
+  container.innerHTML = html;
 }
 </script>
 </body>

@@ -287,6 +287,64 @@ input::placeholder { color: var(--text-dim); }
 }
 .mic-btn:hover { border-color: var(--teal); color: var(--teal-light); }
 .mic-btn.mic-active { border-color: #E05050; color: #E05050; background: rgba(224,80,80,.08); }
+
+/* ─── LEAGUE RESULTS ─── */
+.league-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 2.5rem; margin-bottom: 1rem;
+  padding-top: 2rem; border-top: 1px solid var(--border);
+}
+.league-label { font-family: 'Barlow Condensed', sans-serif; font-size: 13px;
+  font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); }
+.league-meta { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+.league-meta a { color: var(--teal-light); text-decoration: none; }
+.league-meta a:hover { text-decoration: underline; }
+.standing-card {
+  background: var(--navy-mid); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 18px; margin-bottom: 10px;
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px;
+}
+.standing-pos {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800;
+  color: var(--teal-light); line-height: 1; min-width: 32px; text-align: center;
+}
+.standing-team { font-size: 14px; font-weight: 600; color: var(--text); }
+.standing-div { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.standing-stats {
+  display: flex; gap: 12px; align-items: center;
+}
+.stat-pill {
+  text-align: center;
+}
+.stat-pill .sp-val {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 700;
+  line-height: 1;
+}
+.stat-pill .sp-lbl {
+  font-size: 9px; color: var(--text-dim); text-transform: uppercase;
+  letter-spacing: .08em; margin-top: 1px;
+}
+.stat-pill.wins .sp-val { color: var(--teal-light); }
+.stat-pill.losses .sp-val { color: #E05050; }
+.stat-pill.draws .sp-val { color: var(--amber-light); }
+.stat-pill.pts .sp-val { color: var(--text); }
+.results-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.result-row {
+  display: grid; grid-template-columns: 80px 1fr auto auto; align-items: center;
+  gap: 10px; background: var(--navy-mid); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px;
+}
+.result-date { font-size: 11px; color: var(--text-dim); font-family: 'Barlow Condensed', sans-serif; font-weight: 600; letter-spacing: .04em; }
+.result-opp { font-size: 13px; color: var(--text-muted); }
+.result-score { font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); }
+.result-badge {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+  letter-spacing: .06em; padding: 2px 8px; border-radius: 4px; min-width: 24px; text-align: center;
+}
+.result-badge.W { background: var(--teal-faint); color: var(--teal-light); border: 1px solid rgba(27,138,107,.3); }
+.result-badge.L { background: rgba(224,80,80,.1); color: #E05050; border: 1px solid rgba(224,80,80,.25); }
+.result-badge.D { background: var(--amber-faint); color: var(--amber-light); border: 1px solid rgba(212,135,10,.25); }
+.result-badge.U { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
 </style>
 </head>
 <body>
@@ -329,6 +387,24 @@ input::placeholder { color: var(--text-dim); }
   </div>
   <div id="sessionsList">
     <div style="font-size:13px;color:var(--text-dim);padding:.5rem 0;">Loading sessions…</div>
+  </div>
+
+  <!-- LEAGUE RESULTS -->
+  <div class="league-header">
+    <div>
+      <div class="league-label">League Results</div>
+      <div class="league-meta" id="leagueMeta"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span id="leagueLastSync" style="font-size:11px;color:var(--text-dim);"></span>
+      <a id="leagueGotSportLink" href="https://system.gotsport.com/org_event/events/50274/schedules?club=10769" target="_blank" rel="noopener"
+        class="btn-action btn-invite" style="text-decoration:none;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:5px 12px;">
+        View on GotSport
+      </a>
+    </div>
+  </div>
+  <div id="leagueContent">
+    <div style="font-size:13px;color:var(--text-dim);padding:.5rem 0;">Loading league data...</div>
   </div>
 </div>
 </div>
@@ -433,8 +509,7 @@ input::placeholder { color: var(--text-dim); }
   <div class="modal" style="max-width:480px;">
     <h2>Link Parent</h2>
     <p style="font-size:13px;color:var(--text-muted);line-height:1.6;">
-      Enter the parent's email address. If they already have an account they'll be linked immediately.
-      If not, they'll be auto-linked as soon as they sign up.
+      Enter the parent's email to send them an invite link. They'll receive a magic link to access their child's plans.
     </p>
 
     <div class="field">
@@ -444,19 +519,20 @@ input::placeholder { color: var(--text-dim); }
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeLinkParent()">Cancel</button>
-      <button class="btn btn-primary" id="saveLinkParentBtn" onclick="saveLinkParent()">Link Parent</button>
+      <button class="btn btn-primary" id="saveLinkParentBtn" onclick="saveLinkParent()">Send Invite</button>
     </div>
     <div class="modal-status" id="linkEmailStatus"></div>
 
     <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border);">
       <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
-                  color:var(--text-dim);margin-bottom:6px;">Or share an invite link</div>
+                  color:var(--text-dim);margin-bottom:6px;">Or share this link manually</div>
       <p style="font-size:12px;color:var(--text-dim);margin-bottom:10px;line-height:1.6;">
-        Parents can also click this link to create an account and connect themselves.
+        Copy and send this link directly — no email required.
       </p>
       <div class="invite-box" id="linkInviteBox" style="font-size:11px;">Generating link…</div>
-      <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">
         <button class="btn btn-ghost" style="padding:7px 14px;" onclick="copyLinkInvite()">Copy Link</button>
+        <button class="btn btn-ghost" style="padding:7px 14px;" onclick="resendInviteEmail()" id="resendEmailBtn">📧 Resend Email</button>
         <span style="font-size:12px;color:var(--teal-light);" id="linkCopyStatus"></span>
       </div>
     </div>
@@ -525,6 +601,7 @@ if (!teamId) window.location.href = '/dashboard.html';
   await renderSidebar('team');
   loadTeam();
   loadPlayers();   // loadSessions() is called inside loadPlayers() once IDP date index is ready
+  loadLeagueResults();
 })();
 
 async function loadTeam() {
@@ -714,8 +791,13 @@ async function openLinkParent(playerId) {
     existing = created;
   }
 
-  const link = `${window.location.origin}/parent.html?token=${existing?.invite_token}`;
-  document.getElementById('linkInviteBox').textContent = link;
+  const basePath = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
+  const siteRoot = window.location.origin + basePath;
+  const link = `${siteRoot}/parent.html?token=${existing?.invite_token}`;
+  const inviteBox = document.getElementById('linkInviteBox');
+  inviteBox.textContent = link;
+  inviteBox.dataset.token = existing?.invite_token || '';
+  document.getElementById('resendEmailBtn').dataset.email = '';
 }
 
 function closeLinkParent() {
@@ -765,6 +847,25 @@ async function saveLinkParent() {
     .eq('email', email)
     .maybeSingle();
 
+  // Get the invite token for this player (create one if needed)
+  let inviteToken = document.getElementById('linkInviteBox').dataset.token;
+  if (!inviteToken) {
+    // Re-fetch in case modal was opened fresh
+    let { data: pp } = await sb.from('parent_players').select('invite_token')
+      .eq('player_id', linkPlayerId).is('parent_id', null).is('invite_email', null).maybeSingle();
+    if (!pp) {
+      const { data: created } = await sb.from('parent_players')
+        .insert({ player_id: linkPlayerId, parent_id: null, accepted: false })
+        .select('invite_token').single();
+      pp = created;
+    }
+    inviteToken = pp?.invite_token;
+  }
+
+  const basePath = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
+  const siteRoot = window.location.origin + basePath;
+  const inviteUrl = `${siteRoot}/parent.html?token=${inviteToken}`;
+
   if (profile) {
     // Check if already linked by parent_id
     const { data: byId } = await sb
@@ -777,7 +878,7 @@ async function saveLinkParent() {
     if (byId) {
       st.textContent = 'This parent is already linked to this player.';
       st.className = 'modal-status error';
-      btn.disabled = false; btn.textContent = 'Link Parent'; return;
+      btn.disabled = false; btn.textContent = 'Send Invite'; return;
     }
 
     // Create the link with parent_id set immediately
@@ -788,20 +889,85 @@ async function saveLinkParent() {
     // Ensure they have the parent role
     await sb.from('profiles').update({ role: 'parent' }).eq('id', profile.id);
 
-    st.textContent = '✓ Linked! They can log in and view this player\'s IDPs right now.';
+    // Send them a magic link to log in
+    const { error: emailErr } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: `${siteRoot}/parent.html`, shouldCreateUser: false }
+    });
+
+    st.textContent = emailErr
+      ? '✓ Linked! Share the link below — email could not be sent automatically.'
+      : `✓ Invite sent to ${email}! They'll click the link in their email to access the plan.`;
     st.className = 'modal-status success';
   } else {
-    // No account yet — store email so it auto-links on signup
-    await sb.from('parent_players').insert({
+    // No account yet — create invite row and send magic link
+    const { data: pp, error: ppErr } = await sb.from('parent_players').insert({
       player_id: linkPlayerId, parent_id: null,
-      accepted: true, invite_email: email,
+      accepted: false, invite_email: email,
+    }).select('invite_token').single();
+
+    if (ppErr) {
+      st.textContent = 'Error: ' + ppErr.message;
+      st.className = 'modal-status error';
+      btn.disabled = false; btn.textContent = 'Send Invite'; return;
+    }
+
+    const newToken = pp.invite_token;
+    const newInviteUrl = `${siteRoot}/parent.html?token=${newToken}`;
+    document.getElementById('linkInviteBox').textContent = newInviteUrl;
+    document.getElementById('linkInviteBox').dataset.token = newToken;
+    document.getElementById('resendEmailBtn').dataset.email = email;
+
+    const { error: emailErr } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: newInviteUrl, shouldCreateUser: true }
     });
-    st.textContent = '✓ Saved! They\'ll be linked automatically when they create an account.';
+
+    st.textContent = emailErr
+      ? '✓ Saved! Email could not be sent — share the link below manually.'
+      : `✓ Invite sent to ${email}! They'll click the link in their email to access the plan.`;
     st.className = 'modal-status success';
   }
 
-  btn.disabled = false; btn.textContent = 'Link Parent';
+  btn.disabled = false; btn.textContent = 'Send Invite';
   document.getElementById('linkEmailInput').value = '';
+}
+
+async function resendInviteEmail() {
+  const inviteBox = document.getElementById('linkInviteBox');
+  const inviteUrl = inviteBox.textContent.trim();
+  const btn = document.getElementById('resendEmailBtn');
+
+  // Try to get the email from the resend button dataset or prompt
+  let email = btn.dataset.email || '';
+  if (!email) {
+    email = document.getElementById('linkEmailInput').value.trim();
+  }
+  if (!email || !email.includes('@')) {
+    document.getElementById('linkCopyStatus').textContent = 'Enter the parent email above first.';
+    setTimeout(() => { document.getElementById('linkCopyStatus').textContent = ''; }, 2500);
+    return;
+  }
+
+  btn.disabled = true;
+  const basePath = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
+  const siteRoot = window.location.origin + basePath;
+
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: inviteUrl || `${siteRoot}/parent.html`, shouldCreateUser: true }
+  });
+
+  btn.disabled = false;
+  const status = document.getElementById('linkCopyStatus');
+  if (error) {
+    status.style.color = 'var(--red-light)';
+    status.textContent = 'Could not send — try copying the link instead.';
+  } else {
+    status.style.color = 'var(--teal-light)';
+    status.textContent = `Email sent to ${email}!`;
+  }
+  setTimeout(() => { status.textContent = ''; status.style.color = ''; }, 3000);
 }
 
 function goToTeamPlan() {
@@ -1197,6 +1363,97 @@ async function deleteSession(id) {
   await sb.from('training_sessions').delete().eq('id', id);
   loadSessions();
   showToast('Session removed');
+}
+
+// ─── LEAGUE RESULTS ────────────────────────────────────────────────────
+async function loadLeagueResults() {
+  const container = document.getElementById('leagueContent');
+  const metaEl    = document.getElementById('leagueMeta');
+  const syncEl    = document.getElementById('leagueLastSync');
+  const linkEl    = document.getElementById('leagueGotSportLink');
+
+  // Load current team to get gotsport_group_id
+  const { data: team } = await sb.from('teams').select('gotsport_group_id').eq('id', teamId).single();
+
+  if (!team?.gotsport_group_id) {
+    container.innerHTML = '<div style="font-size:13px;color:var(--text-dim);padding:.5rem 0;">' +
+      'No league link set for this team. ' +
+      '<a href="https://system.gotsport.com/org_event/events/50274/schedules?club=10769" ' +
+      'target="_blank" style="color:var(--teal-light);">Find your team on GotSport</a></div>';
+    return;
+  }
+
+  const groupId = team.gotsport_group_id;
+  linkEl.href = 'https://system.gotsport.com/org_event/events/50274/results?group=' + groupId;
+
+  // Load standings for our team in this group
+  const { data: standing } = await sb
+    .from('league_standings')
+    .select('*')
+    .eq('gotsport_group_id', groupId)
+    .ilike('gotsport_team_name', '%Steamer%')
+    .maybeSingle();
+
+  // Load match results for our team
+  const { data: results } = await sb
+    .from('league_results')
+    .select('*')
+    .eq('gotsport_group_id', groupId)
+    .ilike('gotsport_team_name', '%Steamer%')
+    .order('match_date', { ascending: false });
+
+  let html = '';
+
+  if (standing) {
+    const pos = standing.position || '-';
+    const posColor = pos === 1 ? 'var(--teal-light)' : pos <= 3 ? 'var(--amber-light)' : 'var(--text-muted)';
+    html += '<div class="standing-card">' +
+      '<div class="standing-pos" style="color:' + posColor + '">' + pos + '</div>' +
+      '<div>' +
+        '<div class="standing-team">' + esc(standing.gotsport_team_name) + '</div>' +
+        '<div class="standing-div">' + esc(standing.division_name || '') + '</div>' +
+      '</div>' +
+      '<div class="standing-stats">' +
+        '<div class="stat-pill wins"><div class="sp-val">' + standing.w + '</div><div class="sp-lbl">W</div></div>' +
+        '<div class="stat-pill losses"><div class="sp-val">' + standing.l + '</div><div class="sp-lbl">L</div></div>' +
+        '<div class="stat-pill draws"><div class="sp-val">' + standing.d + '</div><div class="sp-lbl">D</div></div>' +
+        '<div class="stat-pill pts"><div class="sp-val">' + standing.pts + '</div><div class="sp-lbl">PTS</div></div>' +
+        '<div class="stat-pill" style="margin-left:4px;">' +
+          '<div class="sp-val" style="color:var(--text-dim)">' + standing.gf + '-' + standing.ga + '</div>' +
+          '<div class="sp-lbl">GF-GA</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+    metaEl.innerHTML = esc(standing.season || '') + ' &middot; ' + esc(standing.division_name || '');
+    if (standing.last_synced) {
+      syncEl.textContent = 'Last synced ' + timeAgo(standing.last_synced);
+    }
+  }
+
+  if (results && results.length > 0) {
+    html += '<div class="sessions-label" style="font-size:12px;margin-top:1rem;margin-bottom:8px;">Match Results</div>';
+    html += '<div class="results-list">';
+    results.forEach(function(r) {
+      var dateStr = r.match_date
+        ? new Date(r.match_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        : '-';
+      var score = (r.goals_for != null && r.goals_against != null)
+        ? r.goals_for + '-' + r.goals_against : '-';
+      var badge = r.result || 'U';
+      html += '<div class="result-row">' +
+        '<div class="result-date">' + dateStr + '</div>' +
+        '<div class="result-opp">' + esc(r.opponent || '-') + '</div>' +
+        '<div class="result-score">' + score + '</div>' +
+        '<div class="result-badge ' + badge + '">' + (badge === 'U' ? '-' : badge) + '</div>' +
+      '</div>';
+    });
+    html += '</div>';
+  } else if (!standing) {
+    html = '<div style="font-size:13px;color:var(--text-dim);padding:.5rem 0;">No results found. Run the sync to pull data from GotSport.</div>';
+  }
+
+  container.innerHTML = html;
 }
 </script>
 </body>

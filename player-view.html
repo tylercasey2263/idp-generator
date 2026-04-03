@@ -216,11 +216,13 @@ const token = new URLSearchParams(window.location.search).get('token');
     .from('idps')
     .select('*')
     .eq('share_token', token)
-    .eq('published', true)
     .maybeSingle();
 
-  if (error || !idp || !idp.data) {
+  if (error) {
     showNotFound("This plan isn't available. Ask your coach to check the link."); return;
+  }
+  if (!idp || !idp.data) {
+    showNotFound("This link has expired or the plan was removed. Ask your coach for a new link."); return;
   }
 
   // Fetch player info

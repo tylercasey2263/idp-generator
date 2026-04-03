@@ -1,6 +1,10 @@
 # Claude / IDE
 .claude/
 
+# Node / scripts dependencies
+scripts/node_modules/
+scripts/bun.lock
+
 # Python
 __pycache__/
 *.pyc
