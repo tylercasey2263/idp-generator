@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Teams — Player IDP</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/config.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/nav.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0D1B2A; --navy-mid: #1A2E44; --navy-light: #243B55;
+  --teal: #1B8A6B; --teal-light: #22A882; --teal-faint: #0D2E25;
+  --amber: #D4870A; --amber-light: #F0A020; --amber-faint: #2E1E05;
+  --text: #EDF2F7; --text-muted: #94A3B8; --text-dim: #64748B;
+  --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
+  --red-light: #E05050;
+}
+html, body { min-height: 100vh; background: var(--navy); color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 15px; }
+
+.page { max-width: 900px; margin: 0 auto; padding: 2.5rem 2rem; }
+
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 2rem; gap: 1rem; flex-wrap: wrap;
+}
+.page-title { font-family: 'Barlow Condensed', sans-serif; font-size: 32px; font-weight: 800; }
+.page-sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+/* Search */
+.search-bar-wrap {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 0 14px; margin-bottom: 1.5rem; transition: border-color .2s;
+}
+.search-bar-wrap:focus-within { border-color: var(--teal); }
+.search-bar-wrap svg { flex-shrink: 0; opacity: .4; pointer-events: none; }
+.search-bar-wrap input {
+  flex: 1; background: transparent; border: none;
+  color: var(--text); font-family: 'Inter', sans-serif;
+  font-size: 14px; padding: 11px 0; outline: none;
+}
+.search-bar-wrap input::placeholder { color: var(--text-dim); }
+
+/* Team grid */
+.team-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px;
+}
+.team-card {
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 12px; padding: 1.4rem;
+  display: flex; flex-direction: column; gap: 12px; transition: border-color .2s;
+}
+.team-card:hover { border-color: rgba(34,168,130,.35); }
+.team-name { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 800; color: var(--text); }
+.team-season { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.team-meta { font-size: 12px; color: var(--text-muted); }
+.team-coaches-row {
+  display: flex; flex-wrap: wrap; gap: 5px;
+}
+.team-coach-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--text-muted);
+  background: var(--navy-light); border: 1px solid var(--border-strong);
+  border-radius: 5px; padding: 2px 8px;
+}
+.team-coach-dot {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--teal-faint); border: 1px solid rgba(27,138,107,.4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; font-weight: 800; color: var(--teal-light);
+  font-family: 'Barlow Condensed', sans-serif; flex-shrink: 0;
+}
+.team-assigned-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--teal-light); background: var(--teal-faint);
+  border: 1px solid rgba(27,138,107,.3); border-radius: 4px; padding: 2px 7px;
+}
+.team-card-footer { display: flex; gap: 8px; align-items: center; margin-top: 2px; }
+.btn-sm {
+  padding: 6px 14px; border-radius: 6px; border: none;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 12px;
+  font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  cursor: pointer; transition: opacity .2s, border-color .15s;
+}
+.btn-sm-primary { background: var(--teal-faint); color: var(--teal-light); border: 1px solid rgba(27,138,107,.35); }
+.btn-sm-primary:hover { border-color: var(--teal); }
+
+.empty { text-align: center; padding: 4rem 2rem; color: var(--text-dim); }
+.empty-icon { font-family: 'Barlow Condensed', sans-serif; font-size: 48px; font-weight: 800; color: var(--border-strong); margin-bottom: 1rem; }
+
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.2); border-top-color: var(--teal-light); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="sidebarMount"></div>
+<div class="main-content">
+<div class="page">
+
+  <div class="page-header">
+    <div>
+      <div class="page-title">All Teams</div>
+      <div class="page-sub">Every team in the club — click to view roster and IDPs</div>
+    </div>
+  </div>
+
+  <div class="search-bar-wrap">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="6.5" cy="6.5" r="4.5" stroke="#94A3B8" stroke-width="1.4"/>
+      <path d="M10.5 10.5L14 14" stroke="#94A3B8" stroke-width="1.4" stroke-linecap="round"/>
+    </svg>
+    <input type="text" id="teamSearch" placeholder="Search teams…" oninput="filterTeams()" autocomplete="off">
+  </div>
+
+  <div id="teamGrid">
+    <div class="empty"><div class="spinner"></div></div>
+  </div>
+
+</div>
+</div>
+
+<script>
+let coachId   = null;
+let myRole    = 'coach';
+let myTeamIds = new Set();
+let allTeams  = [];
+let coachMap  = {};  // teamId -> [{name, avatar_url}]
+
+(async () => {
+  const ctx = await requireCoach();
+  if (!ctx) return;
+  coachId = ctx.session.user.id;
+  myRole  = ctx.profile.role;
+  await renderSidebar('teams');
+
+  // Load all teams + my team memberships in parallel
+  const [teamsRes, myTeamsRes, coachLinksRes] = await Promise.all([
+    sb.from('teams').select('id, name, season').order('name'),
+    sb.from('coach_teams').select('team_id').eq('coach_id', coachId),
+    sb.from('coach_teams').select('team_id, profiles(id, full_name, avatar_url)'),
+  ]);
+
+  allTeams  = teamsRes.data  || [];
+  myTeamIds = new Set((myTeamsRes.data || []).map(r => r.team_id));
+
+  // Build coach map: teamId -> array of profiles
+  (coachLinksRes.data || []).forEach(lc => {
+    if (!lc.profiles) return;
+    if (!coachMap[lc.team_id]) coachMap[lc.team_id] = [];
+    coachMap[lc.team_id].push(lc.profiles);
+  });
+
+  // Fetch player counts
+  const teamIds = allTeams.map(t => t.id);
+  const { data: players } = await sb.from('players').select('team_id').in('team_id', teamIds);
+  const countMap = {};
+  (players || []).forEach(p => { countMap[p.team_id] = (countMap[p.team_id] || 0) + 1; });
+
+  allTeams.forEach(t => { t._playerCount = countMap[t.id] || 0; });
+
+  renderTeams(allTeams);
+})();
+
+function renderTeams(teams) {
+  const grid = document.getElementById('teamGrid');
+  const q = (document.getElementById('teamSearch')?.value || '').toLowerCase().trim();
+  const filtered = q ? teams.filter(t => t.name.toLowerCase().includes(q) || (t.season||'').toLowerCase().includes(q)) : teams;
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty"><div class="empty-icon">IDP</div><p>No teams found.</p></div>`;
+    return;
+  }
+
+  const _base = window.location.pathname.replace(/\/[^/]*$/, '');
+  grid.innerHTML = `<div class="team-grid">${filtered.map(t => {
+    const count    = t._playerCount || 0;
+    const coaches  = coachMap[t.id] || [];
+    const isMine   = myTeamIds.has(t.id);
+
+    const coachChips = coaches.slice(0, 4).map(c => {
+      const init = (c.full_name || '?').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+      return `<div class="team-coach-chip">
+        <div class="team-coach-dot">${init}</div>
+        ${esc(c.full_name || 'Coach')}
+      </div>`;
+    }).join('');
+
+    return `
+      <div class="team-card">
+        <div>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+            <div class="team-name">${esc(t.name)}</div>
+            ${isMine ? '<span class="team-assigned-chip">✓ My Team</span>' : ''}
+          </div>
+          ${t.season ? `<div class="team-season">${esc(t.season)}</div>` : ''}
+        </div>
+        <div class="team-meta">${count} player${count !== 1 ? 's' : ''}</div>
+        ${coachChips ? `<div class="team-coaches-row">${coachChips}</div>` : ''}
+        <div class="team-card-footer">
+          <button class="btn-sm btn-sm-primary" onclick="window.location.href='${_base}/team.html?team=${t.id}'">View Team →</button>
+        </div>
+      </div>`;
+  }).join('')}</div>`;
+}
+
+function filterTeams() {
+  renderTeams(allTeams);
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

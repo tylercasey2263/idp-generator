@@ -187,6 +187,7 @@
     users:     `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="5" cy="4.5" r="2.2" stroke="currentColor" stroke-width="1.4"/><path d="M1 13c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="11.5" cy="4.5" r="1.8" stroke="currentColor" stroke-width="1.3"/><path d="M13.8 13c0-1.8-1-3.3-2.3-3.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`,
     help:      `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M5.8 5.8a1.8 1.8 0 0 1 3.4.8c0 1.2-1.7 1.5-1.7 2.9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="7.5" cy="11" r=".8" fill="currentColor"/></svg>`,
     soccer:    `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.4"/><polygon points="7.5,4 9.2,6.2 7.5,8.4 5.8,6.2" stroke="currentColor" stroke-width="1" fill="currentColor" opacity=".4"/></svg>`,
+    teams:     `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="4" width="5" height="9" rx="1.2" stroke="currentColor" stroke-width="1.4"/><rect x="5" y="2" width="5" height="11" rx="1.2" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="5.5" width="5" height="7.5" rx="1.2" stroke="currentColor" stroke-width="1.4"/></svg>`,
   };
 
   /* ─── RENDER SIDEBAR ─────────────────────────────────────────────── */
@@ -239,6 +240,7 @@
 
         <nav class="sb-nav">
           ${item('dashboard', p('dashboard.html'), IC.dashboard, 'Dashboard',       ['admin','coach','parent'])}
+          ${item('teams',     p('teams.html'),     IC.teams,     'All Teams',       ['admin','coach'])}
           ${item('players',   p('players.html'),   IC.players,   'All Players',     ['admin','coach'])}
           ${item('lineup',    p('lineup.html'),    IC.lineup,    'Lineup Manager',  ['admin','coach'])}
 

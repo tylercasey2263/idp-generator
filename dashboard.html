@@ -297,8 +297,13 @@ input::placeholder { color: var(--text-dim); }
 <div class="main-content">
 <div class="page">
   <div class="page-header">
-    <div class="page-title">My Teams</div>
-    <button class="btn btn-primary" onclick="openAddTeam()">+ Add Team</button>
+    <div>
+      <div class="page-title">My Teams</div>
+      <div id="dashSubtitle" style="font-size:13px;color:var(--text-dim);margin-top:4px;display:none;">
+        Your assigned teams · <a href="teams.html" style="color:var(--teal-light);text-decoration:none;">Browse all teams →</a>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="addTeamBtn" onclick="openAddTeam()">+ Add Team</button>
   </div>
 
   <div class="stats-bar">
@@ -383,13 +388,20 @@ input::placeholder { color: var(--text-dim); }
 
 <script>
 let coachId    = null;
+let myRole     = 'coach';
 let allPlayers = [];   // populated after teams load for combined search
 
 (async () => {
   const ctx = await requireCoach();
   if (!ctx) return;
   coachId = ctx.session.user.id;
+  myRole  = ctx.profile.role;
   await renderSidebar('dashboard');
+  // Show subtitle + hide Add Team button for non-admins
+  if (myRole !== 'admin') {
+    document.getElementById('dashSubtitle').style.display = 'block';
+    document.getElementById('addTeamBtn').style.display   = 'none';
+  }
   loadTeams();
   loadAllPlayers();   // background — no await
   loadStats();        // background — no await
@@ -591,20 +603,29 @@ async function loadAllPlayers() {
 }
 
 async function loadTeams() {
-  const { data: teams, error } = await sb
-    .from('teams')
-    .select('id, name, season')
-    .order('name');
-
   const grid = document.getElementById('teamGrid');
+  let teams = [];
 
-  if (error || !teams || teams.length === 0) {
-    grid.innerHTML = `
-      <div class="empty">
-        <div class="empty-icon">IDP</div>
-        <p>No teams yet. Add your first team to get started.</p>
-        <button class="btn btn-primary" onclick="openAddTeam()">+ Add Team</button>
-      </div>`;
+  if (myRole === 'admin') {
+    // Admins see every team
+    const { data } = await sb.from('teams').select('id, name, season').order('name');
+    teams = data || [];
+  } else {
+    // Coaches only see teams they are assigned to
+    const { data: links } = await sb
+      .from('coach_teams').select('team_id, teams(id, name, season)').eq('coach_id', coachId);
+    teams = (links || []).map(l => l.teams).filter(Boolean)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  if (!teams || teams.length === 0) {
+    const emptyMsg = myRole === 'admin'
+      ? `<p>No teams yet. Add your first team to get started.</p>
+         <button class="btn btn-primary" onclick="openAddTeam()">+ Add Team</button>`
+      : `<p>You haven't been assigned to any teams yet.</p>
+         <p style="font-size:13px;color:var(--text-dim);margin-top:.5rem;">Ask your admin to assign you, or visit
+           <a href="teams.html" style="color:var(--teal-light);">All Teams</a> to browse and link yourself.</p>`;
+    grid.innerHTML = `<div class="empty"><div class="empty-icon">IDP</div>${emptyMsg}</div>`;
     window._allTeams = []; window._countMap = {};
     return;
   }

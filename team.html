@@ -702,6 +702,7 @@ input::placeholder { color: var(--text-dim); }
 const params  = new URLSearchParams(window.location.search);
 const teamId  = params.get('team');
 let coachId          = null;
+let isAdmin          = false;
 let currentInviteLink = '';
 let teamPlayerIds    = [];   // populated by loadPlayers(), used by loadSessions()
 let teamIDPsByDate   = {};   // { 'YYYY-MM-DD': [{player_id, player_name, idp_id}] }
@@ -712,6 +713,7 @@ if (!teamId) window.location.href = window.location.pathname.replace(/\/[^/]*$/,
   const ctx = await requireCoach();
   if (!ctx) return;
   coachId = ctx.session.user.id;
+  isAdmin = ctx.profile.role === 'admin';
   await renderSidebar('team');
   loadTeam();
   loadPlayers();   // loadSessions() is called inside loadPlayers() once IDP date index is ready
@@ -1632,43 +1634,53 @@ async function loadCoaches() {
   const btnWrap = document.getElementById('linkTeamBtnWrap');
   if (!section || !grid) return;
 
-  const [linkedRes, gsRes] = await Promise.all([
+  const [linkedRes, gsRes, allCoachesRes] = await Promise.all([
     sb.from('coach_teams')
       .select('coach_id, profiles(id, full_name, avatar_url, role)')
       .eq('team_id', teamId),
     sb.from('team_coaches')
       .select('id, name, role')
       .eq('team_id', teamId),
+    sb.from('profiles').select('id, full_name, avatar_url, role')
+      .in('role', ['coach', 'admin']).order('full_name'),
   ]);
 
-  const appCoaches = (linkedRes.data || []).map(lc => lc.profiles).filter(Boolean);
-  const gsCoaches  = gsRes.data || [];
-
+  const appCoaches    = (linkedRes.data || []).map(lc => lc.profiles).filter(Boolean);
+  const gsCoaches     = gsRes.data || [];
+  const allProfiles   = allCoachesRes.data || [];
   const alreadyLinked = appCoaches.some(c => c.id === coachId);
+  const linkedIds     = new Set(appCoaches.map(c => c.id));
 
   let html = '';
   appCoaches.forEach(c => {
-    const initials = (c.full_name || '?').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+    const inits = (c.full_name || '?').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
     const avatarHTML = c.avatar_url
       ? `<img src="${c.avatar_url}" alt="${esc(c.full_name)}">`
-      : initials;
+      : inits;
+    const removeBtn = (isAdmin && c.id !== coachId)
+      ? `<button onclick="removeCoachFromTeam('${c.id}')" title="Remove from team"
+           style="margin-left:auto;background:none;border:none;color:var(--text-dim);cursor:pointer;
+                  font-size:14px;padding:2px 4px;border-radius:4px;transition:color .15s;"
+           onmouseover="this.style.color='#E05050'" onmouseout="this.style.color='var(--text-dim)'">✕</button>`
+      : '';
     html += `
-      <div class="coach-card">
+      <div class="coach-card" style="position:relative;">
         <div class="coach-avatar">${avatarHTML}</div>
         <div class="coach-info">
           <div class="coach-name">${esc(c.full_name || 'Coach')}</div>
           <div class="coach-role-lbl">${c.role === 'admin' ? 'Admin' : 'Coach'}</div>
         </div>
+        ${removeBtn}
       </div>`;
   });
 
   gsCoaches.forEach(c => {
     const duplicate = appCoaches.some(a => (a.full_name || '').toLowerCase() === c.name.toLowerCase());
     if (duplicate) return;
-    const initials = (c.name || '?').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+    const inits = (c.name || '?').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
     html += `
       <div class="coach-card">
-        <div class="coach-avatar" style="background:var(--navy-light);border-color:var(--border-strong);color:var(--text-dim);">${initials}</div>
+        <div class="coach-avatar" style="background:var(--navy-light);border-color:var(--border-strong);color:var(--text-dim);">${inits}</div>
         <div class="coach-info">
           <div class="coach-name">${esc(c.name)}</div>
           <div class="coach-role-lbl">${esc(c.role)} · GotSport</div>
@@ -1682,11 +1694,28 @@ async function loadCoaches() {
 
   grid.innerHTML = html;
 
-  if (!alreadyLinked && btnWrap) {
-    btnWrap.innerHTML = `<button class="btn-link-team" onclick="linkMeToTeam()">+ Link me to this team</button>`;
-  } else if (btnWrap) {
-    btnWrap.innerHTML = '';
+  // Build action buttons
+  let actions = '';
+  if (!alreadyLinked) {
+    actions += `<button class="btn-link-team" onclick="linkMeToTeam()">+ Link me to this team</button>`;
   }
+  if (isAdmin) {
+    // Build "Add Coach" dropdown: only coaches not already on this team
+    const unlinked = allProfiles.filter(p => !linkedIds.has(p.id));
+    if (unlinked.length > 0) {
+      actions += `
+        <div style="display:inline-flex;align-items:center;gap:6px;margin-left:6px;">
+          <select id="addCoachSel" style="background:var(--navy);border:1px solid var(--border-strong);
+            border-radius:7px;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;
+            padding:5px 9px;outline:none;cursor:pointer;max-width:180px;">
+            <option value="">Assign coach…</option>
+            ${unlinked.map(p => `<option value="${p.id}">${esc(p.full_name || p.role)}</option>`).join('')}
+          </select>
+          <button class="btn-link-team" onclick="assignCoachToTeam()">+ Assign</button>
+        </div>`;
+    }
+  }
+  if (btnWrap) btnWrap.innerHTML = actions;
 
   section.style.display = '';
 }
@@ -1694,10 +1723,31 @@ async function loadCoaches() {
 async function linkMeToTeam() {
   const { error } = await sb.from('coach_teams')
     .insert({ coach_id: coachId, team_id: teamId });
-  if (error && !error.message.includes('duplicate') && !error.code === '23505') {
+  if (error && !error.message.includes('duplicate') && error.code !== '23505') {
     showToast('Error: ' + error.message); return;
   }
   showToast('You are now linked to this team ✓');
+  loadCoaches();
+}
+
+async function assignCoachToTeam() {
+  const sel = document.getElementById('addCoachSel');
+  const selectedId = sel?.value;
+  if (!selectedId) { showToast('Select a coach first'); return; }
+  const { error } = await sb.from('coach_teams')
+    .insert({ coach_id: selectedId, team_id: teamId });
+  if (error && error.code !== '23505') {
+    showToast('Error: ' + error.message); return;
+  }
+  showToast('Coach assigned to team ✓');
+  loadCoaches();
+}
+
+async function removeCoachFromTeam(profileId) {
+  const { error } = await sb.from('coach_teams')
+    .delete().eq('coach_id', profileId).eq('team_id', teamId);
+  if (error) { showToast('Error: ' + error.message); return; }
+  showToast('Coach removed from team');
   loadCoaches();
 }
 </script>
