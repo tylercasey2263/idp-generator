@@ -203,15 +203,21 @@ async function fetchGroupResults(groupId) {
   //                     TeamB       | 4-4   | -     | ...
   // Cell value "X-Y" means row-team scored X, column-team scored Y.
   // Cell value "-"   means the game hasn't been played yet (or diagonal).
+  //
+  // NOTE: GotSport may use a double round-robin matrix where each team pair
+  // appears twice (home + away), producing duplicate entries for the same
+  // opponent. We deduplicate by (opponent, gf, ga) after parsing.
   if (tables.length > 1) {
     const matrixTable = $(tables[1]);
 
-    // Get column headers — first row of the table (thead or first tr)
+    // Get column headers — prefer text from anchor tags (team names are often linked)
     const colHeaders = [];
     let headerRow = matrixTable.find('thead tr').first();
     if (headerRow.length === 0) headerRow = matrixTable.find('tr').first();
     headerRow.find('th, td').each((_, cell) => {
-      colHeaders.push($(cell).text().trim());
+      // Try <a> first, then raw text — team names are often inside links
+      const linkText = $(cell).find('a').first().text().trim();
+      colHeaders.push(linkText || $(cell).text().trim());
     });
     // colHeaders[0] = "Team Name" (row-label header)
     // colHeaders[1..N] = opponent team names
@@ -224,13 +230,14 @@ async function fetchGroupResults(groupId) {
       const cells = $(tr).find('td, th');
       if (cells.length < 2) return;
 
-      const rowTeamName = $(cells[0]).text().trim();
+      const rawLabel = $(cells[0]).find('a').first().text().trim() || $(cells[0]).text().trim();
+      const rowTeamName = rawLabel;
       if (!rowTeamName) return;
 
       cells.each((colIdx, td) => {
         if (colIdx === 0) return; // skip row-label cell
 
-        const cellText = $(td).text().trim();
+        const cellText = $(td).text().replace(/\s+/g, '').trim();
         if (!cellText || cellText === '-') return; // unplayed or diagonal
 
         // Expect "X-Y" with a plain ASCII hyphen
@@ -238,7 +245,9 @@ async function fetchGroupResults(groupId) {
         if (!scoreMatch) return;
 
         const opponentName = colHeaders[colIdx] || '';
+        // Skip if opponent name is blank, equals our team, or itself looks like a score
         if (!opponentName || opponentName === rowTeamName) return;
+        if (/^\d+-\d+$/.test(opponentName)) return; // header was a score value, not a team name
 
         const goalsFor     = parseIntSafe(scoreMatch[1]);
         const goalsAgainst = parseIntSafe(scoreMatch[2]);
@@ -251,14 +260,25 @@ async function fetchGroupResults(groupId) {
           goals_for: goalsFor,
           goals_against: goalsAgainst,
           result,
-          match_date: null,   // not available on GotSport results page
-          is_home: null,      // not available on GotSport results page
+          match_date: null,   // filled in from schedule page later
+          is_home: null,
           venue: null,
           season: SEASON,
           last_synced: now,
         });
       });
     });
+
+    // Deduplicate: in a double round-robin the matrix may contain two entries
+    // for the same (opponent, gf, ga) — keep only one.
+    const seen = new Set();
+    const deduped = [];
+    for (const m of matches) {
+      const key = `${m.gotsport_team_name}|${m.opponent}|${m.goals_for}|${m.goals_against}`;
+      if (!seen.has(key)) { seen.add(key); deduped.push(m); }
+    }
+    matches.length = 0;
+    deduped.forEach(m => matches.push(m));
   }
 
   console.log(`  Found ${standings.length} standings rows, ${matches.length} match rows`);
