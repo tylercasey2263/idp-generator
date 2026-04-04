@@ -1694,7 +1694,7 @@ async function loadCoaches() {
     const avatarHTML = c.avatar_url
       ? `<img src="${c.avatar_url}" alt="${esc(c.full_name)}">`
       : inits;
-    const removeBtn = (isAdmin && c.id !== coachId)
+    const removeBtn = isAdmin
       ? `<button onclick="removeCoachFromTeam('${c.id}')" title="Remove from team"
            style="margin-left:auto;background:none;border:none;color:var(--text-dim);cursor:pointer;
                   font-size:14px;padding:2px 4px;border-radius:4px;transition:color .15s;"

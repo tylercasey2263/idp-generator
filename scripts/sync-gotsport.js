@@ -408,15 +408,15 @@ async function upsertResults(matches) {
   const groupToTeamId = await buildGroupToTeamId();
   const rows = ours.map(m => ({ ...m, team_id: groupToTeamId[m.gotsport_group_id] || null }));
 
-  // Delete existing results for this group+team, then insert fresh
-  const groupId  = rows[0].gotsport_group_id;
-  const teamName = rows[0].gotsport_team_name;
+  // Delete ALL existing results for this group (by group_id only) before
+  // inserting fresh data. This ensures stale rows from previous parses
+  // that may have had different gotsport_team_name values are fully cleared.
+  const groupId = rows[0].gotsport_group_id;
 
   const { error: delErr } = await sb
     .from('league_results')
     .delete()
-    .eq('gotsport_group_id', groupId)
-    .eq('gotsport_team_name', teamName);
+    .eq('gotsport_group_id', groupId);
 
   if (delErr) {
     console.warn('  Warning: could not clear old results:', delErr.message);
