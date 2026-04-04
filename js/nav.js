@@ -5,6 +5,46 @@
  */
 (function () {
 
+  /* ─── THEME COLOR UTILS ─────────────────────────────────────────────── */
+  function _hexToRgb(hex) {
+    const n = parseInt(hex.replace('#', ''), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function _rgbToHex(r, g, b) {
+    return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+  }
+  function _mixHex(h1, h2, t) {
+    const [r1, g1, b1] = _hexToRgb(h1), [r2, g2, b2] = _hexToRgb(h2);
+    return _rgbToHex(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t);
+  }
+  window.deriveTheme = function (primaryHex) {
+    const NAVY = '#0D1B2A';
+    return {
+      dark:  _mixHex(primaryHex, '#000000', 0.20),
+      light: primaryHex,
+      faint: _mixHex(NAVY, primaryHex, 0.18),
+    };
+  };
+  window.applyTheme = function (primaryHex) {
+    if (!primaryHex) return;
+    const isDefault = primaryHex.toLowerCase() === '#22a882';
+    const existing = document.getElementById('idp-theme-css');
+    if (isDefault) { if (existing) existing.remove(); return; }
+    const { dark, light, faint } = window.deriveTheme(primaryHex);
+    const [r, g, b] = _hexToRgb(light);
+    const style = existing || document.createElement('style');
+    style.id = 'idp-theme-css';
+    style.textContent = `
+      :root { --teal: ${dark}; --teal-light: ${light}; --teal-faint: ${faint}; }
+      .sb-item.active { background: rgba(${r},${g},${b},.14) !important; color: ${light} !important; border-color: rgba(${r},${g},${b},.22) !important; }
+      .sb-logo-wrap   { background: rgba(${r},${g},${b},.18) !important; border-color: rgba(${r},${g},${b},.3) !important; }
+      .ob-next-btn    { background: ${dark} !important; }
+      .ob-next-btn:hover { background: ${light} !important; }
+      .ob-dot.on      { background: ${light} !important; }
+    `;
+    if (!existing) document.head.appendChild(style);
+  };
+
   /* ─── INJECT SIDEBAR + ONBOARDING CSS ─────────────────────────────── */
   const CSS = `
     /* ── Global typography & readability overrides ── */
@@ -204,9 +244,11 @@
     const initial = name.charAt(0).toUpperCase();
 
     // Get club settings
-    const { data: settings } = await sb.from('settings').select('key,value').in('key', ['club_name','club_logo']);
-    const clubName = settings?.find(r => r.key === 'club_name')?.value || 'Player Development';
-    const clubLogo = settings?.find(r => r.key === 'club_logo')?.value || '';
+    const { data: settings } = await sb.from('settings').select('key,value').in('key', ['club_name','club_logo','theme_primary']);
+    const clubName     = settings?.find(r => r.key === 'club_name')?.value    || 'Player Development';
+    const clubLogo     = settings?.find(r => r.key === 'club_logo')?.value    || '';
+    const themePrimary = settings?.find(r => r.key === 'theme_primary')?.value || '';
+    if (themePrimary) window.applyTheme(themePrimary);
 
     // Expose globally and update page title
     window._clubName = clubName;

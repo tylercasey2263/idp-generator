@@ -128,6 +128,55 @@ input::placeholder { color: var(--text-dim); }
 }
 .toggle-key:hover { border-color: var(--teal); }
 
+/* ─── THEME COLOR PICKER ─── */
+.color-swatches { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+.swatch-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+.color-swatch {
+  width: 36px; height: 36px; border-radius: 9px; cursor: pointer;
+  border: 2px solid transparent; transition: transform .15s, border-color .15s, box-shadow .15s;
+}
+.color-swatch:hover { transform: scale(1.1); }
+.color-swatch.active { border-color: #fff; transform: scale(1.12); box-shadow: 0 0 0 3px rgba(255,255,255,.12); }
+.swatch-name { font-size: 9px; color: var(--text-dim); text-align: center; text-transform: uppercase; letter-spacing: .04em; }
+
+.color-custom-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+input[type="color"].color-picker-input {
+  width: 42px; height: 38px; border: 1px solid var(--border-strong);
+  border-radius: 7px; padding: 2px; cursor: pointer; background: var(--navy);
+}
+.color-hex-input {
+  width: 110px; background: var(--navy); border: 1px solid var(--border-strong);
+  border-radius: 8px; color: var(--text); font-family: monospace;
+  font-size: 13px; padding: 8px 12px; outline: none; transition: border-color .2s;
+}
+.color-hex-input:focus { border-color: var(--teal); }
+
+.theme-preview {
+  background: var(--navy); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 14px 16px; margin: 14px 0;
+}
+.preview-label {
+  font-size: 10px; color: var(--text-dim); text-transform: uppercase;
+  letter-spacing: .08em; margin-bottom: 12px;
+}
+.preview-items { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.preview-nav-item {
+  display: flex; align-items: center; gap: 7px; padding: 7px 11px;
+  border-radius: 7px; font-size: 12px; font-weight: 600;
+  font-family: 'Inter', sans-serif; border: 1px solid;
+}
+.preview-btn {
+  padding: 7px 16px; border-radius: 7px; border: none; color: #fff;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase; cursor: default;
+}
+.preview-chip {
+  display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 4px;
+  font-size: 11px; font-weight: 700; font-family: 'Barlow Condensed', sans-serif;
+  letter-spacing: .06em; text-transform: uppercase; border: 1px solid;
+}
+.preview-text { font-size: 13px; font-weight: 600; }
+
 /* Access denied */
 .access-denied {
   text-align: center; padding: 5rem 2rem; color: var(--text-dim);
@@ -266,6 +315,42 @@ let coachId = null;
       </div>
     </div>
 
+    <!-- ── THEME COLORS ── -->
+    <div class="settings-section">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Theme Colors</div>
+          <div class="section-desc">Change the accent color site-wide to match your club's kit or branding. All users see this immediately.</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Preset Colors</label>
+        <div class="color-swatches" id="colorSwatches"></div>
+      </div>
+
+      <div class="field" style="margin-top:14px;">
+        <label>Custom Color</label>
+        <div class="color-custom-row">
+          <input type="color" id="colorPickerInput" class="color-picker-input" value="#22A882" oninput="onColorPickerChange(this.value)" />
+          <input type="text"  id="colorHexInput"    class="color-hex-input"    value="#22A882" placeholder="#RRGGBB" oninput="onHexInputChange(this.value)" maxlength="7" />
+          <span style="font-size:12px;color:var(--text-dim);">Any hex color</span>
+        </div>
+        <div class="field-hint" style="margin-top:6px;">Light and dark variants are derived automatically from your chosen color.</div>
+      </div>
+
+      <div class="theme-preview">
+        <div class="preview-label">Live Preview</div>
+        <div class="preview-items" id="themePreviewItems"></div>
+      </div>
+
+      <div class="save-row">
+        <button class="btn btn-primary" onclick="saveTheme()">Save Theme</button>
+        <button class="btn btn-ghost" onclick="resetTheme()" style="border:1px solid var(--border-strong);">↺ Reset to Default</button>
+        <span class="save-status" id="themeStatus"></span>
+      </div>
+    </div>
+
     <!-- ── AI SETTINGS ── -->
     <div class="settings-section">
       <div class="section-header">
@@ -322,6 +407,9 @@ let coachId = null;
       <a href="/users.html" class="btn btn-primary" style="text-decoration:none;flex-shrink:0;">Manage Users →</a>
     </div>
   `;
+
+  // Init theme picker with saved value
+  initThemePicker(S.theme_primary || '#22A882');
 
   // Trigger tour for first-time admin
   maybeStartTour('settings');
@@ -443,6 +531,128 @@ async function saveProfile() {
   const { error } = await sb.from('profiles').update({ full_name: name }).eq('id', coachId);
   if (error) { st.textContent = 'Error: ' + error.message; st.className = 'save-status err'; }
   else { st.textContent = '✓ Saved!'; st.className = 'save-status ok'; setTimeout(() => st.textContent = '', 2500); }
+}
+
+// ── Theme Color Picker ─────────────────────────────────────────────────────
+const THEME_PRESETS = [
+  { name: 'Forest',   hex: '#22A882' },
+  { name: 'Royal',    hex: '#3B82F6' },
+  { name: 'Crimson',  hex: '#EF4444' },
+  { name: 'Violet',   hex: '#8B5CF6' },
+  { name: 'Orange',   hex: '#F97316' },
+  { name: 'Sky',      hex: '#06B6D4' },
+  { name: 'Rose',     hex: '#F43F5E' },
+  { name: 'Gold',     hex: '#EAB308' },
+  { name: 'Slate',    hex: '#64748B' },
+];
+
+let _themeColor = '#22A882';
+
+function initThemePicker(savedColor) {
+  _themeColor = savedColor || '#22A882';
+  const wrap = document.getElementById('colorSwatches');
+  if (!wrap) return;
+
+  wrap.innerHTML = THEME_PRESETS.map(p => {
+    const isActive = p.hex.toLowerCase() === _themeColor.toLowerCase();
+    return `<div class="swatch-wrap" onclick="selectSwatch('${p.hex}')">
+      <div class="color-swatch${isActive ? ' active' : ''}"
+           id="swatch-${p.hex.replace('#','')}"
+           style="background:${p.hex};" title="${p.name}"></div>
+      <span class="swatch-name">${p.name}</span>
+    </div>`;
+  }).join('');
+
+  const picker = document.getElementById('colorPickerInput');
+  const hexIn  = document.getElementById('colorHexInput');
+  if (picker) picker.value = _themeColor;
+  if (hexIn)  hexIn.value  = _themeColor;
+  updateThemePreview(_themeColor);
+}
+
+function selectSwatch(hex) {
+  _themeColor = hex;
+  const picker = document.getElementById('colorPickerInput');
+  const hexIn  = document.getElementById('colorHexInput');
+  if (picker) picker.value = hex;
+  if (hexIn)  hexIn.value  = hex;
+  document.querySelectorAll('.color-swatch').forEach(el =>
+    el.classList.toggle('active', el.style.background.toLowerCase() === hex.toLowerCase())
+  );
+  updateThemePreview(hex);
+}
+
+function onColorPickerChange(hex) {
+  _themeColor = hex;
+  const hexIn = document.getElementById('colorHexInput');
+  if (hexIn) hexIn.value = hex;
+  document.querySelectorAll('.color-swatch').forEach(el =>
+    el.classList.toggle('active', el.style.background.toLowerCase() === hex.toLowerCase())
+  );
+  updateThemePreview(hex);
+}
+
+function onHexInputChange(val) {
+  const hex = val.startsWith('#') ? val : '#' + val;
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return;
+  _themeColor = hex;
+  const picker = document.getElementById('colorPickerInput');
+  if (picker) picker.value = hex;
+  document.querySelectorAll('.color-swatch').forEach(el =>
+    el.classList.toggle('active', el.style.background.toLowerCase() === hex.toLowerCase())
+  );
+  updateThemePreview(hex);
+}
+
+function updateThemePreview(hex) {
+  if (!window.deriveTheme) return;
+  const { dark, light, faint } = window.deriveTheme(hex);
+  const items = document.getElementById('themePreviewItems');
+  if (!items) return;
+  items.innerHTML = `
+    <div class="preview-nav-item" style="background:${faint};color:${light};border-color:${faint};">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <rect x=".5" y=".5" width="12" height="12" rx="2" stroke="${light}" stroke-width="1.2"/>
+        <rect x="2.5" y="2.5" width="3" height="3" rx=".5" fill="${light}"/>
+        <rect x="7.5" y="2.5" width="3" height="3" rx=".5" fill="${light}" opacity=".5"/>
+        <rect x="2.5" y="7.5" width="3" height="3" rx=".5" fill="${light}" opacity=".5"/>
+      </svg>
+      Active Nav Item
+    </div>
+    <button class="preview-btn" style="background:${dark};">Primary Button</button>
+    <span class="preview-chip" style="background:${faint};color:${light};border-color:${faint};">Published ✓</span>
+    <span class="preview-text" style="color:${light};">Accent Text</span>
+  `;
+  // Live apply site-wide as you pick
+  if (window.applyTheme) window.applyTheme(hex);
+}
+
+async function saveTheme() {
+  const st = document.getElementById('themeStatus');
+  st.textContent = 'Saving…'; st.className = 'save-status';
+  const { error } = await sb.from('settings')
+    .upsert([{ key: 'theme_primary', value: _themeColor }], { onConflict: 'key' });
+  if (error) {
+    st.textContent = 'Error: ' + error.message; st.className = 'save-status err';
+  } else {
+    st.textContent = '✓ Theme saved! All users will see the new color on next load.';
+    st.className = 'save-status ok';
+    setTimeout(() => { st.textContent = ''; }, 3500);
+  }
+}
+
+async function resetTheme() {
+  selectSwatch('#22A882');
+  const st = document.getElementById('themeStatus');
+  st.textContent = 'Saving…'; st.className = 'save-status';
+  const { error } = await sb.from('settings')
+    .upsert([{ key: 'theme_primary', value: '#22A882' }], { onConflict: 'key' });
+  if (error) {
+    st.textContent = 'Error: ' + error.message; st.className = 'save-status err';
+  } else {
+    st.textContent = '✓ Reset to Forest Green.'; st.className = 'save-status ok';
+    setTimeout(() => { st.textContent = ''; }, 2500);
+  }
 }
 </script>
 </body>
