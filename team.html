@@ -459,6 +459,7 @@ input::placeholder { color: var(--text-dim); }
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       <button class="btn btn-ghost" onclick="openCsvImport()" style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">⬆ Import CSV</button>
       <button class="btn btn-ghost" id="btnTeamPlan" onclick="goToTeamPlan()" style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">✦ Team Plan</button>
+      <button class="btn btn-ghost" onclick="goToSeasonView()" style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">📅 Season View</button>
       <button class="btn btn-primary" onclick="openAddPlayer()">+ Add Player</button>
     </div>
   </div>
@@ -1009,6 +1010,11 @@ function resetLinkParent() {
 function goToTeamPlan() {
   const _base = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
   if (teamId) window.location.href = `${_base}/team-plan.html?team=` + teamId;
+}
+
+function goToSeasonView() {
+  const _base = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
+  if (teamId) window.location.href = `${_base}/season.html?team=` + teamId;
 }
 
 function timeAgo(iso) {

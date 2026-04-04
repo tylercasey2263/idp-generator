@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Season Cohort View — Player IDP</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/config.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/nav.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0D1B2A; --navy-mid: #1A2E44; --navy-light: #243B55;
+  --teal: #1B8A6B; --teal-light: #22A882; --teal-faint: #0D2E25;
+  --amber: #D4870A; --amber-light: #F0A020; --amber-faint: #2E1E05;
+  --text: #EDF2F7; --text-muted: #A8B8CC; --text-dim: #64748B;
+  --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
+
+  /* Phase palette */
+  --c-excel:       #A78BFA; --c-excel-faint:       #1E1433; --c-excel-border:       rgba(167,139,250,.25);
+  --c-progress:    #22A882; --c-progress-faint:    #0D2E25; --c-progress-border:    rgba(34,168,130,.25);
+  --c-assert:      #F0A020; --c-assert-faint:      #2E1E05; --c-assert-border:      rgba(240,160,32,.25);
+  --c-foundation:  #60A5FA; --c-foundation-faint:  #0D1E3A; --c-foundation-border:  rgba(96,165,250,.25);
+  --c-other:       #546E80; --c-other-faint:       #141F28; --c-other-border:       rgba(84,110,128,.2);
+}
+
+html, body { min-height: 100vh; background: var(--navy); color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 15px; }
+
+.page { max-width: 960px; margin: 0 auto; padding: 2.5rem 2rem 5rem; }
+
+/* ── Breadcrumb ── */
+.breadcrumb { font-size: 13px; color: var(--text-dim); margin-bottom: 1.2rem; }
+.breadcrumb a { color: var(--teal-light); text-decoration: none; }
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb span { margin: 0 6px; }
+
+/* ── Page header ── */
+.page-header { margin-bottom: 1.5rem; display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.page-title { font-family: 'Barlow Condensed', sans-serif; font-size: 34px; font-weight: 800; line-height: 1.1; }
+.page-title em { color: var(--teal-light); font-style: normal; }
+.page-sub { font-size: 13px; color: var(--text-dim); margin-top: 5px; }
+
+/* ── Stats strip ── */
+.stats-strip { display: flex; gap: 10px; margin: 0 0 1.75rem; flex-wrap: wrap; }
+.stat-pill {
+  flex: 1; min-width: 130px; display: flex; align-items: center; gap: 12px;
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 12px 16px;
+}
+.stat-icon { font-size: 20px; line-height: 1; }
+.stat-val {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 800;
+  color: var(--text); line-height: 1;
+}
+.stat-label { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+/* ── Phase filter bar ── */
+.phase-filter { display: flex; gap: 7px; margin-bottom: 2rem; flex-wrap: wrap; }
+.phase-pill {
+  padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700;
+  font-family: 'Barlow Condensed', sans-serif; letter-spacing: .05em; text-transform: uppercase;
+  cursor: pointer; border: 1px solid var(--border-strong);
+  background: var(--navy-mid); color: var(--text-dim);
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.phase-pill:hover { color: var(--text-muted); border-color: rgba(255,255,255,.22); }
+.phase-pill.active-all        { background: rgba(34,168,130,.12); border-color: rgba(34,168,130,.4); color: var(--teal-light); }
+.phase-pill.active-excel      { background: var(--c-excel-faint);      border-color: var(--c-excel-border);      color: var(--c-excel); }
+.phase-pill.active-progress   { background: var(--c-progress-faint);   border-color: var(--c-progress-border);   color: var(--c-progress); }
+.phase-pill.active-assert     { background: var(--c-assert-faint);     border-color: var(--c-assert-border);     color: var(--c-assert); }
+.phase-pill.active-foundation { background: var(--c-foundation-faint); border-color: var(--c-foundation-border); color: var(--c-foundation); }
+.phase-pill.active-other      { background: var(--c-other-faint);      border-color: var(--c-other-border);      color: var(--c-other); }
+.pill-count {
+  font-size: 10px; padding: 1px 6px; border-radius: 10px;
+  background: rgba(255,255,255,.09); color: inherit;
+}
+
+/* ── Phase section ── */
+.phase-section { margin-bottom: 2.25rem; }
+.phase-section-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+}
+.phase-label-badge {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 800;
+  letter-spacing: .1em; text-transform: uppercase; padding: 3px 10px; border-radius: 4px;
+  white-space: nowrap; border: 1px solid;
+}
+.phase-section-bar { flex: 1; height: 1px; opacity: .2; }
+.phase-count-text { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+
+.sect-excel      .phase-label-badge { background: var(--c-excel-faint);      color: var(--c-excel);      border-color: var(--c-excel-border);      }
+.sect-excel      .phase-section-bar { background: var(--c-excel); }
+.sect-progress   .phase-label-badge { background: var(--c-progress-faint);   color: var(--c-progress);   border-color: var(--c-progress-border);   }
+.sect-progress   .phase-section-bar { background: var(--c-progress); }
+.sect-assert     .phase-label-badge { background: var(--c-assert-faint);     color: var(--c-assert);     border-color: var(--c-assert-border);     }
+.sect-assert     .phase-section-bar { background: var(--c-assert); }
+.sect-foundation .phase-label-badge { background: var(--c-foundation-faint); color: var(--c-foundation); border-color: var(--c-foundation-border); }
+.sect-foundation .phase-section-bar { background: var(--c-foundation); }
+.sect-other      .phase-label-badge { background: var(--c-other-faint);      color: var(--c-other);      border-color: var(--c-other-border);      }
+.sect-other      .phase-section-bar { background: var(--c-other); }
+
+/* ── Player rows ── */
+.player-list { display: flex; flex-direction: column; gap: 8px; }
+.player-row {
+  display: grid;
+  grid-template-columns: 38px minmax(130px, 170px) 1fr minmax(130px, 180px) 76px;
+  align-items: center; gap: 14px;
+  padding: 12px 18px; border-radius: 10px;
+  background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-left: 3px solid;
+  transition: border-color .15s;
+}
+.player-row:hover { border-color: rgba(255,255,255,.22); }
+
+.row-excel      { border-left-color: var(--c-excel); }
+.row-progress   { border-left-color: var(--c-progress); }
+.row-assert     { border-left-color: var(--c-assert); }
+.row-foundation { border-left-color: var(--c-foundation); }
+.row-other      { border-left-color: var(--c-other); }
+
+/* Avatar */
+.p-avatar {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 800;
+  border: 1px solid;
+}
+.av-excel      { background: var(--c-excel-faint);      color: var(--c-excel);      border-color: var(--c-excel-border);      }
+.av-progress   { background: var(--c-progress-faint);   color: var(--c-progress);   border-color: var(--c-progress-border);   }
+.av-assert     { background: var(--c-assert-faint);     color: var(--c-assert);     border-color: var(--c-assert-border);     }
+.av-foundation { background: var(--c-foundation-faint); color: var(--c-foundation); border-color: var(--c-foundation-border); }
+.av-other      { background: var(--c-other-faint);      color: var(--c-other);      border-color: var(--c-other-border);      }
+
+/* Player info */
+.p-name { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-pos  { font-size: 11px; color: var(--text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Timeline track */
+.timeline-track {
+  display: flex; align-items: center; overflow: hidden; min-width: 0;
+  padding: 4px 0;
+}
+.tl-dot {
+  width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0;
+  cursor: pointer; transition: transform .12s, box-shadow .12s;
+}
+.tl-dot:hover { transform: scale(1.55); }
+.tl-line { flex: 1; height: 1px; background: rgba(255,255,255,.08); min-width: 5px; max-width: 30px; }
+.tl-empty { font-size: 11px; color: var(--text-dim); font-style: italic; }
+
+.dot-excel      { background: var(--c-excel);      box-shadow: 0 0 0 2px rgba(167,139,250,.15); }
+.dot-progress   { background: var(--c-progress);   box-shadow: 0 0 0 2px rgba(34,168,130,.15); }
+.dot-assert     { background: var(--c-assert);     box-shadow: 0 0 0 2px rgba(240,160,32,.15); }
+.dot-foundation { background: var(--c-foundation); box-shadow: 0 0 0 2px rgba(96,165,250,.15); }
+.dot-other      { background: var(--c-other); }
+
+/* Latest IDP info */
+.p-latest-date  { font-size: 12px; color: var(--text-muted); }
+.p-latest-focus { font-size: 12px; color: var(--text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Action buttons */
+.p-action { display: flex; justify-content: flex-end; }
+.btn-view {
+  padding: 5px 13px; border-radius: 6px; border: 1px solid var(--border-strong);
+  background: none; color: var(--text-dim); font-size: 11px; font-weight: 700;
+  font-family: 'Barlow Condensed', sans-serif; letter-spacing: .06em; text-transform: uppercase;
+  cursor: pointer; transition: color .15s, border-color .15s; white-space: nowrap;
+}
+.btn-view:hover { color: var(--teal-light); border-color: rgba(34,168,130,.4); }
+.btn-gen {
+  padding: 5px 13px; border-radius: 6px; border: 1px solid var(--c-assert-border);
+  background: var(--c-assert-faint); color: var(--c-assert); font-size: 11px; font-weight: 700;
+  font-family: 'Barlow Condensed', sans-serif; letter-spacing: .06em; text-transform: uppercase;
+  cursor: pointer; transition: border-color .15s; white-space: nowrap;
+}
+.btn-gen:hover { border-color: var(--c-assert); }
+
+/* ── IDP count badge on timeline ── */
+.tl-count {
+  font-size: 10px; font-weight: 700; color: var(--text-dim); white-space: nowrap;
+  margin-left: 8px; flex-shrink: 0;
+}
+
+/* ── Legend ── */
+.phase-legend {
+  display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 1.5rem;
+  padding: 12px 16px; background: var(--navy-mid); border: 1px solid var(--border-strong);
+  border-radius: 10px;
+}
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Empty / loading states ── */
+.loading-state { text-align: center; padding: 4rem; color: var(--text-dim); }
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.12); border-top-color: var(--teal-light); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-state { text-align: center; padding: 3rem; color: var(--text-dim); font-size: 14px; }
+
+/* ── Responsive ── */
+@media (max-width: 720px) {
+  .player-row {
+    grid-template-columns: 38px 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 10px 12px;
+    padding: 12px 14px;
+  }
+  .player-row > .p-latest { display: none; }
+  .player-row > .timeline-track {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+  .player-row > .p-action { grid-row: 1; grid-column: 3; }
+  .stats-strip .stat-pill { min-width: 110px; }
+}
+</style>
+</head>
+<body>
+<div id="sidebarMount"></div>
+<div class="main-content">
+<div class="page">
+
+  <div class="breadcrumb">
+    <a id="breadTeamLink" href="javascript:void(0)" onclick="goBack()">← Team</a>
+    <span>›</span>
+    <span>Season Cohort View</span>
+  </div>
+
+  <div class="page-header">
+    <div>
+      <div class="page-title" id="pageTitle">Season <em>Cohort View</em></div>
+      <div class="page-sub" id="pageSub">Loading…</div>
+    </div>
+  </div>
+
+  <div class="stats-strip" id="statsStrip" style="display:none;">
+    <div class="stat-pill">
+      <div class="stat-icon">👥</div>
+      <div><div class="stat-val" id="statPlayers">—</div><div class="stat-label">Players</div></div>
+    </div>
+    <div class="stat-pill">
+      <div class="stat-icon">📋</div>
+      <div><div class="stat-val" id="statIDPs">—</div><div class="stat-label">IDPs Generated</div></div>
+    </div>
+    <div class="stat-pill">
+      <div class="stat-icon">📊</div>
+      <div><div class="stat-val" id="statCoverage">—</div><div class="stat-label">Coverage</div></div>
+    </div>
+    <div class="stat-pill">
+      <div class="stat-icon">🏆</div>
+      <div><div class="stat-val" id="statTopPhase" style="font-size:17px;line-height:1.3;">—</div><div class="stat-label">Leading Phase</div></div>
+    </div>
+  </div>
+
+  <div class="phase-legend" id="phaseLegend" style="display:none;">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-excel)"></div> Excel</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-progress)"></div> Progress</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-assert)"></div> Assert</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c-foundation)"></div> Foundation</div>
+    <div class="legend-item" style="margin-left:4px;color:var(--text-dim);font-style:italic;font-size:11px;">↑ Timeline dots are colored by the phase of each individual IDP — click any dot to view it</div>
+  </div>
+
+  <div class="phase-filter" id="phaseFilter"></div>
+
+  <div id="cohortView">
+    <div class="loading-state"><div class="spinner"></div></div>
+  </div>
+
+</div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const teamId = params.get('team');
+const _base  = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
+
+let allPlayers   = [];
+let allIDPs      = [];
+let idpByPlayer  = {};   // playerId → [idp, …] oldest→newest
+let currentFilter = 'all';
+let teamData     = null;
+
+if (!teamId) { window.location.href = _base + '/dashboard.html'; }
+
+// ── Phase helpers ──────────────────────────────────────────────────────────
+function detectPhase(focus) {
+  if (!focus) return 'other';
+  const f = focus.toLowerCase();
+  if (f.includes('excel')) return 'excel';
+  if (f.includes('progress')) return 'progress';
+  if (f.includes('assert')) return 'assert';
+  if (f.includes('found')) return 'foundation';
+  return 'other';
+}
+
+const PHASE_ORDER  = ['excel', 'progress', 'assert', 'foundation', 'other'];
+const PHASE_LABELS = {
+  excel: '⭐ Excel', progress: '📈 Progress',
+  assert: '💪 Assert', foundation: '🌱 Foundation', other: 'No IDP Yet',
+};
+
+// ── Bootstrap ──────────────────────────────────────────────────────────────
+(async () => {
+  const ctx = await requireCoach();
+  if (!ctx) return;
+  await renderSidebar('teams');
+
+  // 1. Load team + players in parallel
+  const [teamRes, directRes, linkedRes] = await Promise.all([
+    sb.from('teams').select('*').eq('id', teamId).single(),
+    sb.from('players').select('*').eq('team_id', teamId).order('name'),
+    sb.from('player_teams').select('player_id, players(*)').eq('team_id', teamId),
+  ]);
+
+  teamData = teamRes.data;
+  if (!teamData) { window.location.href = _base + '/dashboard.html'; return; }
+
+  document.title = `${teamData.name} — Season Cohort`;
+  document.getElementById('pageTitle').innerHTML = `${esc(teamData.name)} <em>— Season Cohort</em>`;
+  document.getElementById('pageSub').textContent  = teamData.season || 'Current Season';
+  document.getElementById('breadTeamLink').textContent = `← ${teamData.name}`;
+
+  // Merge direct + linked players
+  const playerMap = {};
+  (directRes.data || []).forEach(p => { playerMap[p.id] = p; });
+  (linkedRes.data || []).forEach(pt => {
+    if (pt.players && !playerMap[pt.players.id]) playerMap[pt.players.id] = pt.players;
+  });
+  allPlayers = Object.values(playerMap).sort((a, b) => a.name.localeCompare(b.name));
+
+  if (allPlayers.length === 0) {
+    document.getElementById('cohortView').innerHTML =
+      `<div class="empty-state">No players found for this team.</div>`;
+    return;
+  }
+
+  // 2. Load all IDPs for these players (oldest first for timeline order)
+  const playerIds = allPlayers.map(p => p.id);
+  const { data: idps } = await sb.from('idps')
+    .select('id, player_id, data, published, updated_at')
+    .in('player_id', playerIds)
+    .order('updated_at', { ascending: true });
+
+  allIDPs = idps || [];
+  idpByPlayer = {};
+  allIDPs.forEach(idp => {
+    if (!idpByPlayer[idp.player_id]) idpByPlayer[idp.player_id] = [];
+    idpByPlayer[idp.player_id].push(idp);
+  });
+
+  renderStats();
+  renderFilter();
+  renderCohort();
+
+  document.getElementById('phaseLegend').style.display = 'flex';
+})();
+
+// ── Stats bar ──────────────────────────────────────────────────────────────
+function renderStats() {
+  const withIDP    = allPlayers.filter(p => (idpByPlayer[p.id] || []).length > 0).length;
+  const coverage   = allPlayers.length > 0 ? Math.round(withIDP / allPlayers.length * 100) : 0;
+
+  // Tally current phases
+  const phaseCounts = {};
+  allPlayers.forEach(p => {
+    const list = idpByPlayer[p.id];
+    const latest = list && list.length ? list[list.length - 1] : null;
+    const ph = latest ? detectPhase(latest.data?.focus) : 'other';
+    phaseCounts[ph] = (phaseCounts[ph] || 0) + 1;
+  });
+
+  const ranked = PHASE_ORDER.filter(ph => ph !== 'other')
+    .sort((a, b) => (phaseCounts[b] || 0) - (phaseCounts[a] || 0));
+  const topPhase = ranked.length && (phaseCounts[ranked[0]] || 0) > 0 ? ranked[0] : null;
+
+  document.getElementById('statPlayers').textContent  = allPlayers.length;
+  document.getElementById('statIDPs').textContent     = allIDPs.length;
+  document.getElementById('statCoverage').textContent = coverage + '%';
+  document.getElementById('statTopPhase').textContent = topPhase ? PHASE_LABELS[topPhase] : '—';
+  document.getElementById('statsStrip').style.display = 'flex';
+}
+
+// ── Phase filter ───────────────────────────────────────────────────────────
+function renderFilter() {
+  // Count per phase
+  const counts = { all: allPlayers.length };
+  allPlayers.forEach(p => {
+    const list   = idpByPlayer[p.id];
+    const latest = list && list.length ? list[list.length - 1] : null;
+    const ph     = latest ? detectPhase(latest.data?.focus) : 'other';
+    counts[ph] = (counts[ph] || 0) + 1;
+  });
+
+  const pills = [
+    { key: 'all',        label: 'All' },
+    { key: 'excel',      label: '⭐ Excel' },
+    { key: 'progress',   label: '📈 Progress' },
+    { key: 'assert',     label: '💪 Assert' },
+    { key: 'foundation', label: '🌱 Foundation' },
+    { key: 'other',      label: 'No IDP' },
+  ];
+
+  document.getElementById('phaseFilter').innerHTML = pills.map(pill => {
+    const count = counts[pill.key] || 0;
+    if (pill.key !== 'all' && count === 0) return '';
+    const isActive = currentFilter === pill.key;
+    return `<button class="phase-pill${isActive ? ' active-' + pill.key : ''}"
+        onclick="setFilter('${pill.key}')">
+      ${pill.label}<span class="pill-count">${count}</span>
+    </button>`;
+  }).join('');
+}
+
+function setFilter(phase) {
+  currentFilter = phase;
+  renderFilter();
+  renderCohort();
+}
+
+// ── Main cohort render ─────────────────────────────────────────────────────
+function renderCohort() {
+  // Group players by current phase
+  const groups = {}; // phase → [{player, idps, latestIdp, phase}]
+  allPlayers.forEach(p => {
+    const idps    = idpByPlayer[p.id] || [];
+    const latest  = idps.length ? idps[idps.length - 1] : null;
+    const phase   = latest ? detectPhase(latest.data?.focus) : 'other';
+    if (!groups[phase]) groups[phase] = [];
+    groups[phase].push({ player: p, idps, latestIdp: latest, phase });
+  });
+
+  let html = '';
+  let anyVisible = false;
+
+  for (const phase of PHASE_ORDER) {
+    if (currentFilter !== 'all' && currentFilter !== phase) continue;
+    const entries = (groups[phase] || []).slice().sort((a, b) =>
+      a.player.name.localeCompare(b.player.name)
+    );
+    if (entries.length === 0) continue;
+    anyVisible = true;
+
+    html += `
+      <div class="phase-section sect-${phase}">
+        <div class="phase-section-header">
+          <span class="phase-label-badge">${PHASE_LABELS[phase]}</span>
+          <div class="phase-section-bar"></div>
+          <span class="phase-count-text">${entries.length} player${entries.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="player-list">
+          ${entries.map(e => renderPlayerRow(e)).join('')}
+        </div>
+      </div>`;
+  }
+
+  if (!anyVisible) {
+    html = `<div class="empty-state">No players in this phase.</div>`;
+  }
+
+  document.getElementById('cohortView').innerHTML = html;
+}
+
+// ── Player row ─────────────────────────────────────────────────────────────
+function renderPlayerRow({ player, idps, latestIdp, phase }) {
+  const initials = (player.name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  const pos = player.positions || player.position || '';
+
+  // Build mini timeline
+  let timelineHtml = '';
+  if (idps.length === 0) {
+    timelineHtml = `<span class="tl-empty">No IDPs yet</span>`;
+  } else {
+    const MAX_DOTS = 12; // visual cap; still navigable via view IDP
+    const visible = idps.slice(-MAX_DOTS); // show most recent if capped
+    visible.forEach((idp, i) => {
+      const ph    = detectPhase(idp.data?.focus);
+      const date  = formatDate(idp.updated_at);
+      const focus = idp.data?.focus || 'Development Plan';
+      const tip   = `${date} · ${focus}`;
+      if (i > 0) timelineHtml += `<div class="tl-line"></div>`;
+      timelineHtml += `<div class="tl-dot dot-${ph}" title="${esc(tip)}"
+          onclick="goToIDP('${esc(player.id)}', '${esc(idp.id)}')"></div>`;
+    });
+    if (idps.length > 1) {
+      timelineHtml += `<span class="tl-count">${idps.length} IDP${idps.length !== 1 ? 's' : ''}</span>`;
+    }
+  }
+
+  // Latest IDP metadata
+  const latestHtml = latestIdp
+    ? `<div class="p-latest-date">${formatDate(latestIdp.updated_at)}</div>
+       <div class="p-latest-focus">${esc(latestIdp.data?.focus || 'Development Plan')}</div>`
+    : `<div class="p-latest-date" style="color:var(--text-dim);font-style:italic;">No IDP yet</div>`;
+
+  const actionBtn = idps.length > 0
+    ? `<button class="btn-view" onclick="goToPlayer('${esc(player.id)}')">View →</button>`
+    : `<button class="btn-gen"  onclick="goToGenerate('${esc(player.id)}')">+ IDP</button>`;
+
+  return `
+    <div class="player-row row-${phase}">
+      <div class="p-avatar av-${phase}">${initials}</div>
+      <div>
+        <div class="p-name">${esc(player.name)}</div>
+        ${pos ? `<div class="p-pos">${esc(pos)}</div>` : ''}
+      </div>
+      <div class="timeline-track">${timelineHtml}</div>
+      <div class="p-latest">${latestHtml}</div>
+      <div class="p-action">${actionBtn}</div>
+    </div>`;
+}
+
+// ── Navigation ─────────────────────────────────────────────────────────────
+function goBack()              { window.location.href = `${_base}/team.html?team=${teamId}`; }
+function goToPlayer(pid)       { window.location.href = `${_base}/view-idp.html?player=${pid}&team=${teamId}`; }
+function goToGenerate(pid)     { window.location.href = `${_base}/generate.html?player=${pid}&team=${teamId}`; }
+function goToIDP(pid, idpId)   { window.location.href = `${_base}/view-idp.html?player=${pid}&team=${teamId}`; }
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+function formatDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>
