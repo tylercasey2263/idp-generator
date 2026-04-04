@@ -70,6 +70,26 @@ html, body { height: 100vh; overflow: hidden; background: var(--navy);
   font-size: 10px; font-weight: 800; color: var(--teal-light);
   font-family: 'Barlow Condensed', sans-serif;
 }
+.roster-dot.guest { background: rgba(240,160,32,.12); border-color: rgba(240,160,32,.4); color: #F0A020; }
+.guest-chip {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  color: #F0A020; background: rgba(240,160,32,.1); border: 1px solid rgba(240,160,32,.2);
+  border-radius: 3px; padding: 1px 4px; flex-shrink: 0;
+}
+.guest-input-row { display: flex; gap: 5px; margin-top: 5px; }
+.guest-input {
+  flex: 1; background: var(--navy); border: 1px solid var(--border-strong);
+  border-radius: 6px; color: var(--text); font-family: 'Inter', sans-serif;
+  font-size: 12px; padding: 5px 8px; outline: none; transition: border-color .2s;
+}
+.guest-input:focus { border-color: var(--teal); }
+.guest-add-btn {
+  padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(240,160,32,.3);
+  background: rgba(240,160,32,.08); color: #F0A020; font-size: 11px; font-weight: 700;
+  font-family: 'Barlow Condensed', sans-serif; cursor: pointer; white-space: nowrap;
+  transition: border-color .15s;
+}
+.guest-add-btn:hover { border-color: rgba(240,160,32,.5); }
 .roster-name { flex: 1; min-width: 0; }
 .roster-drag-hint { font-size: 10px; color: var(--text-dim); }
 .roster-empty { font-size: 12px; color: var(--text-dim); text-align: center; padding: 20px 0; line-height: 1.6; }
@@ -184,6 +204,7 @@ html, body { height: 100vh; overflow: hidden; background: var(--navy);
   font-size: 9px; font-weight: 800; color: var(--teal-light);
   font-family: 'Barlow Condensed', sans-serif;
 }
+.assign-opt-dot.guest { background: rgba(240,160,32,.12); border-color: rgba(240,160,32,.4); color: #F0A020; }
 .assign-empty { font-size: 12px; color: var(--text-dim); padding: 8px; }
 
 /* ── Lineup name input ── */
@@ -353,6 +374,13 @@ html, body { height: 100vh; overflow: hidden; background: var(--navy);
         <div id="rosterList" class="roster-list">
           <div class="roster-empty">Select a team above to load players</div>
         </div>
+        <div id="guestInputRow" class="guest-input-row" style="display:none;">
+          <input id="guestNameInput" class="guest-input" type="text" placeholder="Guest name…" maxlength="40"
+            onkeydown="if(event.key==='Enter')confirmAddGuest();if(event.key==='Escape')toggleGuestInput(false);">
+          <button class="guest-add-btn" onclick="confirmAddGuest()">Add</button>
+        </div>
+        <button id="addGuestBtn" class="lm-btn lm-btn-ghost" style="width:100%;margin-top:6px;font-size:11px;padding:5px 8px;"
+          onclick="toggleGuestInput(true)">+ Guest Player</button>
       </div>
 
       <div class="lm-btn-row">
@@ -629,6 +657,7 @@ function onFormatChange() {
 async function onTeamChange() {
   const teamId = document.getElementById('teamSel').value;
   onPitch = [];
+  toggleGuestInput(false);
   if (!teamId) {
     allPlayers = [];
     savedLineups = [];
@@ -705,9 +734,9 @@ function renderRoster() {
          data-id="${p.id}" data-name="${esc(p.name)}"
          ondragstart="rosterDragStart(event,'${p.id}')"
          ondragend="rosterDragEnd(event)">
-      <div class="roster-dot">${initials(p.name)}</div>
+      <div class="roster-dot${p.isGuest ? ' guest' : ''}">${initials(p.name)}</div>
       <div class="roster-name">${esc(p.name)}</div>
-      <span class="roster-drag-hint">⠿</span>
+      ${p.isGuest ? '<span class="guest-chip">Guest</span>' : '<span class="roster-drag-hint">⠿</span>'}
     </div>`).join('');
 }
 
@@ -830,6 +859,23 @@ function slotClick(e, sx, sy) {
   showAssignPicker(e.clientX, e.clientY, sx, sy);
 }
 
+// ── Guest players ─────────────────────────────────────────────────────────
+function toggleGuestInput(show) {
+  document.getElementById('guestInputRow').style.display = show ? 'flex' : 'none';
+  document.getElementById('addGuestBtn').style.display   = show ? 'none' : 'block';
+  if (show) setTimeout(() => document.getElementById('guestNameInput').focus(), 40);
+  else document.getElementById('guestNameInput').value = '';
+}
+
+function confirmAddGuest() {
+  const name = document.getElementById('guestNameInput').value.trim();
+  if (!name) return;
+  const id = 'guest-' + Date.now();
+  allPlayers.push({ id, name, positions: '', isGuest: true });
+  toggleGuestInput(false);
+  renderRoster();
+}
+
 // ── Core placement logic ──────────────────────────────────────────────────
 function placePlayer(playerId, x, y) {
   // Remove any existing entry for this player (repositioning)
@@ -868,8 +914,8 @@ function showAssignPicker(clientX, clientY, pitchX, pitchY) {
       ? '<div class="assign-empty">No players available</div>'
       : bench.map(p => `
           <div class="assign-opt" onclick="assignPickerSelect('${p.id}')">
-            <div class="assign-opt-dot">${initials(p.name)}</div>
-            ${esc(p.name)}
+            <div class="assign-opt-dot${p.isGuest ? ' guest' : ''}">${initials(p.name)}</div>
+            ${esc(p.name)}${p.isGuest ? ' <span style="font-size:9px;color:#F0A020;opacity:.8;">(guest)</span>' : ''}
           </div>`).join(''));
 
   // Position picker near click, keeping it inside viewport
@@ -999,6 +1045,13 @@ async function loadSelectedLineup() {
 
   // Restore positions
   onPitch = Array.isArray(lineup.positions) ? lineup.positions : [];
+
+  // Re-add any guest players that were saved in the lineup
+  onPitch.forEach(t => {
+    if (t.playerId && String(t.playerId).startsWith('guest-') && !allPlayers.find(p => p.id === t.playerId)) {
+      allPlayers.push({ id: t.playerId, name: t.name, positions: '', isGuest: true });
+    }
+  });
 
   // Restore name
   document.getElementById('lineupName').value = lineup.name;

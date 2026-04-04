@@ -376,6 +376,16 @@ const _inviteToken = new URLSearchParams(window.location.search).get('invite');
   if (_inviteToken) {
     setMode('signup');
     setStatus("You've been invited! Create an account to get started.", 'success');
+    // Pre-fill email and name from the invite record
+    const { data: inv } = await sb.from('invites')
+      .select('email, label')
+      .eq('token', _inviteToken)
+      .is('used_at', null)
+      .maybeSingle();
+    if (inv) {
+      if (inv.email) document.getElementById('email').value = inv.email;
+      if (inv.label) document.getElementById('fullName').value = inv.label;
+    }
   }
 })();
 

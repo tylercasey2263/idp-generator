@@ -74,6 +74,13 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
   font-family: 'Barlow Condensed', sans-serif; transition: border-color .15s;
 }
 .btn-danger-sm:hover { border-color: rgba(224,80,80,.5); }
+.btn-ghost-sm {
+  padding: 4px 10px; border-radius: 5px; font-size: 11px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase; cursor: pointer;
+  background: transparent; border: 1px solid var(--border-strong); color: var(--text-dim);
+  font-family: 'Barlow Condensed', sans-serif; transition: border-color .15s, color .15s;
+}
+.btn-ghost-sm:hover { color: var(--text-muted); border-color: var(--text-dim); }
 
 /* Search bar */
 .search-row { display: flex; gap: 10px; margin-bottom: 1rem; align-items: center; }
@@ -462,7 +469,12 @@ function buildInviteTable(invites) {
                 ? '<span class="chip chip-used">Used</span>'
                 : '<span class="chip chip-pending">Pending</span>'}</td>
               <td style="font-size:12px;color:var(--text-dim);white-space:nowrap;">${dateStr}</td>
-              <td>${!inv.used_at ? `<button class="btn-danger-sm" onclick="revokeInvite('${inv.id}', this)">Revoke</button>` : ''}</td>
+              <td style="white-space:nowrap;">
+                ${!inv.used_at ? `
+                  <button class="btn-ghost-sm" style="margin-right:4px;" onclick="resendInvite('${inv.id}','${esc(inv.email||'')}','${esc(inv.label||'')}','${esc(inv.role||'coach')}',this)">Resend</button>
+                  <button class="btn-danger-sm" onclick="deleteInvite('${inv.id}',this)">Delete</button>
+                ` : `<button class="btn-danger-sm" onclick="deleteInvite('${inv.id}',this)">Delete</button>`}
+              </td>
             </tr>`;
         }).join('')}
       </tbody>
@@ -558,8 +570,10 @@ async function createInvite() {
   document.getElementById('inviteLinkBox').textContent       = _inviteLink;
   document.getElementById('inviteLinkSection').style.display = 'block';
   document.getElementById('inviteActions').style.display     = 'none';
-  st.textContent = 'Invite created! Copy the link or use Open Email App.';
+  st.textContent = 'Invite created! Email app opened — or copy the link below.';
   st.className   = 'modal-status ok';
+  // Auto-open email client so the invite is sent right away
+  sendInviteEmail();
 }
 
 function copyInviteLink() {
@@ -658,20 +672,36 @@ async function confirmDeleteUser() {
   renderPage();
 }
 
-// ── Revoke Invite ─────────────────────────────────────
-async function revokeInvite(inviteId, btn) {
-  if (!confirm('Revoke this invite? The link will no longer work.')) return;
+// ── Delete Invite ─────────────────────────────────────
+async function deleteInvite(inviteId, btn) {
+  if (!confirm('Delete this invite? The link will no longer work.')) return;
   btn.disabled = true;
   btn.textContent = '…';
   const { error } = await sb.from('invites').delete().eq('id', inviteId);
   if (error) {
     btn.disabled = false;
-    btn.textContent = 'Revoke';
+    btn.textContent = 'Delete';
     alert('Error: ' + error.message);
     return;
   }
   allInvites = allInvites.filter(i => i.id !== inviteId);
   renderPage();
+}
+
+// ── Resend Invite ──────────────────────────────────────
+async function resendInvite(inviteId, email, name, role, btn) {
+  const { data: inv } = await sb.from('invites').select('token').eq('id', inviteId).maybeSingle();
+  if (!inv) { alert('Could not find invite.'); return; }
+  const link = `${location.origin}/login.html?invite=${inv.token}`;
+  const clubName = window._clubName || 'Player Development';
+  const subject = encodeURIComponent(`You're invited to ${clubName}`);
+  const body = encodeURIComponent(
+    `Hi ${name},\n\nYou've been invited to join ${clubName} as a ${role}.\n\nClick the link below to create your account:\n\n${link}\n\nThis link is unique to you — please don't share it.\n\nWelcome aboard!`
+  );
+  window.open(`mailto:${email}?subject=${subject}&body=${body}`);
+  const orig = btn.textContent;
+  btn.textContent = '✓ Sent';
+  setTimeout(() => { btn.textContent = orig; }, 2000);
 }
 
 function esc(s) {
