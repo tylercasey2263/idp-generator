@@ -553,38 +553,64 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
 .stat-pill.losses .sp-val { color: #E05050; }
 .stat-pill.draws .sp-val { color: var(--amber-light); }
 .stat-pill.pts .sp-val { color: var(--text); }
-.results-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+/* ── Match Results collapsible header ── */
+.results-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: .75rem; margin-bottom: 8px; cursor: pointer; user-select: none;
+}
+.results-header:hover .results-label { color: var(--text-muted); }
+.results-label {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); transition: color .15s;
+}
+.results-chevron { font-size: 10px; color: var(--text-dim); transition: transform .2s; }
+.results-chevron.collapsed { transform: rotate(-90deg); }
+.results-body.results-hidden { display: none; }
+
+.results-list { display: flex; flex-direction: column; gap: 5px; }
+
+/* ── Individual result row — flat, all info visible ── */
 .result-row {
   background: var(--navy-mid); border: 1px solid var(--border);
-  border-radius: 8px; overflow: hidden; cursor: pointer; transition: border-color .15s;
+  border-radius: 8px; overflow: hidden;
+  display: grid;
+  grid-template-columns: 80px 1fr auto auto auto;
+  align-items: center; gap: 10px; padding: 9px 14px;
+  transition: border-color .15s;
 }
 .result-row:hover { border-color: var(--border-strong); }
-.result-row.expanded { border-color: var(--teal); }
-.result-row.no-expand { cursor: default; }
-.result-row.no-expand:hover { border-color: var(--border); }
-.result-row-main {
-  display: grid; grid-template-columns: 1fr auto auto 18px;
-  align-items: center; gap: 10px; padding: 10px 14px;
+
+/* Column: Date */
+.result-date {
+  font-size: 11px; color: var(--text-dim);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 600; letter-spacing: .03em; line-height: 1.3; white-space: nowrap;
 }
-.result-expand-icon { font-size: 10px; color: var(--text-dim); transition: transform .2s; text-align: right; }
-.result-row.expanded .result-expand-icon { transform: rotate(180deg); }
-.result-detail {
-  display: none; padding: 8px 14px 10px; border-top: 1px solid var(--border);
-  font-size: 11px; color: var(--text-dim); gap: 16px; flex-wrap: wrap; align-items: center;
+/* Column: Opponent */
+.result-opp { font-size: 13px; color: var(--text-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Column: Home/Away badge */
+.result-ha {
+  font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  font-family: 'Barlow Condensed', sans-serif;
+  padding: 2px 7px; border-radius: 4px; white-space: nowrap;
 }
-.result-row.expanded .result-detail { display: flex; }
-.result-detail-item { display: flex; align-items: center; gap: 5px; }
-.result-detail-item svg { opacity: .5; flex-shrink: 0; }
-.result-opp { font-size: 13px; color: var(--text-muted); }
-.result-score { font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); }
+.result-ha.home { background: var(--teal-faint); color: var(--teal-light); border: 1px solid rgba(27,138,107,.25); }
+.result-ha.away { background: var(--navy-light); color: var(--text-dim); border: 1px solid var(--border-strong); }
+/* Column: Score */
+.result-score {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700;
+  color: var(--text); white-space: nowrap; min-width: 36px; text-align: right;
+}
+/* Column: W/L/D badge */
 .result-badge {
   font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
-  letter-spacing: .06em; padding: 2px 8px; border-radius: 4px; min-width: 24px; text-align: center;
+  letter-spacing: .06em; padding: 2px 8px; border-radius: 4px;
+  min-width: 24px; text-align: center; white-space: nowrap;
 }
-.result-badge.W { background: var(--teal-faint); color: var(--teal-light); border: 1px solid rgba(27,138,107,.3); }
-.result-badge.L { background: rgba(224,80,80,.1); color: #E05050; border: 1px solid rgba(224,80,80,.25); }
-.result-badge.D { background: var(--amber-faint); color: var(--amber-light); border: 1px solid rgba(212,135,10,.25); }
-.result-badge.U { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+.result-badge.W { background: var(--teal-faint);       color: var(--teal-light);  border: 1px solid rgba(27,138,107,.3); }
+.result-badge.L { background: rgba(224,80,80,.08);     color: #E05050;            border: 1px solid rgba(224,80,80,.25); }
+.result-badge.D { background: var(--amber-faint);      color: var(--amber-light); border: 1px solid rgba(212,135,10,.25); }
+.result-badge.U { background: transparent;             color: var(--text-dim);    border: 1px solid var(--border); }
 .season-meta { font-size: 11px; color: var(--text-dim); margin-bottom: 12px; }
 .season-meta a { color: var(--teal-light); text-decoration: none; }
 .season-meta a:hover { text-decoration: underline; }
@@ -1457,49 +1483,77 @@ async function loadSeasonData() {
     }
 
     if (results.length > 0) {
-      html += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;' +
-        'letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-top:.75rem;margin-bottom:8px;">Match Results</div>';
-      html += '<div class="results-list">';
-      results.forEach(function(r) {
-        var score    = (r.goals_for != null && r.goals_against != null) ? r.goals_for + '-' + r.goals_against : 'vs';
-        var badge    = r.result || 'U';
-        var homeAway = r.is_home === true ? 'Home' : r.is_home === false ? 'Away' : null;
-        var venue    = r.venue || null;
-
-        var detailItems = '';
-        if (r.match_date) {
-          var d = new Date(r.match_date + 'T12:00:00');
-          var dateFull = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-          detailItems += '<div class="result-detail-item">' +
-            '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="1" y="2" width="10" height="9" rx="1.5" stroke="#94A3B8" stroke-width="1.2"/><path d="M1 5h10" stroke="#94A3B8" stroke-width="1.2"/><path d="M4 1v2M8 1v2" stroke="#94A3B8" stroke-width="1.2" stroke-linecap="round"/></svg>' +
-            '<span>' + dateFull + '</span></div>';
-        }
-        if (homeAway) {
-          detailItems += '<div class="result-detail-item">' +
-            '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1L1.5 5.5V11h3V7.5h3V11h3V5.5L6 1z" stroke="#94A3B8" stroke-width="1.2" stroke-linejoin="round"/></svg>' +
-            '<span>' + homeAway + '</span></div>';
-        }
-        if (venue) {
-          detailItems += '<div class="result-detail-item">' +
-            '<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="5" r="2" stroke="#94A3B8" stroke-width="1.2"/><path d="M6 1a4 4 0 014 4c0 3-4 7-4 7S2 8 2 5a4 4 0 014-4z" stroke="#94A3B8" stroke-width="1.2"/></svg>' +
-            '<span>' + esc(venue) + '</span></div>';
-        }
-
-        var hasDetail = !!(r.match_date || homeAway || venue);
-        var detailHtml = hasDetail ? '<div class="result-detail">' + detailItems + '</div>' : '';
-
-        html += '<div class="result-row' + (hasDetail ? '' : ' no-expand') + '"' +
-          (hasDetail ? ' onclick="toggleResultRow(this)"' : '') + '>' +
-          '<div class="result-row-main">' +
-            '<div class="result-opp">' + esc(r.opponent || '-') + '</div>' +
-            '<div class="result-score">' + score + '</div>' +
-            '<div class="result-badge ' + badge + '">' + (badge === 'U' ? '-' : badge) + '</div>' +
-            (hasDetail ? '<div class="result-expand-icon">▼</div>' : '<div></div>') +
-          '</div>' +
-          detailHtml +
-        '</div>';
+      // Filter out rows where opponent looks like a score value (data artifact)
+      var validResults = results.filter(function(r) {
+        return r.opponent && !/^\d+-\d+$/.test(r.opponent.trim());
       });
-      html += '</div>';
+
+      // Deduplicate: same (opponent, gf, ga, result) → keep one, preferring the row with a date
+      var dedupMap = {};
+      validResults.forEach(function(r) {
+        var key = (r.opponent || '').toLowerCase() + '|' + r.goals_for + '|' + r.goals_against + '|' + r.result;
+        if (!dedupMap[key] || (!dedupMap[key].match_date && r.match_date)) {
+          dedupMap[key] = r;
+        }
+      });
+      var dedupedResults = Object.values(dedupMap);
+
+      // Sort: rows with dates first (by date asc), then undated rows by opponent name
+      dedupedResults.sort(function(a, b) {
+        if (a.match_date && b.match_date) return a.match_date.localeCompare(b.match_date);
+        if (a.match_date) return -1;
+        if (b.match_date) return  1;
+        return (a.opponent || '').localeCompare(b.opponent || '');
+      });
+
+      // Check if any result actually has a date
+      var hasDates = dedupedResults.some(function(r) { return !!r.match_date; });
+
+      var rowsHtml = dedupedResults.map(function(r) {
+        var score  = (r.goals_for != null && r.goals_against != null) ? r.goals_for + '-' + r.goals_against : '—';
+        var badge  = r.result || 'U';
+
+        // Date column: only shown when at least one row has a date
+        var dateHtml = '';
+        if (hasDates) {
+          var dateStr = '—';
+          if (r.match_date) {
+            var d = new Date(r.match_date + 'T12:00:00');
+            dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          }
+          dateHtml = '<div class="result-date">' + dateStr + '</div>';
+        }
+
+        // Home/Away badge
+        var haHtml = '';
+        if (r.is_home === true) {
+          haHtml = '<span class="result-ha home">Home</span>';
+        } else if (r.is_home === false) {
+          haHtml = '<span class="result-ha away">Away</span>';
+        } else {
+          haHtml = '<span class="result-ha" style="visibility:hidden;">—</span>';
+        }
+
+        var gridCols = hasDates ? '80px 1fr auto auto auto' : '1fr auto auto auto';
+        return '<div class="result-row" style="grid-template-columns:' + gridCols + '">' +
+          dateHtml +
+          '<div class="result-opp">' + esc(r.opponent || '—') + '</div>' +
+          haHtml +
+          '<div class="result-score">' + score + '</div>' +
+          '<div class="result-badge ' + badge + '">' + (badge === 'U' ? '?' : badge) + '</div>' +
+        '</div>';
+      }).join('');
+
+      var bodyId = 'matchResultsList_' + groupId;
+      var chevId = 'matchChevron_' + groupId;
+      html +=
+        '<div class="results-header" onclick="toggleMatchResultsView(this,' + JSON.stringify(bodyId) + ',' + JSON.stringify(chevId) + ')">' +
+          '<span class="results-label">Match Results (' + dedupedResults.length + ')</span>' +
+          '<span class="results-chevron" id="' + chevId + '">▼</span>' +
+        '</div>' +
+        '<div class="results-body" id="' + bodyId + '">' +
+          '<div class="results-list">' + rowsHtml + '</div>' +
+        '</div>';
     } else if (!standing) {
       html += '<div style="font-size:13px;color:var(--text-dim);background:var(--navy-mid);border-radius:8px;padding:10px 14px;">No league data yet. Run the sync to pull data from GotSport.</div>';
     }
@@ -1515,8 +1569,12 @@ async function loadSeasonData() {
   container.innerHTML = html;
 }
 
-function toggleResultRow(row) {
-  row.classList.toggle('expanded');
+function toggleMatchResultsView(header, bodyId, chevId) {
+  var body   = document.getElementById(bodyId);
+  var chevron = document.getElementById(chevId);
+  if (!body) return;
+  var hidden = body.classList.toggle('results-hidden');
+  if (chevron) chevron.classList.toggle('collapsed', hidden);
 }
 
 // ─── COPY IDP ──────────────────────────────────────────────────────────────

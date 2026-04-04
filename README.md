@@ -24,8 +24,9 @@ A full-stack web app for youth football coaches to generate AI-powered Individua
 - Coach notes field on each player (with 🎙 microphone dictation)
 - CSV import for bulk player creation
 - Training Sessions log — add date, focus area, and freeform notes (with 🎙 mic), view history, delete sessions
-- **League Results** — live standings (position, W/L/D/GF/GA/PTS) and match-by-match results pulled from SLYSA GotSport, with expandable rows showing date, home/away, venue when available; direct link to the division page
-- **Coaching Staff** — team coaches synced from GotSport roster; coaches can click "Link me to this team" to associate their profile account
+- **League Results** — live standings (position, W/L/D/GF/GA/PTS) and collapsible match results pulled from SLYSA GotSport; each row shows date (when available), opponent, Home/Away badge, score, and W/L/D inline; direct link to the division page
+- **Coaching Staff** — team coaches synced from GotSport roster; coaches can click "Link me to this team" to associate their profile account; admins can remove any coach including themselves
+- **📅 Season View** button in the page header — opens the Season / Cohort View for that team
 - Quick links to generate/view IDPs and open the lineup manager
 - Team summary line: player count, IDP coverage at a glance
 
@@ -46,7 +47,9 @@ Five-tab layout per player:
 **Season tab**
 - Live league standings and match results for all of the player's teams pulled from GotSport
 - Shows team position, W/L/D record, goals for/against, points
-- Expandable match-by-match results: opponent, score, W/L/D badge — click a row to reveal date, home/away, and venue when available; sorted by match date
+- Flat match-by-match results with all info visible inline: date (when available), opponent, Home/Away badge, score, W/L/D badge
+- Date column is automatically hidden when no dates are available in the database
+- Collapsible "Match Results (N)" sub-section; client-side deduplication and score-artifact filtering applied
 
 **IDPs tab**
 - Full IDP history sorted newest-first
@@ -85,8 +88,18 @@ Five-tab layout per player:
 ### ⚙️ Settings (`settings.html`)
 - **My Profile** — visible to all coaches; update your display name and upload a profile avatar (stored in Supabase `avatars` bucket)
 - Club name and logo *(admin only)*
+- **Theme Colors** *(admin only)* — pick a primary accent color for the whole site; 9 presets (Forest, Royal Blue, Crimson, Violet, Orange, Sky, Rose, Gold, Slate) plus a free color picker; live preview strip; saved to `settings` table as `theme_primary` and applied site-wide via `nav.js`
 - API key management *(admin only)*
 - User management — invite coaches, manage roles *(admin only)*
+
+### 📅 Season / Cohort View (`season.html`)
+- Per-team timeline showing every player's IDP history across a season
+- Players grouped into phase columns: Foundation / Assert / Progress / Excel
+- Mini dot timeline per player — each dot represents one IDP, color-coded by phase with connector lines
+- Stats strip: total players, IDPs generated, coverage %, leading phase
+- Filter pills to focus on a specific phase (live counts update)
+- Players with no IDPs show an amber **+ IDP** shortcut; players with IDPs show a teal **View →** link
+- Accessible from the Team page header
 
 ### 🏆 Team Development Plan (`team-plan.html`)
 - Aggregates all published player IDPs for a team

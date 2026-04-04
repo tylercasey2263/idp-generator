@@ -1565,16 +1565,23 @@ async function loadLeagueResults() {
       return (a.opponent || '').localeCompare(b.opponent || '');
     });
 
+    // Check if any result actually has a date
+    var hasDates = dedupedResults.some(function(r) { return !!r.match_date; });
+
     var rowsHtml = dedupedResults.map(function(r) {
       var score  = (r.goals_for != null && r.goals_against != null)
         ? r.goals_for + '-' + r.goals_against : '—';
       var badge  = r.result || 'U';
 
-      // Date column: short format "Apr 11" or "—"
-      var dateStr = '—';
-      if (r.match_date) {
-        var d = new Date(r.match_date + 'T12:00:00');
-        dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      // Date column: only shown when at least one row has a date
+      var dateHtml = '';
+      if (hasDates) {
+        var dateStr = '—';
+        if (r.match_date) {
+          var d = new Date(r.match_date + 'T12:00:00');
+          dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+        dateHtml = '<div class="result-date">' + dateStr + '</div>';
       }
 
       // Home/Away badge
@@ -1587,8 +1594,9 @@ async function loadLeagueResults() {
         haHtml = '<span class="result-ha" style="visibility:hidden;">—</span>';
       }
 
-      return '<div class="result-row">' +
-        '<div class="result-date">' + dateStr + '</div>' +
+      var gridCols = hasDates ? '80px 1fr auto auto auto' : '1fr auto auto auto';
+      return '<div class="result-row" style="grid-template-columns:' + gridCols + '">' +
+        dateHtml +
         '<div class="result-opp">' + esc(r.opponent || '—') + '</div>' +
         haHtml +
         '<div class="result-score">' + score + '</div>' +
