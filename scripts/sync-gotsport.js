@@ -426,7 +426,8 @@ async function upsertResults(matches) {
  *   - venue = location cell if present
  */
 async function fetchGroupSchedules(groupId) {
-  const url = `${GOTSPORT_BASE}/org_event/events/${EVENT_ID}/games?group=${groupId}`;
+  // Correct URL is /schedules (not /games)
+  const url = `${GOTSPORT_BASE}/org_event/events/${EVENT_ID}/schedules?group=${groupId}`;
   console.log(`  Fetching schedule: ${url}`);
 
   let html;
@@ -449,83 +450,54 @@ async function fetchGroupSchedules(groupId) {
   const scheduleMap = {}; // opponent_lower -> { match_date, is_home, venue }
   const OUR_TEAM = "steamer's crew";
 
+  // GotSport schedules page table structure (verified):
+  //   Col 0: game_id (numeric)
+  //   Col 1: date + time  e.g. "Apr 11, 2026 11:45AM CDT CDT"
+  //   Col 2: home team name
+  //   Col 3: score or "-"
+  //   Col 4: away team name
+  //   Col 5: venue
+  //   Col 6: division (optional)
+  //
+  // Standings rows also appear in the same table with a team name in col 1
+  // — we skip those by checking that col 1 contains a month name.
+
   $('table tr').each((_, tr) => {
     const cells = $(tr).find('td');
-    if (cells.length < 4) return;
+    if (cells.length < 5) return;
 
     const texts = [];
-    cells.each((_, td) => texts.push($(td).text().trim()));
+    cells.each((_, td) => texts.push($(td).text().replace(/\s+/g, ' ').trim()));
 
-    // Look for a row where one cell contains our team name
-    const ourIdx  = texts.findIndex(t => t.toLowerCase().includes(OUR_TEAM));
-    if (ourIdx === -1) return;
+    const gameId   = texts[0];
+    const dateCell = texts[1];
+    const homeTeam = texts[2];
+    const awayTeam = texts[4];
+    const venue    = texts[5] || null;
 
-    // Try to parse date — look for a cell that looks like a date string
-    let matchDate = null;
-    for (const t of texts) {
-      // Match patterns: "4/5/2026", "Apr 5, 2026", "2026-04-05", "Sat Apr 5 2026"
-      const d = new Date(t);
-      if (!isNaN(d.getTime()) && d.getFullYear() > 2020) {
-        const iso = d.toISOString().split('T')[0];
-        matchDate = iso;
-        break;
-      }
-    }
+    // Only process rows that look like game rows (numeric id + date in col 1)
+    if (!/^\d+$/.test(gameId)) return;
+    if (!/Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/i.test(dateCell)) return;
 
-    // Determine home vs away: find cells for home team and away team
-    // Heuristic: look for two adjacent non-date, non-score cells containing team names
-    // Usually layout is: Date | Time | Home | Away | Score | Venue
-    // Try to find our team's column index relative to opponent
-    let isHome  = null;
-    let opponent = null;
+    // Check if our team is home or away
+    const homeIsOurs = homeTeam.toLowerCase().includes(OUR_TEAM);
+    const awayIsOurs = awayTeam.toLowerCase().includes(OUR_TEAM);
+    if (!homeIsOurs && !awayIsOurs) return;
 
-    // Strategy: check if there are two cells with team names adjacent to each other
-    // A team name cell is one that contains a club/team keyword but not a score pattern
-    const teamCells = texts.map((t, i) => ({
-      idx: i,
-      text: t,
-      isOurs: t.toLowerCase().includes(OUR_TEAM),
-      // A "team-like" cell has letters and is not a short score (not "2-1" pattern)
-      isTeam: t.length > 3 && !/^\d+[-–]\d+$/.test(t) && /[a-zA-Z]{3}/.test(t),
-    }));
+    const isHome   = homeIsOurs;
+    const opponent = homeIsOurs ? awayTeam : homeTeam;
 
-    const teamLikePairs = [];
-    for (let i = 0; i < teamCells.length - 1; i++) {
-      if (teamCells[i].isTeam && teamCells[i + 1].isTeam) {
-        teamLikePairs.push([teamCells[i], teamCells[i + 1]]);
-      }
-    }
-
-    if (teamLikePairs.length > 0) {
-      const [home, away] = teamLikePairs[0];
-      if (home.isOurs) {
-        isHome   = true;
-        opponent = away.text;
-      } else if (away.isOurs) {
-        isHome   = false;
-        opponent = home.text;
-      }
-    }
-
-    // Fallback: just find any non-our team-like cell
-    if (!opponent) {
-      const other = teamCells.find(c => c.isTeam && !c.isOurs);
-      if (other) opponent = other.text;
-    }
-
-    // Venue: last reasonable cell that looks like a location (longer text, not a team name)
-    let venue = null;
-    for (let i = texts.length - 1; i >= 0; i--) {
-      const t = texts[i];
-      if (t.length > 5 && !t.toLowerCase().includes(OUR_TEAM) && !t.toLowerCase().includes('steamer') && !/^\d/.test(t)) {
-        if (t !== opponent) { venue = t; break; }
-      }
-    }
+    // Parse date from "Apr 11, 2026 11:45AM CDT CDT" — grab just the date portion
+    const datePart = dateCell.replace(/\d+:\d+[AP]M.*$/i, '').trim(); // "Apr 11, 2026"
+    const d = new Date(datePart);
+    const matchDate = (!isNaN(d.getTime()) && d.getFullYear() > 2020)
+      ? d.toISOString().split('T')[0]
+      : null;
 
     if (opponent && matchDate) {
       const key = opponent.toLowerCase().trim();
-      scheduleMap[key] = { match_date: matchDate, is_home: isHome, venue };
-      console.log(`    Schedule: ${matchDate} vs ${opponent} (${isHome === true ? 'Home' : isHome === false ? 'Away' : '?'})`);
+      scheduleMap[key] = { match_date: matchDate, is_home: isHome, venue: venue || null };
+      console.log(`    Schedule: ${matchDate} vs ${opponent} (${isHome ? 'Home' : 'Away'})`);
     }
   });
 
