@@ -427,7 +427,7 @@ async function upsertResults(matches) {
   if (error) {
     console.error('  Results insert error:', error.message);
   } else {
-    console.log(`  Inserted ${rows.length} results for ${teamName}.`);
+    console.log(`  Inserted ${rows.length} results for ${rows[0].gotsport_team_name}.`);
   }
 }
 
