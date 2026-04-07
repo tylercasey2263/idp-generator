@@ -192,6 +192,7 @@ input[type="date"]:focus { border-color: var(--teal); }
   background: var(--navy-mid); border: 1px solid var(--border-strong);
   border-radius: 14px; padding: 2rem; width: 100%; max-width: 440px;
   display: flex; flex-direction: column; gap: 16px;
+  max-height: 90vh; overflow-y: auto;
 }
 .modal h2 { font-family: 'Barlow Condensed', sans-serif;
   font-size: 22px; font-weight: 800; }
@@ -288,6 +289,33 @@ input::placeholder { color: var(--text-dim); }
   transition: border-color .15s, background .15s;
 }
 .btn-link-team:hover { border-color: var(--teal); background: rgba(27,138,107,.15); }
+
+/* ─── IMPORT PLAYER RESULTS ─── */
+.import-result-row {
+  display: grid; grid-template-columns: 36px 1fr auto;
+  align-items: center; gap: 10px;
+  background: var(--navy); border: 1px solid var(--border);
+  border-radius: 8px; padding: 9px 12px;
+  transition: border-color .15s;
+}
+.import-result-row:hover { border-color: var(--border-strong); }
+.import-result-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--teal-faint); border: 1px solid rgba(27,138,107,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: var(--teal-light);
+  font-family: 'Barlow Condensed', sans-serif; flex-shrink: 0;
+}
+.import-result-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.import-result-team { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+.import-result-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.btn-transfer {
+  background: rgba(224,80,80,.1); border: 1px solid rgba(224,80,80,.3); color: #E05050;
+  font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif; letter-spacing: .04em;
+  text-transform: uppercase; white-space: nowrap; transition: background .15s;
+}
+.btn-transfer:hover { background: rgba(224,80,80,.2); }
 
 /* ─── POSITION PICKER ─── */
 .pos-picker { position: relative; }
@@ -476,6 +504,7 @@ input::placeholder { color: var(--text-dim); }
       <button class="btn btn-ghost" onclick="openCsvImport()" style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">⬆ Import CSV</button>
       <button class="btn btn-ghost" id="btnTeamPlan" onclick="goToTeamPlan()" style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">✦ Team Plan</button>
       <button class="btn btn-ghost" onclick="goToSeasonView()" style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">📅 Season View</button>
+      <button class="btn btn-ghost" onclick="openImportPlayer()" style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;">⇄ Import Player</button>
       <button class="btn btn-primary" onclick="openAddPlayer()">+ Add Player</button>
     </div>
   </div>
@@ -581,6 +610,40 @@ input::placeholder { color: var(--text-dim); }
       <button class="btn btn-primary" id="saveEditPlayerBtn" onclick="saveEditPlayer()">Save Changes</button>
     </div>
     <div class="modal-status" id="editPlayerStatus"></div>
+  </div>
+</div>
+
+<!-- IMPORT / TRANSFER PLAYER MODAL -->
+<div class="overlay" id="importPlayerModal">
+  <div class="modal" style="max-width:520px;">
+    <h2>Import Player</h2>
+    <p style="margin-top:-8px;">Search for an existing player and add them to this team, or transfer them from another team.</p>
+    <div class="field">
+      <label>Search Players</label>
+      <input type="text" id="importSearchInput" placeholder="Type a player name…"
+        oninput="onImportSearch(this.value)" autocomplete="off" />
+    </div>
+    <div id="importResults" style="display:flex;flex-direction:column;gap:6px;">
+      <span style="font-size:13px;color:var(--text-dim);">Type at least 2 characters to search.</span>
+    </div>
+    <!-- Transfer confirm panel -->
+    <div id="importTransferConfirm" style="display:none;background:rgba(224,80,80,.08);
+      border:1px solid rgba(224,80,80,.25);border-radius:10px;padding:14px 16px;">
+      <div id="importTransferMsg" style="font-size:13px;color:var(--text-muted);line-height:1.55;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost" onclick="cancelTransferConfirm()" style="flex:1;">Cancel</button>
+        <button id="confirmTransferBtn" onclick="confirmTransfer()"
+          style="flex:1;background:rgba(224,80,80,.15);border:1px solid rgba(224,80,80,.4);color:#E05050;
+                 font-weight:700;font-size:13px;padding:10px;border-radius:8px;cursor:pointer;
+                 font-family:'Inter',sans-serif;transition:background .15s;">
+          Confirm Transfer
+        </button>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:0;">
+      <button class="btn btn-ghost" onclick="closeImportPlayer()" style="flex:1;">Close</button>
+    </div>
+    <div class="modal-status" id="importStatus"></div>
   </div>
 </div>
 
@@ -1370,6 +1433,156 @@ function esc(str) {
   if (!str) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ─── IMPORT / TRANSFER PLAYER ─────────────────────────────────────────────
+let _importSearchTimeout = null;
+let _importTransferPlayerId  = null;
+let _importTransferOldTeamId = null;
+
+function openImportPlayer() {
+  document.getElementById('importSearchInput').value = '';
+  document.getElementById('importResults').innerHTML =
+    '<span style="font-size:13px;color:var(--text-dim);">Type at least 2 characters to search.</span>';
+  document.getElementById('importTransferConfirm').style.display = 'none';
+  document.getElementById('importStatus').textContent = '';
+  _importTransferPlayerId  = null;
+  _importTransferOldTeamId = null;
+  document.getElementById('importPlayerModal').classList.add('open');
+  setTimeout(() => document.getElementById('importSearchInput').focus(), 80);
+}
+
+function closeImportPlayer() {
+  clearTimeout(_importSearchTimeout);
+  document.getElementById('importPlayerModal').classList.remove('open');
+}
+
+document.getElementById('importPlayerModal').addEventListener('click', function(e) {
+  if (e.target === this) closeImportPlayer();
+});
+
+function onImportSearch(val) {
+  clearTimeout(_importSearchTimeout);
+  cancelTransferConfirm();
+  if (val.trim().length < 2) {
+    document.getElementById('importResults').innerHTML =
+      '<span style="font-size:13px;color:var(--text-dim);">Type at least 2 characters to search.</span>';
+    return;
+  }
+  document.getElementById('importResults').innerHTML =
+    '<span style="font-size:13px;color:var(--text-dim);">Searching…</span>';
+  _importSearchTimeout = setTimeout(() => doImportSearch(val.trim()), 300);
+}
+
+async function doImportSearch(query) {
+  const { data, error } = await sb
+    .from('players')
+    .select('id, name, positions, team_id, teams(id, name)')
+    .ilike('name', `%${query}%`)
+    .limit(25);
+
+  if (error) {
+    document.getElementById('importResults').innerHTML =
+      '<span style="font-size:13px;color:#E05050;">Error searching players.</span>';
+    return;
+  }
+
+  // Exclude players already on this team (primary or secondary)
+  const currentIds = new Set(teamPlayerIds);
+  const results = (data || []).filter(p => !currentIds.has(p.id));
+
+  if (results.length === 0) {
+    document.getElementById('importResults').innerHTML =
+      '<span style="font-size:13px;color:var(--text-dim);">No players found — they may already be on this team.</span>';
+    return;
+  }
+
+  let html = '';
+  results.forEach(p => {
+    const inits    = (p.name || '?').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+    const teamName = p.teams?.name || 'No primary team';
+    html += `
+      <div class="import-result-row" id="irow-${p.id}">
+        <div class="import-result-avatar">${inits}</div>
+        <div class="import-result-info">
+          <div class="import-result-name">${esc(p.name)}</div>
+          <div class="import-result-team">${esc(teamName)}</div>
+        </div>
+        <div class="import-result-actions">
+          <button class="btn-link-team"
+            onclick="importAddSecondary('${p.id}','${esc(p.name)}')"
+            title="Add to this team — player stays on ${esc(teamName)} too">+ Add</button>
+          ${p.team_id ? `<button class="btn-transfer"
+            onclick="beginTransfer('${p.id}','${p.team_id}','${esc(p.name)}','${esc(teamName)}')">
+            ⇄ Transfer</button>` : ''}
+        </div>
+      </div>`;
+  });
+  document.getElementById('importResults').innerHTML = html;
+}
+
+async function importAddSecondary(playerId, playerName) {
+  const st = document.getElementById('importStatus');
+  st.textContent = 'Adding…'; st.className = 'modal-status';
+
+  const { error } = await sb.from('player_teams')
+    .insert({ player_id: playerId, team_id: teamId });
+
+  if (error && error.code !== '23505') {
+    st.textContent = 'Error: ' + error.message;
+    st.className = 'modal-status err'; return;
+  }
+  closeImportPlayer();
+  loadPlayers();
+  showToast(playerName + ' added to this team ✓');
+}
+
+function beginTransfer(playerId, oldTeamId, playerName, oldTeamName) {
+  _importTransferPlayerId  = playerId;
+  _importTransferOldTeamId = oldTeamId;
+  document.getElementById('importTransferMsg').innerHTML =
+    `<strong style="color:#E05050;">Transfer ${esc(playerName)}?</strong><br>` +
+    `This will move them from <strong>${esc(oldTeamName)}</strong> to this team as their ` +
+    `primary team. They will no longer appear on ${esc(oldTeamName)}'s roster.`;
+  const confirm = document.getElementById('importTransferConfirm');
+  confirm.style.display = 'block';
+  confirm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function cancelTransferConfirm() {
+  _importTransferPlayerId  = null;
+  _importTransferOldTeamId = null;
+  document.getElementById('importTransferConfirm').style.display = 'none';
+}
+
+async function confirmTransfer() {
+  if (!_importTransferPlayerId) return;
+  const btn = document.getElementById('confirmTransferBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  // 1. Move player's primary team to this one
+  const { error } = await sb.from('players')
+    .update({ team_id: teamId })
+    .eq('id', _importTransferPlayerId);
+
+  if (error) {
+    btn.disabled = false;
+    btn.textContent = 'Confirm Transfer';
+    document.getElementById('importStatus').textContent = 'Error: ' + error.message;
+    document.getElementById('importStatus').className = 'modal-status err';
+    return;
+  }
+
+  // 2. If they were linked as secondary on this team, remove that (now primary)
+  await sb.from('player_teams')
+    .delete()
+    .eq('player_id', _importTransferPlayerId)
+    .eq('team_id', teamId);
+
+  closeImportPlayer();
+  loadPlayers();
+  showToast('Player transferred to this team ✓');
 }
 
 // Initialise position pickers (runs after DOM is ready)
