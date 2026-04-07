@@ -1475,28 +1475,37 @@ function onImportSearch(val) {
 }
 
 async function doImportSearch(query) {
-  const { data, error } = await sb
-    .from('players')
-    .select('id, name, positions, team_id, teams(id, name)')
-    .ilike('name', `%${query}%`)
-    .limit(25);
-
-  if (error) {
+  // Use the search-players edge function so coaches can search ALL players,
+  // not just those on their assigned teams (bypasses RLS with service role)
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
     document.getElementById('importResults').innerHTML =
-      '<span style="font-size:13px;color:#E05050;">Error searching players.</span>';
+      '<span style="font-size:13px;color:#E05050;">Not authenticated.</span>';
     return;
   }
 
-  // Exclude players already on this team (primary or secondary)
-  const currentIds = new Set(teamPlayerIds);
-  const results = (data || []).filter(p => !currentIds.has(p.id));
+  let results = [];
+  try {
+    const res = await fetch(SUPABASE_CONFIG.url + '/functions/v1/search-players', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ query, exclude_team_id: teamId }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || res.statusText);
+    results = json.players || [];
+  } catch (err) {
+    document.getElementById('importResults').innerHTML =
+      `<span style="font-size:13px;color:#E05050;">Search error: ${esc(err.message)}</span>`;
+    return;
+  }
 
   if (results.length === 0) {
-    const scopeNote = isAdmin
-      ? 'No players found. They may already be on this team.'
-      : 'No players found. Coaches can only search players on their assigned teams — ask an admin to transfer players across clubs.';
     document.getElementById('importResults').innerHTML =
-      `<span style="font-size:13px;color:var(--text-dim);">${scopeNote}</span>`;
+      '<span style="font-size:13px;color:var(--text-dim);">No players found. They may already be on this team.</span>';
     return;
   }
 
