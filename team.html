@@ -1492,8 +1492,11 @@ async function doImportSearch(query) {
   const results = (data || []).filter(p => !currentIds.has(p.id));
 
   if (results.length === 0) {
+    const scopeNote = isAdmin
+      ? 'No players found. They may already be on this team.'
+      : 'No players found. Coaches can only search players on their assigned teams — ask an admin to transfer players across clubs.';
     document.getElementById('importResults').innerHTML =
-      '<span style="font-size:13px;color:var(--text-dim);">No players found — they may already be on this team.</span>';
+      `<span style="font-size:13px;color:var(--text-dim);">${scopeNote}</span>`;
     return;
   }
 

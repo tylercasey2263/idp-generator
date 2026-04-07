@@ -856,7 +856,7 @@ function closePasswordModal() { document.getElementById('pwdModal').classList.re
 
 async function unlockWithPassword() {
   if (!ENCRYPTED_KEY_BLOB) {
-    document.getElementById('pwdStatus').textContent = 'No key configured yet — see setup_key.html.';
+    document.getElementById('pwdStatus').textContent = 'No key configured yet — ask your admin to set the API key in Settings.';
     return;
   }
   const pwd = document.getElementById('pwdInput').value;

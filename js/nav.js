@@ -38,9 +38,12 @@
       :root { --teal: ${dark}; --teal-light: ${light}; --teal-faint: ${faint}; }
       .sb-item.active { background: rgba(${r},${g},${b},.14) !important; color: ${light} !important; border-color: rgba(${r},${g},${b},.22) !important; }
       .sb-logo-wrap   { background: rgba(${r},${g},${b},.18) !important; border-color: rgba(${r},${g},${b},.3) !important; }
+      .sb-avatar      { background: rgba(${r},${g},${b},.25) !important; border-color: rgba(${r},${g},${b},.4) !important; color: ${light} !important; }
+      .role-coach     { background: rgba(${r},${g},${b},.2) !important; color: ${light} !important; }
       .ob-next-btn    { background: ${dark} !important; }
       .ob-next-btn:hover { background: ${light} !important; }
       .ob-dot.on      { background: ${light} !important; }
+      .ob-step-label  { color: ${light} !important; }
     `;
     if (!existing) document.head.appendChild(style);
   };
@@ -115,7 +118,7 @@
     }
     .sb-item:hover { background: rgba(255,255,255,.04); color: #A8BDD0; }
     .sb-item.active {
-      background: rgba(27,138,107,.14); color: #22A882;
+      background: rgba(27,138,107,.14); color: var(--teal-light);
       border-color: rgba(27,138,107,.22);
     }
     .sb-icon { width: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
@@ -129,7 +132,7 @@
       width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
       background: rgba(27,138,107,.25); border: 1px solid rgba(27,138,107,.4);
       display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: 800; color: #22A882;
+      font-size: 12px; font-weight: 800; color: var(--teal-light); font-family: 'Barlow Condensed', sans-serif;
     }
     .sb-user-name {
       font-size: 13px; font-weight: 600; color: #CBD5E1; line-height: 1.2;
@@ -140,7 +143,7 @@
       letter-spacing: .05em; padding: 2px 6px; border-radius: 3px; margin-top: 2px;
     }
     .role-admin  { background: rgba(212,135,10,.2);  color: #F0A020; }
-    .role-coach  { background: rgba(27,138,107,.2);  color: #22A882; }
+    .role-coach  { background: rgba(27,138,107,.2);  color: var(--teal-light); }
     .role-parent { background: rgba(100,116,139,.2); color: #94A3B8; }
     .sb-signout {
       width: 100%; padding: 7px; border-radius: 6px; background: none;
@@ -193,13 +196,13 @@
       animation: obFadeIn .2s ease;
     }
     @keyframes obFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-    .ob-step-label { font-size: 10px; font-weight: 700; color: #22A882; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; }
+    .ob-step-label { font-size: 10px; font-weight: 700; color: var(--teal-light); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; }
     .ob-title { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 800; color: #EDF2F7; margin-bottom: 5px; }
     .ob-body { font-size: 13px; color: #A8BDD0; line-height: 1.65; margin-bottom: 14px; }
     .ob-footer { display: flex; align-items: center; gap: 8px; }
     .ob-dots { display: flex; gap: 4px; flex: 1; }
     .ob-dot { width: 5px; height: 5px; border-radius: 50%; background: #243B55; }
-    .ob-dot.on { background: #22A882; }
+    .ob-dot.on { background: var(--teal-light); }
     .ob-skip-btn {
       background: none; border: none; color: #546E80; font-size: 12px;
       cursor: pointer; padding: 5px 8px; border-radius: 5px;
@@ -212,7 +215,7 @@
       font-family: 'Barlow Condensed', sans-serif; letter-spacing: .06em; text-transform: uppercase;
       transition: background .15s;
     }
-    .ob-next-btn:hover { background: #22A882; }
+    .ob-next-btn:hover { background: var(--teal-light); }
   `;
   const s = document.createElement('style');
   s.textContent = CSS;

@@ -1445,10 +1445,8 @@ async function loadSeasonData() {
       sb.from('league_results').select('*').eq('gotsport_group_id', groupId).order('match_date', { ascending: true, nullsFirst: false }).order('opponent', { ascending: true }),
     ]);
 
-    // Filter standings to our team's row
-    var standing = ((standingsRes.data || []).find(function(s) {
-      return s.gotsport_team_name && s.gotsport_team_name.toLowerCase().includes("steamer's crew");
-    })) || null;
+    // Take the first standings row — already filtered by gotsport_group_id in the query
+    var standing = (standingsRes.data || [])[0] || null;
 
     var results = resultsRes.data || [];
 
