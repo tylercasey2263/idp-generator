@@ -248,12 +248,16 @@ select.inv-role-select:focus { border-color: var(--teal); }
     <!-- Shown after invite is created -->
     <div id="inviteLinkSection" style="display:none;">
       <div class="field">
-        <label>Invite Link</label>
+        <label style="display:flex;align-items:center;justify-content:space-between;">
+          Invite Link
+          <button class="btn btn-ghost" onclick="copyInviteLink()" style="font-size:12px;padding:3px 10px;">Copy</button>
+        </label>
         <div class="invite-link-box" id="inviteLinkBox"></div>
       </div>
-      <div style="display:flex;gap:8px;margin-top:8px;">
-        <button class="btn btn-primary" onclick="copyInviteLink()" style="flex:1;">Copy Link</button>
-        <button class="btn btn-ghost" onclick="sendInviteEmail()" style="flex:1;">Open Email App</button>
+      <div style="margin-top:6px;text-align:right;">
+        <button onclick="sendInviteEmailFallback()" style="background:none;border:none;color:var(--text-dim);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;">
+          Open in email app instead
+        </button>
       </div>
     </div>
 
@@ -541,23 +545,23 @@ async function createInvite() {
   const role  = document.getElementById('inviteRole').value;
   const st    = document.getElementById('inviteStatus');
 
-  if (!name)  { st.textContent = 'Please enter a name.';  st.className = 'modal-status err'; return; }
+  if (!name)  { st.textContent = 'Please enter a name.';   st.className = 'modal-status err'; return; }
   if (!email) { st.textContent = 'Please enter an email.'; st.className = 'modal-status err'; return; }
 
   const btn = document.getElementById('createInviteBtn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
 
+  // 1. Create invite record in DB
   const { data: invite, error } = await sb
     .from('invites')
     .insert({ role, email: email.toLowerCase(), label: name, created_by: coachId })
     .select('token')
     .single();
 
-  btn.disabled = false;
-  btn.textContent = 'Send Invite';
-
   if (error) {
+    btn.disabled = false;
+    btn.textContent = 'Send Invite';
     st.textContent = 'Error: ' + error.message;
     st.className = 'modal-status err';
     return;
@@ -567,13 +571,54 @@ async function createInvite() {
   _inviteEmailVal = email;
   _inviteNameVal  = name;
 
+  // 2. Show the link section (fallback copy always available)
   document.getElementById('inviteLinkBox').textContent       = _inviteLink;
   document.getElementById('inviteLinkSection').style.display = 'block';
   document.getElementById('inviteActions').style.display     = 'none';
-  st.textContent = 'Invite created! Email app opened — or copy the link below.';
-  st.className   = 'modal-status ok';
-  // Auto-open email client so the invite is sent right away
-  sendInviteEmail();
+
+  // 3. Try to send via edge function
+  st.textContent = 'Sending email…';
+  st.className   = 'modal-status';
+
+  const result = await sendInviteViaEdge(email, name, role, _inviteLink);
+
+  btn.disabled = false;
+  btn.textContent = 'Send Invite';
+
+  if (result.ok) {
+    st.textContent = '✓ Invite email sent to ' + email;
+    st.className   = 'modal-status ok';
+  } else {
+    // Edge function failed — show error and offer fallback
+    st.textContent = '⚠ Could not send automatically (' + (result.error || 'unknown error') + '). Copy the link below or use the email app fallback.';
+    st.className   = 'modal-status err';
+  }
+}
+
+// Calls the Supabase Edge Function to send the invite email via Resend
+async function sendInviteViaEdge(email, name, role, invite_link) {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return { ok: false, error: 'Not authenticated' };
+
+    const club_name = window._clubName || 'Player Development';
+    const edgeUrl   = SUPABASE_CONFIG.url + '/functions/v1/send-invite';
+
+    const res = await fetch(edgeUrl, {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ email, name, role, invite_link, club_name }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error || res.statusText };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 }
 
 function copyInviteLink() {
@@ -584,11 +629,12 @@ function copyInviteLink() {
   });
 }
 
-function sendInviteEmail() {
-  const role    = document.getElementById('inviteRole').value;
+// Fallback: open the user's local email client with the invite pre-filled
+function sendInviteEmailFallback() {
+  const role     = document.getElementById('inviteRole').value;
   const clubName = window._clubName || 'Player Development';
-  const subject = encodeURIComponent(`You're invited to ${clubName}`);
-  const body    = encodeURIComponent(
+  const subject  = encodeURIComponent(`You're invited to ${clubName}`);
+  const body     = encodeURIComponent(
     `Hi ${_inviteNameVal},\n\nYou've been invited to join ${clubName} as a ${role}.\n\nClick the link below to create your account:\n\n${_inviteLink}\n\nThis link is unique to you — please don't share it.\n\nWelcome aboard!`
   );
   window.open(`mailto:${_inviteEmailVal}?subject=${subject}&body=${body}`);
@@ -692,16 +738,29 @@ async function deleteInvite(inviteId, btn) {
 async function resendInvite(inviteId, email, name, role, btn) {
   const { data: inv } = await sb.from('invites').select('token').eq('id', inviteId).maybeSingle();
   if (!inv) { alert('Could not find invite.'); return; }
+
   const link = `${location.origin}/login.html?invite=${inv.token}`;
-  const clubName = window._clubName || 'Player Development';
-  const subject = encodeURIComponent(`You're invited to ${clubName}`);
-  const body = encodeURIComponent(
-    `Hi ${name},\n\nYou've been invited to join ${clubName} as a ${role}.\n\nClick the link below to create your account:\n\n${link}\n\nThis link is unique to you — please don't share it.\n\nWelcome aboard!`
-  );
-  window.open(`mailto:${email}?subject=${subject}&body=${body}`);
   const orig = btn.textContent;
-  btn.textContent = '✓ Sent';
-  setTimeout(() => { btn.textContent = orig; }, 2000);
+  btn.textContent = '…';
+  btn.disabled = true;
+
+  const result = await sendInviteViaEdge(email, name, role, link);
+  btn.disabled = false;
+
+  if (result.ok) {
+    btn.textContent = '✓ Sent';
+    setTimeout(() => { btn.textContent = orig; }, 2500);
+  } else {
+    // Fall back to mailto
+    const clubName = window._clubName || 'Player Development';
+    const subject  = encodeURIComponent(`You're invited to ${clubName}`);
+    const body     = encodeURIComponent(
+      `Hi ${name},\n\nYou've been invited to join ${clubName} as a ${role}.\n\nClick the link below to create your account:\n\n${link}\n\nThis link is unique to you — please don't share it.\n\nWelcome aboard!`
+    );
+    window.open(`mailto:${email}?subject=${subject}&body=${body}`);
+    btn.textContent = '⚠ Opened email app';
+    setTimeout(() => { btn.textContent = orig; }, 2500);
+  }
 }
 
 function esc(s) {
