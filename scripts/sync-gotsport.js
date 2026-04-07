@@ -64,6 +64,34 @@ function parseFloatSafe(val) {
 }
 
 /**
+ * Normalize a team name string for comparison:
+ *   - Lowercase
+ *   - Replace all curly/Unicode apostrophe variants with straight apostrophe
+ *   - Collapse whitespace
+ *
+ * GotSport encodes apostrophes inconsistently across groups (straight vs curly),
+ * which causes .includes("steamer's crew") to silently fail for some groups.
+ */
+function normalizeName(name) {
+  return (name || '')
+    .toLowerCase()
+    // U+2018 LEFT SINGLE QUOTATION MARK, U+2019 RIGHT, U+201B REVERSED,
+    // U+0060 GRAVE ACCENT, U+00B4 ACUTE ACCENT, U+02BC MODIFIER LETTER APOSTROPHE
+    .replace(/[\u2018\u2019\u201B\u0060\u00B4\u02BC]/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Returns true if the given team name refers to Steamer's Crew.
+ * Handles Unicode apostrophe variants and minor spacing differences.
+ */
+function isOurTeam(name) {
+  const n = normalizeName(name);
+  return n.includes("steamer's crew") || n.replace(/'/g, '').includes("steamers crew");
+}
+
+/**
  * Extract U-age, year+gender code, and team keyword from a GotSport team name.
  * E.g. "Steamer's Crew U13 2013B Gray" => { age: 'U13', yearGender: '2013B', keyword: 'Gray' }
  * The yearGender code ("2013B" / "2014G") uniquely identifies boys vs girls.
@@ -364,12 +392,11 @@ async function buildGroupToTeamId() {
 async function upsertStandings(standings) {
   if (standings.length === 0) return;
 
-  // Filter to just Steamer's Crew rows
-  const ours = standings.filter(s =>
-    s.gotsport_team_name && s.gotsport_team_name.toLowerCase().includes("steamer's crew")
-  );
+  // Filter to just Steamer's Crew rows (normalizes apostrophe variants)
+  const ours = standings.filter(s => isOurTeam(s.gotsport_team_name));
   if (ours.length === 0) {
-    console.log("  No Steamer's Crew row found in standings — skipping.");
+    const found = standings.map(s => `"${s.gotsport_team_name}"`).join(', ');
+    console.log(`  No Steamer's Crew row found in standings — skipping. (Found: ${found})`);
     return;
   }
 
@@ -396,12 +423,11 @@ async function upsertStandings(standings) {
 async function upsertResults(matches) {
   if (matches.length === 0) return;
 
-  // Filter to just Steamer's Crew rows
-  const ours = matches.filter(m =>
-    m.gotsport_team_name && m.gotsport_team_name.toLowerCase().includes("steamer's crew")
-  );
+  // Filter to just Steamer's Crew rows (normalizes apostrophe variants)
+  const ours = matches.filter(m => isOurTeam(m.gotsport_team_name));
   if (ours.length === 0) {
-    console.log("  No Steamer's Crew results found — skipping.");
+    const found = [...new Set(matches.map(m => `"${m.gotsport_team_name}"`))].join(', ');
+    console.log(`  No Steamer's Crew results found — skipping. (Found teams: ${found})`);
     return;
   }
 
@@ -467,8 +493,7 @@ async function fetchGroupSchedules(groupId) {
   }
 
   const $ = cheerio.load(html);
-  const scheduleMap = {}; // opponent_lower -> { match_date, is_home, venue }
-  const OUR_TEAM = "steamer's crew";
+  const scheduleMap = {}; // normalized-opponent-lower -> { match_date, is_home, venue }
 
   // GotSport schedules page table structure (verified):
   //   Col 0: game_id (numeric)
@@ -499,9 +524,9 @@ async function fetchGroupSchedules(groupId) {
     if (!/^\d+$/.test(gameId)) return;
     if (!/Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/i.test(dateCell)) return;
 
-    // Check if our team is home or away
-    const homeIsOurs = homeTeam.toLowerCase().includes(OUR_TEAM);
-    const awayIsOurs = awayTeam.toLowerCase().includes(OUR_TEAM);
+    // Check if our team is home or away (normalize apostrophes before comparing)
+    const homeIsOurs = isOurTeam(homeTeam);
+    const awayIsOurs = isOurTeam(awayTeam);
     if (!homeIsOurs && !awayIsOurs) return;
 
     const isHome   = homeIsOurs;
@@ -515,7 +540,8 @@ async function fetchGroupSchedules(groupId) {
       : null;
 
     if (opponent && matchDate) {
-      const key = opponent.toLowerCase().trim();
+      // Use normalized name as key so it matches the matrix-parsed opponent names
+      const key = normalizeName(opponent);
       scheduleMap[key] = { match_date: matchDate, is_home: isHome, venue: venue || null };
       console.log(`    Schedule: ${matchDate} vs ${opponent} (${isHome ? 'Home' : 'Away'})`);
     }
@@ -656,9 +682,10 @@ async function main() {
     ]);
 
     // Merge schedule data (date, home/away, venue) into match rows
+    // Both sides use normalizeName() so apostrophe/case differences don't block matching
     if (Object.keys(scheduleMap).length > 0) {
       matches.forEach(m => {
-        const key = (m.opponent || '').toLowerCase().trim();
+        const key = normalizeName(m.opponent);
         const sched = scheduleMap[key];
         if (sched) {
           if (m.match_date === null) m.match_date = sched.match_date;
