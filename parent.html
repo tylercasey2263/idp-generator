@@ -223,6 +223,13 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text);
 }
 .feedback-textarea:focus { outline: none; border-color: var(--teal); }
 .feedback-textarea::placeholder { color: var(--text-dim); }
+.mic-btn {
+  background: none; border: 1px solid var(--border-strong); border-radius: 5px;
+  color: var(--text-dim); font-size: 12px; padding: 2px 7px; cursor: pointer;
+  transition: all .15s; vertical-align: middle; line-height: 1.4;
+}
+.mic-btn:hover { border-color: var(--teal); color: var(--teal-light); }
+.mic-btn.mic-active { border-color: #E05050; color: #E05050; background: rgba(224,80,80,.08); }
 .feedback-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; gap: 12px; flex-wrap: wrap; }
 .feedback-hint { font-size: 12px; color: var(--text-dim); line-height: 1.4; }
 .feedback-btn {
@@ -452,7 +459,7 @@ async function renderIDPs(links, container) {
         <div id="pidp-${playerIdx}" class="idp-ig">${buildInfographicHTML(firstIDP.data)}</div>
       </div>
       <div class="feedback-section">
-        <div class="feedback-title">💬 Message your coach</div>
+        <div class="feedback-title">💬 Message your coach <button class="mic-btn" type="button" onclick="toggleMicFor('fb-input-${playerIdx}',this)" title="Dictate">🎙</button></div>
         <textarea class="feedback-textarea" id="fb-input-${playerIdx}"
           placeholder="Share a question, concern, or observation about ${esc(player.name)}'s development…"
           rows="3"></textarea>
@@ -607,6 +614,42 @@ async function submitFeedback(playerIdx) {
 
 function showMessage(msg, type) {
   console.log(`[${type}] ${msg}`);
+}
+
+// ── Microphone dictation ─────────────────────────────────────────────────
+const _micStates = {};
+function toggleMicFor(targetId, btnEl) {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('Speech recognition is not supported in this browser. Try Chrome.'); return;
+  }
+  if (!_micStates[targetId]) _micStates[targetId] = { recognition: null, active: false };
+  const state = _micStates[targetId];
+  if (state.active) {
+    state.recognition.stop();
+    state.active = false;
+    btnEl.classList.remove('mic-active');
+    btnEl.title = 'Dictate';
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  state.recognition = new SR();
+  state.recognition.continuous = true;
+  state.recognition.interimResults = false;
+  state.recognition.lang = 'en-US';
+  state.recognition.onresult = e => {
+    const ta = document.getElementById(targetId);
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        const text = e.results[i][0].transcript;
+        ta.value += (ta.value && !ta.value.endsWith(' ') ? ' ' : '') + text;
+      }
+    }
+  };
+  state.recognition.onend = () => { if (state.active) state.recognition.start(); };
+  state.recognition.start();
+  state.active = true;
+  btnEl.classList.add('mic-active');
+  btnEl.title = 'Stop dictating';
 }
 
 function esc(str) {
