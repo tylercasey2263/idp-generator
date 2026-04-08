@@ -1706,8 +1706,8 @@ async function loadLeagueResults() {
   const syncEl    = document.getElementById('leagueLastSync');
   const linkEl    = document.getElementById('leagueGotSportLink');
 
-  // Load current team to get gotsport_group_id
-  const { data: team } = await sb.from('teams').select('gotsport_group_id').eq('id', teamId).single();
+  // Load current team to get gotsport_group_id and display name
+  const { data: team } = await sb.from('teams').select('gotsport_group_id, name').eq('id', teamId).single();
 
   if (!team?.gotsport_group_id) {
     container.innerHTML = '<div style="font-size:13px;color:var(--text-dim);padding:.5rem 0;">' +
@@ -1747,7 +1747,7 @@ async function loadLeagueResults() {
     html += '<div class="standing-card">' +
       '<div class="standing-pos" style="color:' + posColor + '">' + pos + '</div>' +
       '<div>' +
-        '<div class="standing-team">' + esc(standing.gotsport_team_name) + '</div>' +
+        '<div class="standing-team">' + esc(team.name || standing.gotsport_team_name) + '</div>' +
         '<div class="standing-div">' + esc(standing.division_name || '') + '</div>' +
       '</div>' +
       '<div class="standing-stats">' +
