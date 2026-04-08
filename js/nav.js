@@ -238,16 +238,31 @@
     const mount = document.getElementById('sidebarMount');
     if (!mount) return;
 
-    // Get user context
+    // Get session (fast — uses local JWT, no network needed)
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return;
-    const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+    const uid = session.user.id;
+
+    // ── Profile: use sessionStorage cache set by requireCoach/requireParent ──
+    let profile;
+    try { const r = sessionStorage.getItem(`idp_prof_${uid}`); if (r) profile = JSON.parse(r); } catch(e) {}
+    if (!profile) {
+      const { data } = await sb.from('profiles').select('*').eq('id', uid).single();
+      profile = data;
+      try { if (profile) sessionStorage.setItem(`idp_prof_${uid}`, JSON.stringify(profile)); } catch(e) {}
+    }
     const role = profile?.role || 'coach';
     const name = profile?.full_name || session.user.email;
     const initial = name.charAt(0).toUpperCase();
 
-    // Get club settings
-    const { data: settings } = await sb.from('settings').select('key,value').in('key', ['club_name','club_logo','theme_primary']);
+    // ── Club settings: cache in sessionStorage (invalidated on settings save) ──
+    let settings;
+    try { const r = sessionStorage.getItem('idp_settings'); if (r) settings = JSON.parse(r); } catch(e) {}
+    if (!settings) {
+      const { data } = await sb.from('settings').select('key,value').in('key', ['club_name','club_logo','theme_primary']);
+      settings = data || [];
+      try { sessionStorage.setItem('idp_settings', JSON.stringify(settings)); } catch(e) {}
+    }
     const clubName     = settings?.find(r => r.key === 'club_name')?.value    || 'Player Development';
     const clubLogo     = settings?.find(r => r.key === 'club_logo')?.value    || '';
     const themePrimary = settings?.find(r => r.key === 'theme_primary')?.value || '';

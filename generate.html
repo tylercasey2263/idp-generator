@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Generate IDP — Player IDP</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">`n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`n<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/js/config.js"></script>
 <script src="/js/auth.js"></script>
@@ -804,7 +804,7 @@ function downloadHTML() {
   clone.classList.remove('edit-mode');
   clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
   const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${name} — IDP 2026</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">`n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`n<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}body{background:#0D1B2A;color:#EDF2F7;font-family:'Inter',sans-serif;font-size:15px;line-height:1.6;padding:2rem 1.5rem 3rem;max-width:900px;margin:0 auto;}@media print{*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}}${getInfographicCSS()}</style>
 </head><body>${clone.outerHTML}</body></html>`;
   const a = document.createElement('a');

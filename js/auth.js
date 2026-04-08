@@ -11,16 +11,43 @@ async function getSession() {
   return session;
 }
 
+// ─── PROFILE CACHE (sessionStorage) ───────────────────
+// Caches the profile for the duration of the browser tab session so we
+// don't re-fetch it on every page navigation (saves 3-5 DB round trips).
+function _profileKey(uid)  { return `idp_prof_${uid}`; }
+const _SYNC_KEY  = uid => `idp_synced_${uid}`;
+const _SETTINGS_KEY = 'idp_settings';
+
+function _getCachedProfile(uid) {
+  try { const r = sessionStorage.getItem(_profileKey(uid)); return r ? JSON.parse(r) : null; }
+  catch(e) { return null; }
+}
+function _setCachedProfile(uid, profile) {
+  try { sessionStorage.setItem(_profileKey(uid), JSON.stringify(profile)); } catch(e) {}
+}
+// Call after role changes so the stale cache is evicted
+window.invalidateProfileCache = function(uid) {
+  try {
+    if (uid) { sessionStorage.removeItem(_profileKey(uid)); sessionStorage.removeItem(_SYNC_KEY(uid)); }
+    sessionStorage.removeItem(_SETTINGS_KEY);
+  } catch(e) {}
+};
+
 async function getProfile(userId) {
+  const cached = _getCachedProfile(userId);
+  if (cached) return cached;
   const { data } = await sb.from('profiles').select('*').eq('id', userId).single();
+  if (data) _setCachedProfile(userId, data);
   return data;
 }
 
 // Ensures a profile row always exists for the current user.
-// Safe to call on every login — upserts so it never duplicates.
-// Also keeps the email field in sync without touching the role.
+// Runs only ONCE per browser-tab session (guarded by sessionStorage flag)
+// to avoid redundant DB writes on every page navigation.
 async function ensureProfile(session) {
   const { user } = session;
+  const syncKey = _SYNC_KEY(user.id);
+  if (sessionStorage.getItem(syncKey)) return; // already synced this session
   const name = user.user_metadata?.full_name || user.email;
   // Insert if not exists (ignoreDuplicates preserves the existing role)
   await sb.from('profiles').upsert({
@@ -28,8 +55,9 @@ async function ensureProfile(session) {
     full_name: name,
     role:      user.user_metadata?.role || 'coach',
   }, { onConflict: 'id', ignoreDuplicates: true });
-  // Always sync email separately — safe because it doesn't touch role
+  // Sync email separately — safe because it doesn't touch role
   await sb.from('profiles').update({ email: user.email }).eq('id', user.id);
+  sessionStorage.setItem(syncKey, '1');
 }
 
 // If the URL contains ?invite=TOKEN, apply the role from the invite and mark it used.
@@ -119,6 +147,8 @@ async function requireParent() {
 }
 
 async function signOut() {
+  const session = await getSession();
+  if (session) window.invalidateProfileCache(session.user.id);
   await sb.auth.signOut();
   window.location.href = `${appBase()}/login.html`;
 }

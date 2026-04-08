@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Settings — Player IDP</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">`n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`n<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/js/config.js"></script>
 <script src="/js/auth.js"></script>
@@ -458,9 +458,12 @@ async function saveClubInfo() {
     st.textContent = 'Error: ' + error.message;
     st.className = 'save-status err';
   } else {
-    st.textContent = '✓ Saved! Reload the page to see the updated sidebar.';
+    try { sessionStorage.removeItem('idp_settings'); } catch(e) {}
+    st.textContent = '✓ Saved!';
     st.className = 'save-status ok';
     pendingLogo = null;
+    // Re-render sidebar immediately with new club name / logo
+    if (window.renderSidebar) renderSidebar('settings');
   }
 }
 
@@ -635,6 +638,7 @@ async function saveTheme() {
   if (error) {
     st.textContent = 'Error: ' + error.message; st.className = 'save-status err';
   } else {
+    try { sessionStorage.removeItem('idp_settings'); } catch(e) {}
     st.textContent = '✓ Theme saved! All users will see the new color on next load.';
     st.className = 'save-status ok';
     setTimeout(() => { st.textContent = ''; }, 3500);

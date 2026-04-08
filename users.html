@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Users — Player Development</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">`n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`n<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/js/config.js"></script>
 <script src="/js/auth.js"></script>
@@ -655,6 +655,8 @@ async function changeRole(select) {
     alert('Error updating role: ' + error.message);
     select.value = prev;
   } else {
+    // Bust cached profile for the affected user so their next page load reflects the new role
+    if (window.invalidateProfileCache) window.invalidateProfileCache(uid);
     // Update in-memory list and re-render badge
     const u = allUsers.find(u => u.id === uid);
     if (u) u.role = role;
