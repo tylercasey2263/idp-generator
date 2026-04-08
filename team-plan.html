@@ -459,47 +459,60 @@ let playerIDPs  = [];  // [{player, idp}] — idp may be null
 async function loadTeamAndPlayers() {
   setStatus('Loading team…', 'loading');
 
-  // Load team
-  const { data: team, error: teamErr } = await sb
-    .from('teams').select('id, name, season').eq('id', teamId).single();
-  if (teamErr || !team) { setStatus('Team not found.', 'error'); return; }
-  teamData = team;
-  document.getElementById('teamNameInput').value = team.name;
-  document.getElementById('seasonInput').value   = team.season || '';
+  // Load team, players, IDPs, and latest saved plan all in parallel
+  const [teamRes, playersRes, planRes] = await Promise.all([
+    sb.from('teams').select('id, name, season').eq('id', teamId).single(),
+    sb.from('players').select('id, name, positions').eq('team_id', teamId).order('name'),
+    sb.from('team_plans').select('id, data, published, updated_at')
+      .eq('team_id', teamId).order('updated_at', { ascending: false }).limit(1).maybeSingle(),
+  ]);
 
-  // Load players on this team
-  const { data: players } = await sb
-    .from('players').select('id, name, positions').eq('team_id', teamId).order('name');
+  // Team
+  if (teamRes.error || !teamRes.data) {
+    console.error('Team load error:', teamRes.error);
+    setStatus('Team not found — make sure the URL includes ?team=ID.', 'error');
+    return;
+  }
+  teamData = teamRes.data;
+  document.getElementById('teamNameInput').value = teamData.name;
+  document.getElementById('seasonInput').value   = teamData.season || '';
 
-  if (!players || players.length === 0) {
+  // Players
+  const players = playersRes.data || [];
+  if (players.length === 0) {
     document.getElementById('playerList').innerHTML =
       '<div class="pli-no-players">No players on this team yet.</div>';
     setStatus('No players found for this team.', 'error');
-    return;
+  } else {
+    // Load latest IDP for each player (published preferred)
+    const playerIds = players.map(p => p.id);
+    const { data: idps } = await sb
+      .from('idps')
+      .select('id, player_id, data, published, updated_at')
+      .in('player_id', playerIds)
+      .order('updated_at', { ascending: false });
+
+    const idpMap = {};
+    (idps || []).forEach(idp => {
+      if (!idpMap[idp.player_id]) {
+        idpMap[idp.player_id] = idp;
+      } else if (idp.published && !idpMap[idp.player_id].published) {
+        idpMap[idp.player_id] = idp;
+      }
+    });
+
+    playerIDPs = players.map(p => ({ player: p, idp: idpMap[p.id] || null }));
+    renderPlayerList();
+    setStatus('');
   }
 
-  // Load latest IDP for each player (published first, then any)
-  const playerIds = players.map(p => p.id);
-  const { data: idps } = await sb
-    .from('idps')
-    .select('id, player_id, data, published, updated_at')
-    .in('player_id', playerIds)
-    .order('updated_at', { ascending: false });
-
-  // Build map: player_id -> latest IDP (prefer published)
-  const idpMap = {};
-  (idps || []).forEach(idp => {
-    if (!idpMap[idp.player_id]) {
-      idpMap[idp.player_id] = idp;
-    } else if (idp.published && !idpMap[idp.player_id].published) {
-      idpMap[idp.player_id] = idp;
-    }
-  });
-
-  playerIDPs = players.map(p => ({ player: p, idp: idpMap[p.id] || null }));
-
-  renderPlayerList();
-  setStatus('');
+  // If a previously saved team plan exists, show it on the right side
+  if (planRes.data) {
+    lastTDPData = planRes.data.data;
+    renderInfographic(lastTDPData);
+    const label = planRes.data.published ? 'Showing saved team plan — regenerate to create a new version.' : 'Showing draft team plan.';
+    setStatus(label, '');
+  }
 }
 
 function renderPlayerList() {
@@ -739,27 +752,18 @@ async function saveAndPublish() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner" style="border-top-color:var(--teal-light);width:10px;height:10px;border-width:2px;"></span>';
 
+  const now = new Date().toISOString();
   const payload = {
     team_id:    teamId,
     created_by: coachId,
     data:       lastTDPData,
     published:  true,
-    updated_at: new Date().toISOString()
+    updated_at: now,
+    created_at: now,
   };
 
-  // Upsert: update if a plan exists for this team, otherwise insert
-  const { data: existing } = await sb
-    .from('team_plans').select('id').eq('team_id', teamId)
-    .order('created_at', { ascending: false }).limit(1).maybeSingle();
-
-  let error;
-  if (existing) {
-    ({ error } = await sb.from('team_plans').update({
-      data: lastTDPData, published: true, updated_at: payload.updated_at
-    }).eq('id', existing.id));
-  } else {
-    ({ error } = await sb.from('team_plans').insert(payload));
-  }
+  // Always insert a new row — every generation is a new version
+  const { error } = await sb.from('team_plans').insert(payload);
 
   if (error) {
     setStatus('Save error: ' + error.message, 'error');
