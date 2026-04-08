@@ -482,7 +482,7 @@ let lastIDPData = null;
     if (existing) {
       lastIDPData = existing.data;
       renderInfographic(existing.data);
-      setStatus(existing.published ? 'Showing published IDP — regenerate to update.' : 'Showing draft IDP — regenerate or save when ready.', '');
+      setStatus('Showing latest IDP — regenerate to save as a new version.', '');
     }
   }
 })();
@@ -725,27 +725,19 @@ async function saveAndPublish() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner" style="border-top-color:var(--teal-light);"></span>';
 
+  const now = new Date().toISOString();
   const payload = {
     player_id:  playerId || null,
     created_by: coachId,
     data:       lastIDPData,
     published:  true,
-    updated_at: new Date().toISOString()
+    updated_at: now,
+    created_at: now,
   };
 
-  // Upsert: update if IDP exists for this player, otherwise insert
-  let error;
-  if (playerId) {
-    const { data: existing } = await sb.from('idps').select('id').eq('player_id', playerId)
-      .order('created_at', { ascending: false }).limit(1).maybeSingle();
-    if (existing) {
-      ({ error } = await sb.from('idps').update({ data: lastIDPData, published: true, updated_at: payload.updated_at }).eq('id', existing.id));
-    } else {
-      ({ error } = await sb.from('idps').insert(payload));
-    }
-  } else {
-    ({ error } = await sb.from('idps').insert(payload));
-  }
+  // Always insert a new row — every generation becomes a new version.
+  // View-IDP shows the full history and lets coaches pick any version.
+  const { error } = await sb.from('idps').insert(payload);
 
   if (error) {
     setStatus('Save error: ' + error.message, 'error');
