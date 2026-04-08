@@ -75,6 +75,17 @@ create table public.idps (
   updated_at timestamptz default now()
 );
 
+-- ─── TEAM PLANS ──────────────────────────────────────
+create table public.team_plans (
+  id         uuid primary key default gen_random_uuid(),
+  team_id    uuid references public.teams(id) on delete cascade,
+  created_by uuid references public.profiles(id),
+  data       jsonb not null,
+  published  boolean default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 -- ─── PLAYER NOTES (private coach journal) ────────────
 create table public.player_notes (
   id         uuid primary key default gen_random_uuid(),
@@ -104,6 +115,7 @@ alter table public.coach_teams    enable row level security;
 alter table public.players        enable row level security;
 alter table public.parent_players enable row level security;
 alter table public.idps           enable row level security;
+alter table public.team_plans     enable row level security;
 alter table public.player_notes   enable row level security;
 alter table public.settings       enable row level security;
 
@@ -231,6 +243,21 @@ create policy "idps: parent read"
     and player_id in (
       select player_id from public.parent_players
       where parent_id = auth.uid() and accepted = true
+    )
+  );
+
+-- ─── TEAM PLANS ───────────────────────────────────────
+-- Coaches can do everything for team plans on their assigned teams
+create policy "team_plans: coach all"
+  on public.team_plans for all
+  using (
+    team_id in (
+      select team_id from public.coach_teams where coach_id = auth.uid()
+    )
+  )
+  with check (
+    team_id in (
+      select team_id from public.coach_teams where coach_id = auth.uid()
     )
   );
 

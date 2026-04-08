@@ -459,13 +459,18 @@ let playerIDPs  = [];  // [{player, idp}] — idp may be null
 async function loadTeamAndPlayers() {
   setStatus('Loading team…', 'loading');
 
-  // Load team, players, IDPs, and latest saved plan all in parallel
-  const [teamRes, playersRes, planRes] = await Promise.all([
-    sb.from('teams').select('id, name, season').eq('id', teamId).single(),
-    sb.from('players').select('id, name, positions').eq('team_id', teamId).order('name'),
-    sb.from('team_plans').select('id, data, published, updated_at')
-      .eq('team_id', teamId).order('updated_at', { ascending: false }).limit(1).maybeSingle(),
-  ]);
+  // Load team + players first (essential) — team_plans is non-fatal / optional
+  let teamRes, playersRes;
+  try {
+    [teamRes, playersRes] = await Promise.all([
+      sb.from('teams').select('id, name, season').eq('id', teamId).single(),
+      sb.from('players').select('id, name, positions').eq('team_id', teamId).order('name'),
+    ]);
+  } catch (err) {
+    console.error('Fatal load error:', err);
+    setStatus('Failed to load team data. Please refresh.', 'error');
+    return;
+  }
 
   // Team
   if (teamRes.error || !teamRes.data) {
@@ -482,7 +487,7 @@ async function loadTeamAndPlayers() {
   if (players.length === 0) {
     document.getElementById('playerList').innerHTML =
       '<div class="pli-no-players">No players on this team yet.</div>';
-    setStatus('No players found for this team.', 'error');
+    setStatus('No players found for this team.', '');
   } else {
     // Load latest IDP for each player (published preferred)
     const playerIds = players.map(p => p.id);
@@ -506,12 +511,27 @@ async function loadTeamAndPlayers() {
     setStatus('');
   }
 
-  // If a previously saved team plan exists, show it on the right side
-  if (planRes.data) {
-    lastTDPData = planRes.data.data;
-    renderInfographic(lastTDPData);
-    const label = planRes.data.published ? 'Showing saved team plan — regenerate to create a new version.' : 'Showing draft team plan.';
-    setStatus(label, '');
+  // Try to load latest saved team plan (non-fatal — table may not exist yet)
+  try {
+    const planRes = await sb
+      .from('team_plans')
+      .select('id, data, published, updated_at')
+      .eq('team_id', teamId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (planRes.data) {
+      lastTDPData = planRes.data.data;
+      renderInfographic(lastTDPData);
+      const label = planRes.data.published
+        ? 'Showing saved team plan — regenerate to create a new version.'
+        : 'Showing draft team plan.';
+      setStatus(label, '');
+    }
+  } catch (err) {
+    // team_plans table may not exist yet — not a fatal error
+    console.warn('team_plans not available:', err);
   }
 }
 
