@@ -95,7 +95,7 @@ STABLE
 SET search_path = public
 AS $$
   SELECT * FROM public.idps
-  WHERE share_token = p_token
+  WHERE share_token = p_token::uuid
     AND share_token IS NOT NULL
     AND published = true;
 $$;
