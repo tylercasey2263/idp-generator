@@ -177,3 +177,12 @@ async function getClaudeApiKey() {
   if (error || !data) return null;
   return data.value;
 }
+
+async function getClaudeModel() {
+  const { data } = await sb
+    .from('settings')
+    .select('value')
+    .eq('key', 'claude_model')
+    .maybeSingle();
+  return data?.value || 'claude-sonnet-4-5';
+}

@@ -573,7 +573,7 @@ async function handleGenerate() {
   saveBtn.disabled = false;
 
   setStatus('Fetching API key…', 'loading');
-  const key = await getClaudeApiKey();
+  const [key, model] = await Promise.all([getClaudeApiKey(), getClaudeModel()]);
   if (!key) {
     setStatus('No Claude API key found in settings. Ask your admin to add one.', 'error');
     btn.disabled = false;
@@ -587,7 +587,7 @@ async function handleGenerate() {
     const phase      = document.getElementById('phaseInput').value.trim() || 'Development';
     const coachNotes = document.getElementById('coachNotes').value.trim();
 
-    const data = await callClaude(key, teamName, season, phase, playersWithIDPs, playerIDPs.length, coachNotes);
+    const data = await callClaude(key, model, teamName, season, phase, playersWithIDPs, playerIDPs.length, coachNotes);
     lastTDPData = data;
     renderInfographic(data);
     setStatus('Generated successfully.', 'success');
@@ -598,7 +598,7 @@ async function handleGenerate() {
 }
 
 // ─── CLAUDE API ────────────────────────────────────────
-async function callClaude(key, teamName, season, phase, playersWithIDPs, totalPlayers, coachNotes) {
+async function callClaude(key, model, teamName, season, phase, playersWithIDPs, totalPlayers, coachNotes) {
   const systemPrompt = `You are a youth soccer coaching expert. Given a collection of individual player IDPs (Individual Development Plans) for a team, generate a Team Development Plan (TDP) that identifies collective strengths, shared improvement areas, training themes, and a seasonal vision. Return ONLY valid JSON, no markdown, no explanation.
 
 JSON structure:
@@ -659,7 +659,7 @@ Rules:
       'anthropic-dangerous-direct-browser-access': 'true'
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
+      model: model,
       max_tokens: 3000,
       system: systemPrompt,
       messages: [{ role: 'user', content: userMsg }]

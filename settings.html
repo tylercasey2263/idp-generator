@@ -380,6 +380,16 @@ let coachId = null;
         <button class="btn btn-primary" onclick="saveApiKey()">Save API Key</button>
         <span class="save-status" id="keyStatus"></span>
       </div>
+
+      <div class="field" style="margin-top:18px;">
+        <label>Claude Model</label>
+        <input type="text" id="claudeModel" value="${esc(S.claude_model || 'claude-sonnet-4-5')}" placeholder="claude-sonnet-4-5" />
+        <div class="field-hint">The Anthropic model used for IDP and Team Plan generation. Update this when Anthropic releases a new model. Find current model IDs at <strong>docs.anthropic.com/models</strong>.</div>
+      </div>
+      <div class="save-row">
+        <button class="btn btn-primary" onclick="saveClaudeModel()">Save Model</button>
+        <span class="save-status" id="modelStatus"></span>
+      </div>
     </div>
 
     <!-- ── IDP REVIEW ── -->
@@ -492,6 +502,16 @@ async function saveApiKey() {
     st.textContent = '✓ API key saved!';
     st.className = 'save-status ok';
   }
+}
+
+// ── Claude model ──────────────────────────────
+async function saveClaudeModel() {
+  const model = document.getElementById('claudeModel').value.trim();
+  const st    = document.getElementById('modelStatus');
+  if (!model) { st.textContent = 'Model ID cannot be empty.'; st.className = 'save-status err'; return; }
+  const { error } = await sb.from('settings').upsert([{ key: 'claude_model', value: model }], { onConflict: 'key' });
+  if (error) { st.textContent = 'Error: ' + error.message; st.className = 'save-status err'; }
+  else { st.textContent = '✓ Model saved!'; st.className = 'save-status ok'; setTimeout(() => st.textContent = '', 2500); }
 }
 
 function esc(s) {

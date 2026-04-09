@@ -366,6 +366,28 @@ input::placeholder { color: var(--text-dim); }
   </div>
 </div>
 
+<!-- EDIT TEAM MODAL -->
+<div class="overlay" id="editTeamModal">
+  <div class="modal">
+    <h2>Edit Team</h2>
+    <div class="field">
+      <label>Team Name</label>
+      <input type="text" id="editTeamName" placeholder="e.g. U14 Boys Blue"
+             onkeydown="if(event.key==='Enter') saveEditTeam()" />
+    </div>
+    <div class="field">
+      <label>Season (optional)</label>
+      <input type="text" id="editTeamSeason" placeholder="e.g. Fall 2026"
+             onkeydown="if(event.key==='Enter') saveEditTeam()" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeEditTeam()">Cancel</button>
+      <button class="btn btn-primary" id="saveEditTeamBtn" onclick="saveEditTeam()">Save Changes</button>
+    </div>
+    <div class="modal-status" id="editTeamStatus"></div>
+  </div>
+</div>
+
 <!-- ADD TEAM MODAL -->
 <div class="overlay" id="addTeamModal">
   <div class="modal">
@@ -566,10 +588,6 @@ function toggleAccordion(id) {
   body.classList.toggle('open', !isOpen);
 }
 
-function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -664,6 +682,7 @@ function renderTeamCards(teams, countMap) {
         <div class="team-meta">${count} player${count !== 1 ? 's' : ''}</div>
         <div class="team-card-footer">
           <button class="btn-sm btn-sm-primary" onclick="viewTeam('${t.id}')">View Team →</button>
+          <button class="btn-sm btn-sm-ghost" onclick="openEditTeam('${t.id}','${esc(t.name)}','${esc(t.season||'')}')">Edit</button>
           <button class="btn-sm btn-sm-danger" onclick="deleteTeam('${t.id}','${esc(t.name)}')">Delete</button>
         </div>
       </div>`;
@@ -768,6 +787,59 @@ async function confirmDelete() {
   renderTeamCards(window._allTeams, window._countMap || {});
   loadStats();
   showToast('Team deleted');
+}
+
+// ── Edit Team ─────────────────────────────────────────────────────────────
+let _editTeamId = null;
+
+function openEditTeam(id, name, season) {
+  _editTeamId = id;
+  document.getElementById('editTeamName').value   = name;
+  document.getElementById('editTeamSeason').value = season;
+  document.getElementById('editTeamStatus').textContent = '';
+  document.getElementById('editTeamModal').classList.add('open');
+  setTimeout(() => document.getElementById('editTeamName').focus(), 80);
+}
+
+function closeEditTeam() {
+  document.getElementById('editTeamModal').classList.remove('open');
+  _editTeamId = null;
+}
+
+document.getElementById('editTeamModal').addEventListener('click', function(e) {
+  if (e.target === this) closeEditTeam();
+});
+
+async function saveEditTeam() {
+  if (!_editTeamId) return;
+  const name   = document.getElementById('editTeamName').value.trim();
+  const season = document.getElementById('editTeamSeason').value.trim();
+  const status = document.getElementById('editTeamStatus');
+  if (!name) { status.textContent = 'Team name is required.'; return; }
+
+  const btn = document.getElementById('saveEditTeamBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+
+  const { error } = await sb.from('teams')
+    .update({ name, season: season || null })
+    .eq('id', _editTeamId);
+
+  btn.disabled = false; btn.textContent = 'Save Changes';
+
+  if (error) {
+    status.textContent = 'Error: ' + error.message;
+    return;
+  }
+
+  // Update local cache so re-render is instant
+  if (window._allTeams) {
+    const t = window._allTeams.find(t => t.id === _editTeamId);
+    if (t) { t.name = name; t.season = season || null; }
+  }
+
+  closeEditTeam();
+  loadTeams();
+  showToast('Team updated ✓');
 }
 
 function openAddTeam() {

@@ -570,11 +570,11 @@ async function handleGenerate(useAI) {
 
   if (useAI) {
     setStatus('Fetching API key…', 'loading');
-    const key = await getClaudeApiKey();
+    const [key, model] = await Promise.all([getClaudeApiKey(), getClaudeModel()]);
     if (!key) { setStatus('No Claude API key found in settings. Ask your admin to add one.', 'error'); return; }
     setStatus('Sending to Claude…', 'loading');
     try {
-      const data = await callClaude(key, name, pos, dur, foc, raw);
+      const data = await callClaude(key, model, name, pos, dur, foc, raw);
       lastIDPData = data;
       renderInfographic(data);
       setStatus('Generated successfully.', 'success');
@@ -591,7 +591,7 @@ async function handleGenerate(useAI) {
 }
 
 // ─── CLAUDE API ────────────────────────────────────────
-async function callClaude(key, name, pos, dur, foc, transcript) {
+async function callClaude(key, model, name, pos, dur, foc, transcript) {
   const systemPrompt = `You are a youth soccer development expert. Given a raw voice memo transcript of a player IDP (Individual Development Plan), extract and structure the information into a clean JSON object. Return ONLY valid JSON, no markdown, no explanation.
 
 JSON structure:
@@ -631,7 +631,7 @@ badgeType must be one of: purple, amber, teal, blue`;
       'anthropic-dangerous-direct-browser-access': 'true'
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
+      model: model,
       max_tokens: 2000,
       system: systemPrompt,
       messages: [{ role: 'user', content: `Player name: ${name}\nPosition: ${pos}\nDuration: ${dur}\nFocus: ${foc}\n\nTRANSCRIPT:\n${transcript}` }]

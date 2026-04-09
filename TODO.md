@@ -228,14 +228,6 @@ General rules:
 
 ---
 
-## 🏅 Player Progress Tracker
-**Effort:** Large (~3 hours)
-- Coach manually rates 1–5 per improvement area after each session
-- Sparkline chart per player showing trend over time
-- Highlight most improved players on dashboard
-
----
-
 ## ✅ IDP Progress Tracker — DONE
 - Tab on view-idp.html showing IDPs chronologically oldest→newest
 - Visual timeline with dots, focus badges, strength/improvement tags per IDP
