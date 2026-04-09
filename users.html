@@ -284,6 +284,24 @@ select.inv-role-select:focus { border-color: var(--teal); }
   </div>
 </div>
 
+<!-- ── Manage Teams Modal ─────────────────────────────── -->
+<div class="overlay" id="manageTeamsModal">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <h3 id="manageTeamsTitle">Team Assignments</h3>
+      <button class="modal-close" onclick="closeManageTeams()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="field-hint" style="margin-bottom:12px;">Check the teams this coach is assigned to. Changes take effect immediately.</p>
+      <div id="teamCheckList" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto;"></div>
+      <div class="modal-status" id="manageTeamsStatus" style="margin-top:10px;"></div>
+    </div>
+    <div class="modal-footer" style="display:flex;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--border);">
+      <button class="btn btn-ghost" onclick="closeManageTeams()">Done</button>
+    </div>
+  </div>
+</div>
+
 <div id="sidebarMount"></div>
 
 <div class="main-content">
@@ -300,21 +318,11 @@ let activeFilter = 'all';
 let activeTab = 'users';
 
 (async () => {
-  const ctx = await requireCoach();
+  const ctx = await requireAdmin();
   if (!ctx) return;
   coachId = ctx.session.user.id;
 
   await renderSidebar('users');
-
-  if (ctx.profile.role !== 'admin') {
-    document.getElementById('pageContent').innerHTML = `
-      <div class="access-denied">
-        <h2>Access Restricted</h2>
-        <p>Only admins can access User Management. Contact your club admin to change your role.</p>
-        <a href="/dashboard.html" class="btn btn-primary" style="text-decoration:none;display:inline-flex;">← Back to Dashboard</a>
-      </div>`;
-    return;
-  }
 
   // Load all users and invites
   const [{ data: users }, { data: invites }] = await Promise.all([
@@ -418,6 +426,7 @@ function buildUserTable(users) {
           <th>Name / Email</th>
           <th>Role</th>
           <th>Change Role</th>
+          <th>Teams</th>
           <th></th>
         </tr>
       </thead>
@@ -435,6 +444,11 @@ function buildUserTable(users) {
                 <option value="coach"  ${u.role==='coach'  ? 'selected':''}>Coach</option>
                 <option value="parent" ${u.role==='parent' ? 'selected':''}>Parent</option>
               </select>
+            </td>
+            <td>
+              ${u.role === 'coach' || u.role === 'admin'
+                ? `<button class="btn-ghost-sm" onclick="openManageTeams('${u.id}','${esc(u.full_name || u.email || 'this user')}')">Manage Teams</button>`
+                : '<span style="font-size:11px;color:var(--text-dim);">—</span>'}
             </td>
             <td>
               ${u.id !== coachId ? `<button class="btn-danger-sm" onclick="openDeleteUser('${u.id}','${esc(u.full_name || u.email || 'this user')}')">Delete</button>` : '<span style="font-size:11px;color:var(--text-dim);">You</span>'}
@@ -770,6 +784,85 @@ async function resendInvite(inviteId, email, name, role, btn) {
 function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ── Manage Team Assignments ───────────────────────────────────────────────────
+let _manageTeamsUserId = null;
+let _allTeams = [];
+
+async function openManageTeams(uid, name) {
+  _manageTeamsUserId = uid;
+  document.getElementById('manageTeamsTitle').textContent = `Teams — ${name}`;
+  document.getElementById('manageTeamsStatus').textContent = '';
+  document.getElementById('teamCheckList').innerHTML = '<span style="font-size:13px;color:var(--text-dim);">Loading…</span>';
+  document.getElementById('manageTeamsModal').classList.add('open');
+
+  // Load all teams + this user's current assignments in parallel
+  const [teamsRes, assignedRes] = await Promise.all([
+    sb.from('teams').select('id, name, season').order('name'),
+    sb.from('coach_teams').select('team_id').eq('coach_id', uid),
+  ]);
+
+  _allTeams = teamsRes.data || [];
+  const assignedIds = new Set((assignedRes.data || []).map(r => r.team_id));
+
+  if (_allTeams.length === 0) {
+    document.getElementById('teamCheckList').innerHTML =
+      '<span style="font-size:13px;color:var(--text-dim);">No teams exist yet. Create a team first.</span>';
+    return;
+  }
+
+  document.getElementById('teamCheckList').innerHTML = _allTeams.map(t => `
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;
+      background:var(--navy-mid);border:1px solid var(--border);cursor:pointer;">
+      <input type="checkbox" ${assignedIds.has(t.id) ? 'checked' : ''}
+        onchange="toggleTeamAssignment('${t.id}', this)"
+        style="accent-color:var(--teal-light);width:15px;height:15px;flex-shrink:0;" />
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);">${esc(t.name)}</div>
+        ${t.season ? `<div style="font-size:11px;color:var(--text-dim);">${esc(t.season)}</div>` : ''}
+      </div>
+    </label>`).join('');
+}
+
+async function toggleTeamAssignment(teamId, checkbox) {
+  const uid = _manageTeamsUserId;
+  const st  = document.getElementById('manageTeamsStatus');
+  checkbox.disabled = true;
+  st.textContent = '';
+
+  if (checkbox.checked) {
+    // Assign coach to team
+    const { error } = await sb.from('coach_teams').insert({ coach_id: uid, team_id: teamId });
+    if (error && !error.message.includes('duplicate')) {
+      st.textContent = 'Error: ' + error.message;
+      st.className = 'modal-status err';
+      checkbox.checked = false;
+    }
+  } else {
+    // Remove assignment
+    const { error } = await sb.from('coach_teams').delete()
+      .eq('coach_id', uid).eq('team_id', teamId);
+    if (error) {
+      st.textContent = 'Error: ' + error.message;
+      st.className = 'modal-status err';
+      checkbox.checked = true;
+    }
+  }
+  checkbox.disabled = false;
+  if (!st.textContent) {
+    st.textContent = 'Saved';
+    st.className = 'modal-status ok';
+    setTimeout(() => { st.textContent = ''; }, 1500);
+  }
+}
+
+function closeManageTeams() {
+  document.getElementById('manageTeamsModal').classList.remove('open');
+  _manageTeamsUserId = null;
+}
+document.getElementById('manageTeamsModal').addEventListener('click', function(e) {
+  if (e.target === this) closeManageTeams();
+});
 </script>
 </body>
 </html>

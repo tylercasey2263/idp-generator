@@ -55,8 +55,8 @@ async function ensureProfile(session) {
     full_name: name,
     role:      user.user_metadata?.role || 'coach',
   }, { onConflict: 'id', ignoreDuplicates: true });
-  // Sync email separately — safe because it doesn't touch role
-  await sb.from('profiles').update({ email: user.email }).eq('id', user.id);
+  // Sync email (safe — email column added in rbac-phase1-critical.sql)
+  await sb.from('profiles').update({ email: user.email }).eq('id', user.id).select();
   sessionStorage.setItem(syncKey, '1');
 }
 
@@ -134,6 +134,18 @@ async function requireCoach() {
     return null;
   }
   return { session, profile };
+}
+
+// Require admin role only. Redirects coaches/parents to dashboard.
+// Returns { session, profile } or null.
+async function requireAdmin() {
+  const ctx = await requireCoach();
+  if (!ctx) return null;
+  if (ctx.profile.role !== 'admin') {
+    window.location.href = `${appBase()}/dashboard.html`;
+    return null;
+  }
+  return ctx;
 }
 
 // Require parent role (or any authenticated user for invite acceptance).

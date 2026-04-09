@@ -194,12 +194,15 @@ function renderTeams(teams) {
       </div>`;
     }).join('');
 
+    // Admins can manage any team; coaches only manage their assigned teams
+    const canManage = myRole === 'admin' || isMine;
+
     return `
       <div class="team-card">
         <div>
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
             <div class="team-name">${esc(t.name)}</div>
-            ${isMine ? '<span class="team-assigned-chip">✓ My Team</span>' : ''}
+            ${isMine ? '<span class="team-assigned-chip">✓ My Team</span>' : (myRole === 'admin' ? '<span class="team-assigned-chip" style="background:rgba(212,135,10,.15);color:#F0A020;border-color:rgba(212,135,10,.3);">Admin</span>' : '')}
           </div>
           ${t.season ? `<div class="team-season">${esc(t.season)}</div>` : ''}
         </div>
@@ -207,6 +210,7 @@ function renderTeams(teams) {
         ${coachChips ? `<div class="team-coaches-row">${coachChips}</div>` : ''}
         <div class="team-card-footer">
           <button class="btn-sm btn-sm-primary" onclick="window.location.href='${_base}/team.html?team=${t.id}'">View Team →</button>
+          ${canManage ? `<button class="btn-sm" style="color:var(--text-dim);border-color:var(--border-strong);" onclick="window.location.href='${_base}/team.html?team=${t.id}'">Edit</button>` : ''}
         </div>
       </div>`;
   }).join('')}</div>`;

@@ -355,8 +355,9 @@ Jane Doe,Forward</div>
 
 <script>
 (async () => {
-  const ctx = await requireCoach();
-  if (!ctx) return;
+  // Help is accessible to all authenticated users (coaches, admins, parents)
+  const session = await requireAuth();
+  if (!session) return;
   await renderSidebar('help');
 })();
 
