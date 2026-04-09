@@ -32,18 +32,28 @@ Deno.serve(async (req: Request) => {
     const { data: { user } } = await anonClient.auth.getUser();
     if (!user) return json({ error: 'Unauthorized' }, 401);
 
-    // ── 2. Parse query ─────────────────────────────────────────────────────
+    // ── 2. Verify caller is a coach or admin (not a parent) ───────────────
+    const adminClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+    const { data: callerProfile } = await adminClient
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (!callerProfile || !['coach', 'admin'].includes(callerProfile.role)) {
+      return json({ error: 'Forbidden' }, 403);
+    }
+
+    // ── 3. Parse query ─────────────────────────────────────────────────────
     const { query, exclude_team_id } = await req.json();
     if (!query || query.trim().length < 2) {
       return json({ error: 'Query must be at least 2 characters' }, 400);
     }
 
-    // ── 3. Search with service role (bypasses RLS) ─────────────────────────
-    const adminClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    );
-
+    // ── 4. Search with service role (bypasses RLS) ─────────────────────────
     const { data, error } = await adminClient
       .from('players')
       .select('id, name, positions, team_id, teams(id, name)')
