@@ -133,7 +133,10 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
       ← Back to Dashboard
     </button>
     <button class="quick-btn" onclick="document.getElementById('tourSection').scrollIntoView({behavior:'smooth'})">
-      🎯 Restart Tour
+      🎯 Tours
+    </button>
+    <button class="quick-btn" onclick="document.getElementById('rolesSection').scrollIntoView({behavior:'smooth'})">
+      🔐 Roles
     </button>
     <button class="quick-btn" onclick="document.getElementById('faqSection').scrollIntoView({behavior:'smooth'})">
       ❓ FAQ
@@ -154,35 +157,49 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
         <div class="step-num">1</div>
         <div class="step-body">
           <div class="step-title">Set up your club <span class="step-tag tag-admin">Admin</span></div>
-          <div class="step-desc">Go to <strong>Settings</strong> in the sidebar. Add your club name, upload a logo, and paste your Anthropic API key. This only needs to be done once.</div>
+          <div class="step-desc">Go to <strong>Settings</strong> in the sidebar. Add your club name, upload a logo, and paste your Anthropic API key. This only needs to be done once. Admins can also pick a theme colour for the whole portal.</div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">2</div>
         <div class="step-body">
-          <div class="step-title">Create your teams <span class="step-tag tag-coach">Coach</span></div>
-          <div class="step-desc">From the <strong>Dashboard</strong>, click <strong>+ Add Team</strong>. Give it a name (e.g. "U14 Boys Blue") and an optional season.</div>
+          <div class="step-title">Invite your coaches <span class="step-tag tag-admin">Admin</span></div>
+          <div class="step-desc">Go to <strong>Users</strong> in the sidebar. Click <strong>+ Invite User</strong>, enter the coach's name and email, and select the Coach role. They'll receive an email with a sign-up link. Once they've joined, use the <strong>Manage Teams</strong> button on their user row to assign them to their teams.</div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">3</div>
         <div class="step-body">
-          <div class="step-title">Add your players <span class="step-tag tag-coach">Coach</span></div>
-          <div class="step-desc">Click into a team and use <strong>+ Add Player</strong> to add individually, or <strong>⬆ Import CSV</strong> to bulk-upload your entire roster from a spreadsheet. You can also use <strong>All Players</strong> to manage the full club roster at once.</div>
+          <div class="step-title">Create your teams <span class="step-tag tag-coach">Coach</span></div>
+          <div class="step-desc">From the <strong>Dashboard</strong>, click <strong>+ Add Team</strong>. Give it a name (e.g. "U14 Boys Blue") and an optional season label. You'll be automatically assigned to that team.</div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">4</div>
         <div class="step-body">
-          <div class="step-title">Generate an IDP <span class="step-tag tag-coach">Coach</span></div>
-          <div class="step-desc">Click <strong>✦ Generate IDP</strong> next to a player. Record or paste your coaching notes in the transcript area. Hit <strong>Clean &amp; Generate</strong> to have Claude AI build a professional development plan. You can edit any section inline before publishing.</div>
+          <div class="step-title">Add your players <span class="step-tag tag-coach">Coach</span></div>
+          <div class="step-desc">Click into a team and use <strong>+ Add Player</strong> to add individually, or <strong>⬆ Import CSV</strong> to bulk-upload your roster from a spreadsheet. Use <strong>⇄ Import Player</strong> to pull a player from another team (they stay on both). All Players in the sidebar shows the full club roster.</div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">5</div>
         <div class="step-body">
-          <div class="step-title">Share with parents <span class="step-tag tag-coach">Coach</span></div>
-          <div class="step-desc">Once you've reviewed the IDP, click <strong>⬆ Save &amp; Publish</strong>. Then click <strong>⤴ Invite Parent</strong> on the team page to generate a unique link for the player's parent. They'll create an account and see all published IDPs for their child.</div>
+          <div class="step-title">Generate an IDP <span class="step-tag tag-coach">Coach</span></div>
+          <div class="step-desc">Click <strong>✦ Generate IDP</strong> next to a player. Record or paste your coaching notes in the transcript — or click 🎙 to dictate directly. Hit <strong>Clean &amp; Generate</strong> to have Claude AI build a professional development plan. Every section is editable inline before you publish. Each save creates a new version — previous IDPs are always preserved.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-body">
+          <div class="step-title">Invite parents <span class="step-tag tag-coach">Coach</span></div>
+          <div class="step-desc">Once you've published an IDP, go to the team page and click <strong>⤴ Invite Parent</strong> next to the player. Enter the parent's email and hit Send — they'll receive an invitation email. When they accept, they're automatically linked to see all published IDPs for their child. Parents are also emailed automatically every time you publish a new IDP.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">7</div>
+        <div class="step-body">
+          <div class="step-title">Generate a Team Development Plan <span class="step-tag tag-coach">Coach</span></div>
+          <div class="step-desc">On any team page, click <strong>✦ Team Plan</strong>. The system pulls all published player IDPs, and Claude synthesises them into a team-wide plan: collective strengths, training themes, player spotlights, and a season vision. Add optional context notes before generating.</div>
         </div>
       </div>
     </div>
@@ -249,7 +266,7 @@ Jane Doe,Forward</div>
   </div>
 
   <!-- ── ROLES ── -->
-  <div class="help-section">
+  <div class="help-section" id="rolesSection">
     <div class="section-title">
       <div class="section-icon">🔐</div>
       Roles &amp; Permissions
@@ -259,21 +276,28 @@ Jane Doe,Forward</div>
         <div class="step-num">A</div>
         <div class="step-body">
           <div class="step-title">Admin</div>
-          <div class="step-desc">Full access to everything including Settings, user role management, API key, and club branding. Typically the club director or head administrator.</div>
+          <div class="step-desc">Full access to everything. Admins see <strong>all teams</strong> across the club, can manage any player or IDP, configure Settings (club name, logo, API key, theme), manage user roles, and assign coaches to teams. Typically the club director or head administrator.</div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">C</div>
         <div class="step-body">
           <div class="step-title">Coach</div>
-          <div class="step-desc">Can create and manage teams, add/edit/remove players, generate and publish IDPs, and invite parents. Cannot access Settings.</div>
+          <div class="step-desc">Scoped to <strong>assigned teams only</strong>. Coaches can create teams, add/edit/remove players on their teams, generate and publish IDPs, log training sessions, run Team Plans, and invite parents. A coach cannot see or edit players on teams they're not assigned to. Admins assign teams via <strong>Users → Manage Teams</strong>; coaches can also self-link from the team page.</div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">P</div>
         <div class="step-body">
           <div class="step-title">Parent</div>
-          <div class="step-desc">Read-only access to published IDPs for their linked child. Parents join via an invite link generated by a coach. They cannot edit any data.</div>
+          <div class="step-desc">Read-only access to <strong>published IDPs for their linked child only</strong>. Parents join via an invite email sent by a coach. If a parent has multiple children in the club, they see a tab bar with each child's name. Parents can upload a photo for their child and send private feedback messages to the coach. They cannot access any other player's data.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">→</div>
+        <div class="step-body">
+          <div class="step-title">Changing roles</div>
+          <div class="step-desc">Admins can change any user's role in <strong>Users</strong> (sidebar). Role changes take effect on the user's next sign-in. No user can promote their own role — this is enforced at the database level.</div>
         </div>
       </div>
     </div>
@@ -320,7 +344,31 @@ Jane Doe,Forward</div>
         <div class="faq-q" onclick="toggleFaq(this)">
           Is player data secure? <span class="arrow">▼</span>
         </div>
-        <div class="faq-a">Yes. All data is stored in a private Supabase database with row-level security. Coaches only see their own teams, and parents only see their linked child's published IDPs. The Claude API key is stored encrypted server-side.</div>
+        <div class="faq-a">Yes. All data is stored in a private Supabase database with row-level security enforced on every table. Coaches only see players and IDPs on their assigned teams. Parents only see published IDPs for their own linked child — no cross-family access is possible. The Claude API key is admin-only and cannot be read or changed by coaches via the browser.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          How does IDP versioning work? <span class="arrow">▼</span>
+        </div>
+        <div class="faq-a">Every time you publish an IDP, a brand-new version is created — previous versions are <strong>never overwritten</strong>. On the player's IDP history page you can see all versions newest-first, use the <strong>⇄ What Changed</strong> diff panel to compare consecutive versions, and copy any version as a new draft. Parents always see the most recently published version on their portal tab.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Do parents get notified when a new IDP is published? <span class="arrow">▼</span>
+        </div>
+        <div class="faq-a">Yes — if email notifications are configured. When you publish an IDP, the system automatically sends an email to any parent linked to that player. The email contains a direct link to the parent portal. This requires the <code>notify-parent</code> Edge Function to be deployed in Supabase and a Resend API key to be set in its secrets (see the manual setup instructions in TODO.md).</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          A parent has two children at the club — how does that work? <span class="arrow">▼</span>
+        </div>
+        <div class="faq-a">Invite the parent separately for each child using <strong>⤴ Invite Parent</strong> on each player's row (using the same parent email both times). Once accepted, the parent's portal shows a tab bar at the top with each child's name and photo. An amber <strong>● New</strong> badge appears on a child's tab whenever a new IDP has been published since the parent last visited.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          How do I assign a coach to a team? <span class="arrow">▼</span>
+        </div>
+        <div class="faq-a">Two ways: (1) <strong>Admin path</strong> — go to <strong>Users</strong> in the sidebar, find the coach's row, and click <strong>Manage Teams</strong>. Check the teams you want to assign and uncheck any to remove. (2) <strong>Self-link</strong> — any coach can open a team page and click <strong>Link me to this team</strong> in the Coaching Staff section to add themselves.</div>
       </div>
     </div>
   </div>
@@ -334,7 +382,17 @@ Jane Doe,Forward</div>
     <div class="tour-grid">
       <div class="tour-card" onclick="goTour('dashboard')">
         <div class="tour-card-title">Dashboard Tour</div>
-        <div class="tour-card-desc">Overview of your teams and how to navigate the portal.</div>
+        <div class="tour-card-desc">Overview of your teams, stats bar, and how to navigate the portal.</div>
+        <div class="tour-card-btn">▶ Start Tour</div>
+      </div>
+      <div class="tour-card" onclick="goTour('team')">
+        <div class="tour-card-title">Team Page Tour</div>
+        <div class="tour-card-desc">Explore the roster, training sessions, league results, and lineup tools.</div>
+        <div class="tour-card-btn">▶ Start Tour</div>
+      </div>
+      <div class="tour-card" onclick="goTour('generate')">
+        <div class="tour-card-title">IDP Generator Tour</div>
+        <div class="tour-card-desc">How to paste or dictate a transcript and generate a professional development plan.</div>
         <div class="tour-card-btn">▶ Start Tour</div>
       </div>
       <div class="tour-card" onclick="goTour('players')">
@@ -342,9 +400,14 @@ Jane Doe,Forward</div>
         <div class="tour-card-desc">Learn the club-wide roster view, search, and CSV import.</div>
         <div class="tour-card-btn">▶ Start Tour</div>
       </div>
+      <div class="tour-card" onclick="goTour('parent')">
+        <div class="tour-card-title">Parent Portal Tour</div>
+        <div class="tour-card-desc">See what parents experience — published IDPs, multi-child tabs, and feedback.</div>
+        <div class="tour-card-btn">▶ Start Tour</div>
+      </div>
       <div class="tour-card" onclick="goTour('settings')">
         <div class="tour-card-title">Settings Tour</div>
-        <div class="tour-card-desc">How to configure your club, API key, and manage users.</div>
+        <div class="tour-card-desc">How to configure your club, API key, theme, and manage users.</div>
         <div class="tour-card-btn">▶ Start Tour</div>
       </div>
     </div>
@@ -368,7 +431,10 @@ function toggleFaq(el) {
 function goTour(page) {
   const destinations = {
     dashboard: '/dashboard.html',
+    team:      '/team.html',
+    generate:  '/generate.html',
     players:   '/players.html',
+    parent:    '/parent.html',
     settings:  '/settings.html',
   };
   // Clear the tour flag so it shows on next visit
