@@ -167,6 +167,7 @@ CREATE POLICY "team_plans: coach scoped"
 -- Fix: Allow admins to insert any row.
 
 DROP POLICY IF EXISTS "coach_teams: own insert" ON public.coach_teams;
+DROP POLICY IF EXISTS "coach_teams: insert"     ON public.coach_teams;
 
 CREATE POLICY "coach_teams: insert"
   ON public.coach_teams FOR INSERT
