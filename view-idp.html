@@ -365,27 +365,38 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
 .share-overlay.open { opacity: 1; pointer-events: all; }
 .share-modal {
   background: var(--navy-mid); border: 1px solid var(--border-strong);
-  border-radius: 14px; padding: 28px 28px 22px; width: 100%; max-width: 440px;
+  border-radius: 14px; padding: 24px 24px 20px; width: 100%; max-width: 440px;
   box-shadow: 0 20px 60px rgba(0,0,0,.5); transform: translateY(8px);
   transition: transform .2s;
 }
 .share-overlay.open .share-modal { transform: translateY(0); }
+.share-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
 .share-modal-title {
   font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 700;
-  color: var(--text); margin-bottom: 6px;
+  color: var(--text);
 }
+.share-close-btn {
+  background: transparent; border: none; color: var(--text-dim); font-size: 18px;
+  cursor: pointer; padding: 2px 6px; border-radius: 4px; line-height: 1;
+  transition: color .15s, background .15s;
+}
+.share-close-btn:hover { color: var(--text); background: rgba(255,255,255,.06); }
 .share-modal-sub {
-  font-size: 12px; color: var(--text-dim); margin-bottom: 20px; line-height: 1.5;
+  font-size: 12px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.5;
 }
 .share-url-row {
-  display: flex; gap: 8px; align-items: center; margin-bottom: 12px;
+  display: flex; gap: 8px; align-items: center; margin-bottom: 8px;
 }
 .share-url-box {
   flex: 1; background: var(--navy); border: 1px solid var(--border-strong);
   border-radius: 8px; padding: 9px 12px; font-size: 12px; color: var(--text-muted);
   font-family: 'Inter', monospace; white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: ellipsis; cursor: pointer; transition: border-color .15s;
 }
+.share-url-box:hover { border-color: var(--teal); color: var(--text); }
 .share-copy-btn {
   flex-shrink: 0; background: var(--teal); border: none; border-radius: 8px;
   color: #fff; font-family: 'Barlow Condensed', sans-serif; font-size: 13px;
@@ -394,23 +405,33 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
 }
 .share-copy-btn:hover { background: #1BA87F; }
 .share-copy-btn.copied { background: #2A6E52; }
+.share-revoke {
+  font-size: 11px; color: var(--text-dim); text-align: right; margin-bottom: 12px;
+}
+.share-revoke button {
+  background: none; border: none; color: inherit; cursor: pointer; font-size: inherit;
+  padding: 0; text-decoration: underline; transition: color .15s;
+}
+.share-revoke button:hover { color: #e05f5f; }
 .share-actions {
   display: flex; gap: 8px; margin-top: 4px;
 }
-.share-email-btn {
+.share-action-btn {
   flex: 1; background: transparent; border: 1px solid var(--border-strong);
   border-radius: 8px; color: var(--text-muted); font-family: 'Inter', sans-serif;
   font-size: 13px; padding: 9px 14px; cursor: pointer; text-align: center;
   text-decoration: none; display: flex; align-items: center; justify-content: center;
   gap: 6px; transition: border-color .15s, color .15s;
 }
-.share-email-btn:hover { border-color: var(--teal); color: var(--teal-light); }
+.share-action-btn:hover { border-color: var(--teal); color: var(--teal-light); }
 .share-done-btn {
   background: transparent; border: 1px solid var(--border-strong);
   border-radius: 8px; color: var(--text-dim); font-family: 'Inter', sans-serif;
-  font-size: 13px; padding: 9px 20px; cursor: pointer; transition: border-color .15s;
+  font-size: 13px; padding: 9px 20px; cursor: pointer; transition: border-color .15s, color .15s;
 }
 .share-done-btn:hover { border-color: var(--border-strong); color: var(--text); }
+.share-native-btn { display: none; }
+@media (hover: none) { .share-native-btn { display: flex; } }
 
 /* ─── TABS ─── */
 .tab-nav {
@@ -703,14 +724,23 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
 <!-- SHARE MODAL -->
 <div class="share-overlay" id="shareOverlay" onclick="closeShareModal(event)">
   <div class="share-modal" onclick="event.stopPropagation()">
-    <div class="share-modal-title">🔗 Share IDP</div>
+    <div class="share-modal-header">
+      <div class="share-modal-title">🔗 Share IDP</div>
+      <button class="share-close-btn" onclick="closeShareModal()" title="Close">✕</button>
+    </div>
     <div class="share-modal-sub">Anyone with this link can view the plan — no login required.</div>
     <div class="share-url-row">
-      <div class="share-url-box" id="shareUrlBox"></div>
+      <div class="share-url-box" id="shareUrlBox" onclick="copyShareUrl()" title="Click to copy"></div>
       <button class="share-copy-btn" id="shareCopyBtn" onclick="copyShareUrl()">Copy</button>
     </div>
+    <div class="share-revoke">
+      Link active · <button onclick="revokeShareLink()" id="shareRevokeBtn">Revoke &amp; generate new link</button>
+    </div>
     <div class="share-actions">
-      <a class="share-email-btn" id="shareEmailBtn" href="#" target="_blank">
+      <button class="share-action-btn share-native-btn" id="shareNativeBtn" onclick="nativeShare()">
+        ↑ Share via…
+      </button>
+      <a class="share-action-btn" id="shareEmailBtn" href="#" target="_blank">
         ✉ Open in email app
       </a>
       <button class="share-done-btn" onclick="closeShareModal()">Done</button>
@@ -1255,8 +1285,12 @@ function generateUUID() {
 }
 
 let _shareUrl = '';
+let _shareIdpId = null;
+let _shareIdx   = null;
 
 async function shareIDP(idpId, idx) {
+  _shareIdpId = idpId;
+  _shareIdx   = idx;
   let token = allIDPs[idx].share_token;
   if (!token) {
     token = generateUUID();
@@ -1264,6 +1298,10 @@ async function shareIDP(idpId, idx) {
     if (error) { showToast('Failed to create link'); return; }
     allIDPs[idx].share_token = token;
   }
+  _openShareModal(token);
+}
+
+function _openShareModal(token) {
   const basePath = window.location.pathname.replace(/\/[^/]+\.html.*$/, '');
   _shareUrl = `${window.location.origin}${basePath}/player-view.html?token=${token}`;
 
@@ -1275,9 +1313,27 @@ async function shareIDP(idpId, idx) {
 
   document.getElementById('shareUrlBox').textContent = _shareUrl;
   document.getElementById('shareEmailBtn').href = `mailto:?subject=${subject}&body=${body}`;
-  document.getElementById('shareCopyBtn').textContent = 'Copy';
-  document.getElementById('shareCopyBtn').classList.remove('copied');
+  const copyBtn = document.getElementById('shareCopyBtn');
+  copyBtn.textContent = 'Copy';
+  copyBtn.classList.remove('copied');
+
+  // Show native share button only if Web Share API is available
+  document.getElementById('shareNativeBtn').style.display =
+    navigator.share ? 'flex' : 'none';
+
+  // Reset revoke button state
+  const revokeBtn = document.getElementById('shareRevokeBtn');
+  revokeBtn.textContent = 'Revoke & generate new link';
+  revokeBtn.disabled = false;
+
   document.getElementById('shareOverlay').classList.add('open');
+
+  // Auto-copy to clipboard on open
+  navigator.clipboard?.writeText(_shareUrl).then(() => {
+    copyBtn.textContent = 'Copied ✓';
+    copyBtn.classList.add('copied');
+    setTimeout(() => { copyBtn.textContent = 'Copy'; copyBtn.classList.remove('copied'); }, 2500);
+  }).catch(() => {});
 }
 
 async function copyShareUrl() {
@@ -1290,6 +1346,40 @@ async function copyShareUrl() {
   } catch {
     prompt('Copy this link:', _shareUrl);
   }
+}
+
+async function nativeShare() {
+  if (!navigator.share) return;
+  const playerName = playerData?.name || 'Player';
+  try {
+    await navigator.share({
+      title: `${playerName}'s Development Plan`,
+      text: `Here is the Individual Development Plan for ${playerName}. No login required — just open the link.`,
+      url: _shareUrl,
+    });
+  } catch (err) {
+    if (err.name !== 'AbortError') showToast('Share failed');
+  }
+}
+
+async function revokeShareLink() {
+  if (_shareIdpId === null) return;
+  const btn = document.getElementById('shareRevokeBtn');
+  btn.textContent = 'Revoking…';
+  btn.disabled = true;
+
+  // Generate a fresh token immediately (revoke + new in one update)
+  const newToken = generateUUID();
+  const { error } = await sb.from('idps').update({ share_token: newToken }).eq('id', _shareIdpId);
+  if (error) {
+    showToast('Failed to revoke link');
+    btn.textContent = 'Revoke & generate new link';
+    btn.disabled = false;
+    return;
+  }
+  allIDPs[_shareIdx].share_token = newToken;
+  _openShareModal(newToken);
+  showToast('New link generated — old link is now invalid');
 }
 
 function closeShareModal(e) {

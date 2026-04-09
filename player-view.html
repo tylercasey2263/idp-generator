@@ -27,9 +27,13 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
   background: var(--navy-mid); border-bottom: 1px solid var(--border-strong);
 }
 .topbar-brand {
+  display: flex; align-items: center; gap: 10px;
   font-family: 'Barlow Condensed', sans-serif; font-size: 18px;
   font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
   color: var(--teal-light);
+}
+.topbar-logo {
+  height: 30px; width: 30px; border-radius: 6px; object-fit: contain;
 }
 .btn-pdf {
   display: inline-flex; align-items: center; gap: 7px;
@@ -48,6 +52,16 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
   padding: 2.5rem 2rem 2rem;
   text-align: center;
 }
+.hero-avatar {
+  width: 72px; height: 72px; border-radius: 50%; border: 3px solid rgba(27,138,107,.4);
+  object-fit: cover; margin: 0 auto .75rem; display: block;
+}
+.hero-avatar-initials {
+  width: 72px; height: 72px; border-radius: 50%; border: 3px solid rgba(27,138,107,.4);
+  background: var(--navy-light); display: flex; align-items: center; justify-content: center;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 800;
+  color: var(--teal-light); margin: 0 auto .75rem;
+}
 .hero-label {
   font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 700;
   letter-spacing: .2em; text-transform: uppercase; color: var(--teal-light);
@@ -63,6 +77,11 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
   margin-top: .75rem; font-size: 14px; color: var(--text-dim);
   font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
   letter-spacing: .1em; text-transform: uppercase;
+}
+.hero-date {
+  margin-top: .4rem; font-size: 12px; color: var(--text-dim);
+  font-family: 'Inter', sans-serif; font-weight: 400; letter-spacing: 0;
+  text-transform: none;
 }
 
 /* ── Page ── */
@@ -151,7 +170,7 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
 .not-found p { font-size: 14px; color: var(--text-dim); }
 
 /* ── Footer ── */
-.footer { text-align: center; padding: 2rem; font-size: 12px; color: var(--text-dim); border-top: 1px solid var(--border); margin-top: 3rem; }
+.footer { text-align: center; padding: 2rem; font-size: 12px; color: var(--text-dim); border-top: 1px solid var(--border); margin-top: 3rem; line-height: 1.8; }
 
 /* ── Print ── */
 @media print {
@@ -181,9 +200,11 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
 </div>
 
 <div id="hero" style="display:none;" class="hero">
-  <div class="hero-label">Your Individual Development Plan</div>
+  <div id="heroAvatar"></div>
+  <div class="hero-label">Individual Development Plan</div>
   <div class="hero-name" id="heroName"></div>
   <div class="hero-sub" id="heroSub"></div>
+  <div class="hero-date" id="heroDate"></div>
 </div>
 
 <div class="page">
@@ -191,7 +212,8 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
 </div>
 
 <div class="footer" id="footer" style="display:none;">
-  Prepared by your coaching staff · Player IDP
+  Prepared by your coaching staff<span id="footerClub"></span><br>
+  <span style="opacity:.5;">Player IDP · This plan is confidential and intended for the player and their family.</span>
 </div>
 
 <script>
@@ -202,22 +224,31 @@ const token = new URLSearchParams(window.location.search).get('token');
 (async () => {
   const content = document.getElementById('content');
 
-  // Load club branding
-  const { data: settingsRows } = await sb.from('settings').select('key,value').in('key', ['club_name','club_logo']);
-  const clubName = settingsRows?.find(r => r.key === 'club_name')?.value || '';
-  const clubLogo = settingsRows?.find(r => r.key === 'club_logo')?.value || '';
-  if (clubName) {
-    document.getElementById('topbarBrand').textContent = '⚽ ' + clubName + ' Player Development';
+  // Load club branding + IDP (in parallel)
+  const [settingsRes, idpRes] = await Promise.all([
+    sb.from('settings').select('key,value').in('key', ['club_name','club_logo']),
+    token
+      ? sb.rpc('get_idp_by_share_token', { p_token: token })
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+
+  const settingsRows = settingsRes.data || [];
+  const clubName = settingsRows.find(r => r.key === 'club_name')?.value || '';
+  const clubLogo = settingsRows.find(r => r.key === 'club_logo')?.value || '';
+
+  // Topbar branding
+  const brandEl = document.getElementById('topbarBrand');
+  if (clubLogo) {
+    brandEl.innerHTML = `<img src="${esc(clubLogo)}" class="topbar-logo" alt="${esc(clubName)}"> ${esc(clubName || 'Player Development')}`;
+  } else if (clubName) {
+    brandEl.textContent = '⚽ ' + clubName;
   }
 
   if (!token) {
     showNotFound('No plan link provided.'); return;
   }
 
-  // Use the SECURITY DEFINER function — this is the only safe way to look up
-  // by share token without exposing all shared IDPs to anyone with the anon key.
-  const { data: idpRows, error } = await sb
-    .rpc('get_idp_by_share_token', { p_token: token });
+  const { data: idpRows, error } = idpRes;
   const idp = idpRows?.[0] ?? null;
 
   if (error) {
@@ -227,14 +258,23 @@ const token = new URLSearchParams(window.location.search).get('token');
     showNotFound("This link has expired or the plan was removed. Ask your coach for a new link."); return;
   }
 
-  // Fetch player info
+  // Fetch player info (including photo)
   const { data: player } = await sb
-    .from('players').select('name, positions').eq('id', idp.player_id).maybeSingle();
+    .from('players').select('name, positions, photo_url').eq('id', idp.player_id).maybeSingle();
 
   const name = idp.data.playerName || player?.name || 'Player';
   const pos  = idp.data.position  || player?.positions || '';
 
-  // Populate hero
+  // Populate hero avatar
+  const avatarEl = document.getElementById('heroAvatar');
+  if (player?.photo_url) {
+    avatarEl.innerHTML = `<img src="${esc(player.photo_url)}" class="hero-avatar" alt="${esc(name)}">`;
+  } else {
+    const initials = name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    avatarEl.innerHTML = `<div class="hero-avatar-initials">${esc(initials)}</div>`;
+  }
+
+  // Populate hero name + subtitle
   const parts = name.trim().split(/\s+/);
   const heroName = document.getElementById('heroName');
   if (parts.length >= 2) {
@@ -243,10 +283,21 @@ const token = new URLSearchParams(window.location.search).get('token');
     heroName.innerHTML = '<span>' + esc(name) + '</span>';
   }
   document.getElementById('heroSub').textContent = pos ? pos + ' · Development Plan' : 'Development Plan';
+
+  // IDP date
+  if (idp.updated_at) {
+    const d = new Date(idp.updated_at);
+    document.getElementById('heroDate').textContent =
+      'Published ' + d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
   document.getElementById('hero').style.display = '';
 
+  // Footer club name
+  if (clubName) document.getElementById('footerClub').textContent = ' · ' + clubName;
+
   // Set page title
-  document.title = name + "'s Development Plan" + (clubName ? ' · ' + clubName : '') + ' · Player Development';
+  document.title = name + "'s Development Plan" + (clubName ? ' · ' + clubName : '');
 
   // Render infographic
   content.innerHTML = `<div class="idp-card">${buildInfographic(idp.data)}</div>`;
