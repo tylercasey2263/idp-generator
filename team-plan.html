@@ -302,6 +302,15 @@
 .mic-btn:hover { border-color: var(--teal-light); color: var(--teal-light); }
 .mic-btn.mic-active { border-color: #E05050; color: #E05050; background: rgba(224,80,80,.08); }
 </style>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1B8A6B">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Player IDP">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png">
 </head>
 <body>
 <div id="sidebarMount"></div>
@@ -808,7 +817,14 @@ function downloadHTML() {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">' +
     '<style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}body{background:#0D1B2A;color:#EDF2F7;font-family:\'Inter\',sans-serif;font-size:15px;line-height:1.6;padding:2rem 1.5rem 3rem;max-width:900px;margin:0 auto;}@media print{*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}}' + css + '</style>' +
-    '</head><body>' + clone.outerHTML + '</body></html>';
+    '</head><body>' + clone.outerHTML + '<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () =>
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  );
+}
+</script>
+</body></html>';
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
   a.download = name.replace(/\s+/g, '_') + '_TDP_2026.html';

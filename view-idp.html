@@ -695,7 +695,33 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
   display: block; font-family: 'Barlow Condensed', sans-serif;
   font-size: 22px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;
 }
+
+@media (max-width: 640px) {
+  .page { padding: 1rem 1rem 3rem; }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .viewer-actions { flex-wrap: wrap; gap: 6px; }
+  .tab-nav { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; padding-bottom: 2px; }
+  .tab-nav::-webkit-scrollbar { display: none; }
+  .ig-header { grid-template-columns: 1fr; }
+  .ig-stats { grid-template-columns: 1fr 1fr; }
+  .ig-card-grid { grid-template-columns: 1fr; }
+  .ig-micro-grid { grid-template-columns: 1fr; }
+  .ig-plan-item { grid-template-columns: 80px 1fr; }
+  input, select, textarea { font-size: 16px !important; }
+  .share-modal { padding: 1.25rem; }
+  .share-actions { flex-wrap: wrap; }
+  .notes-compose { padding: 1rem; }
+}
 </style>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1B8A6B">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Player IDP">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png">
 </head>
 <body>
 <div id="sidebarMount"></div>
@@ -1783,6 +1809,13 @@ async function confirmCopyIDP() {
     selectIDP(0);
     showToast('IDP duplicated as new draft');
   }, 800);
+}
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () =>
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  );
 }
 </script>
 </body>

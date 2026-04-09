@@ -324,6 +324,19 @@
             </div>
           </div>
           <button class="sb-signout" onclick="signOut()">Sign Out</button>
+          <div id="sbInstallWrap" style="display:none;margin-top:8px;">
+            <button id="sbInstallBtn" onclick="_pwaInstall()"
+              style="width:100%;background:var(--teal-faint);border:1px solid rgba(27,138,107,.35);
+                     border-radius:8px;color:var(--teal-light);font-family:'Barlow Condensed',sans-serif;
+                     font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+                     padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:7px;
+                     transition:border-color .15s;">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M7 1v8M4 6l3 3 3-3M1 10v1.5A1.5 1.5 0 002.5 13h9A1.5 1.5 0 0013 11.5V10" stroke="#22A882" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Install App
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -350,6 +363,40 @@
     window._sbRole = role;
     maybeStartTour(activePage);
   };
+
+  // ── PWA Install Prompt ───────────────────────────────────────────────────
+  let _pwaPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _pwaPrompt = e;
+    // Show install button once sidebar has rendered
+    const show = () => {
+      const wrap = document.getElementById('sbInstallWrap');
+      if (wrap) wrap.style.display = 'block';
+    };
+    // May render after the event fires
+    if (document.getElementById('sbInstallWrap')) show();
+    else setTimeout(show, 500);
+  });
+
+  window._pwaInstall = async function () {
+    if (!_pwaPrompt) return;
+    _pwaPrompt.prompt();
+    const { outcome } = await _pwaPrompt.userChoice;
+    if (outcome === 'accepted') {
+      const wrap = document.getElementById('sbInstallWrap');
+      if (wrap) wrap.style.display = 'none';
+    }
+    _pwaPrompt = null;
+  };
+
+  // Hide install button once app is installed
+  window.addEventListener('appinstalled', () => {
+    const wrap = document.getElementById('sbInstallWrap');
+    if (wrap) wrap.style.display = 'none';
+    _pwaPrompt = null;
+  });
 
   window.toggleSidebar = function () {
     const sb = document.getElementById('idpSidebar');

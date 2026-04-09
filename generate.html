@@ -328,7 +328,21 @@
     #infographic .card-grid { grid-template-columns: 1fr; }
     #infographic .micro-grid { grid-template-columns: 1fr; }
   }
+  @media (max-width: 640px) {
+    input[type="text"], textarea, select { font-size: 16px !important; }
+    .download-bar .btn { flex: 1; justify-content: center; }
+    .status-bar { flex-direction: column; align-items: flex-start; gap: 6px; }
+  }
 </style>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1B8A6B">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Player IDP">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png">
 </head>
 <body>
 <div id="sidebarMount"></div>
@@ -827,7 +841,14 @@ function downloadHTML() {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}body{background:#0D1B2A;color:#EDF2F7;font-family:'Inter',sans-serif;font-size:15px;line-height:1.6;padding:2rem 1.5rem 3rem;max-width:900px;margin:0 auto;}@media print{*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}}${getInfographicCSS()}</style>
-</head><body>${clone.outerHTML}</body></html>`;
+</head><body>${clone.outerHTML}<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () =>
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  );
+}
+</script>
+</body></html>`;
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
   a.download = `${name.replace(/\s+/g,'_')}_IDP_2026.html`;

@@ -483,7 +483,35 @@ input::placeholder { color: var(--text-dim); }
 .result-badge.L { background: rgba(224,80,80,.08);     color: #E05050;            border: 1px solid rgba(224,80,80,.25); }
 .result-badge.D { background: var(--amber-faint);      color: var(--amber-light); border: 1px solid rgba(212,135,10,.25); }
 .result-badge.U { background: transparent;             color: var(--text-dim);    border: 1px solid var(--border); }
+
+@media (max-width: 640px) {
+  .page { padding: 1rem 1rem 3rem; }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .page-actions { flex-wrap: wrap; gap: 6px; }
+  /* Player table → stack name + actions */
+  .player-row td { padding: 10px 12px; }
+  .player-actions { gap: 5px; }
+  .btn-action { padding: 8px 10px; min-height: 36px; } /* bigger tap targets */
+  /* Session cards */
+  .session-card { grid-template-columns: 1fr auto; }
+  .session-date { grid-column: 1 / -1; }
+  /* Modals full-width */
+  .modal { padding: 1.25rem; max-width: 100% !important; margin: 0 0.75rem; }
+  .modal h2, .modal-title { font-size: 18px; }
+  input, select, textarea { font-size: 16px !important; } /* prevent iOS zoom */
+  /* Stats strip if any */
+  .stats-strip { grid-template-columns: 1fr 1fr; }
+}
 </style>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1B8A6B">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Player IDP">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png">
 </head>
 <body>
 
@@ -2021,6 +2049,13 @@ async function removeCoachFromTeam(profileId) {
   if (error) { showToast('Error: ' + error.message); return; }
   showToast('Coach removed from team');
   loadCoaches();
+}
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () =>
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  );
 }
 </script>
 </body>
