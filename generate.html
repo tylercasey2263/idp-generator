@@ -754,6 +754,31 @@ async function saveAndPublish() {
       'IDP saved and published.' + (viewUrl ? ` <a href="${viewUrl}" style="color:var(--teal-light);text-decoration:underline;">View IDP →</a>` : ''),
       'success'
     );
+
+    // Fire parent notification in the background — non-blocking, failure is silent
+    if (playerId) {
+      try {
+        const { data: settingsRows } = await sb.from('settings').select('value').eq('key', 'club_name').single();
+        const clubName   = settingsRows?.value || '';
+        const portalBase = `${window.location.origin}${base}/parent.html`;
+        const session    = (await sb.auth.getSession()).data.session;
+        if (session) {
+          fetch(`${window.location.origin.replace(/\/$/, '')}/functions/v1/notify-parent`, {
+            method:  'POST',
+            headers: {
+              'Content-Type':  'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              player_id:   playerId,
+              player_name: lastIDPData?.playerName || '',
+              club_name:   clubName,
+              portal_url:  portalBase,
+            }),
+          }).catch(() => {}); // intentionally fire-and-forget
+        }
+      } catch (_) { /* notification errors never block the publish flow */ }
+    }
   }
 }
 

@@ -204,6 +204,44 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text);
 }
 .player-photo-sm:hover .player-photo-sm-overlay { opacity: 1; }
 
+/* ─── CHILD TABS ─── */
+.child-tabs {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 2rem; padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.child-tab {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 18px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border-strong);
+  background: var(--navy-mid); color: var(--text-muted);
+  font-family: 'Barlow Condensed', sans-serif; font-size: 14px;
+  font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  transition: all .15s;
+}
+.child-tab:hover { border-color: rgba(27,138,107,.4); color: var(--text); }
+.child-tab.active {
+  background: var(--teal-faint); color: var(--teal-light);
+  border-color: rgba(27,138,107,.5);
+}
+.child-tab .tab-avatar {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(27,138,107,.2); border: 1px solid rgba(27,138,107,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--teal-light);
+  overflow: hidden;
+}
+.child-tab .tab-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.child-tab .new-dot {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: var(--amber-faint); color: var(--amber-light);
+  border: 1px solid rgba(240,160,32,.35);
+  font-size: 9px; font-weight: 800; letter-spacing: .06em;
+  padding: 2px 6px; border-radius: 3px; text-transform: uppercase;
+}
+.child-section { display: none; }
+.child-section.visible { display: block; }
+
 /* ─── PARENT FEEDBACK ─── */
 .feedback-section {
   margin-top: 1.25rem;
@@ -369,6 +407,16 @@ async function loadIDPs(userId) {
   await renderIDPs(links, container);
 }
 
+// ── "New IDP" tracking via localStorage ────────────────────────────────────
+function _lastSeenKey(playerId) { return `idp_lastseen_${playerId}`; }
+function _getLastSeen(playerId) { return localStorage.getItem(_lastSeenKey(playerId)) || ''; }
+function _markSeen(playerId) { localStorage.setItem(_lastSeenKey(playerId), new Date().toISOString()); }
+function _isNew(playerId, updatedAt) {
+  if (!updatedAt) return false;
+  const last = _getLastSeen(playerId);
+  return !last || new Date(updatedAt) > new Date(last);
+}
+
 // ── Shared renderer ────────────────────────────────────────────────────────
 async function renderIDPs(links, container) {
   // Fetch published IDPs for all linked players
@@ -380,103 +428,186 @@ async function renderIDPs(links, container) {
     .eq('published', true)
     .order('updated_at', { ascending: false });
 
-  // Group ALL IDPs per player (sorted newest first — already ordered by updated_at desc)
+  // Group ALL IDPs per player (sorted newest first)
   const idpsByPlayer = {};
   (idps || []).forEach(i => {
     if (!idpsByPlayer[i.player_id]) idpsByPlayer[i.player_id] = [];
     idpsByPlayer[i.player_id].push(i);
   });
 
-  let html = `
-    <div class="page-header">
-      <div class="page-title">Player Development Plans</div>
-      <div class="page-subtitle">Published by your coaching staff</div>
-    </div>`;
+  // Store for tab switching + feedback
+  window._parentIDPs  = links.map(l => idpsByPlayer[l.player_id] || []);
+  window._parentLinks = links;
 
-  links.forEach((link, playerIdx) => {
-    const player   = link.players;
+  const multiChild = links.length > 1;
+
+  // ── Build child tabs (only when multiple children) ────────────────────────
+  let tabsHTML = '';
+  if (multiChild) {
+    tabsHTML = `<div class="child-tabs" id="childTabs">` +
+      links.map((link, idx) => {
+        const player  = link.players;
+        const initials = (player.name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+        const avatar  = player.photo_url
+          ? `<div class="tab-avatar"><img src="${player.photo_url}" alt=""></div>`
+          : `<div class="tab-avatar">${initials}</div>`;
+        const latest  = (idpsByPlayer[player.id] || [])[0];
+        const isNew   = latest ? _isNew(player.id, latest.updated_at) : false;
+        const newBadge = isNew ? `<span class="new-dot">● New</span>` : '';
+        return `<button class="child-tab${idx===0?' active':''}" id="ctab-${idx}"
+          onclick="selectChild(${idx})">${avatar}${esc(player.name)}${newBadge}</button>`;
+      }).join('') +
+    `</div>`;
+  }
+
+  // ── Build each child section ───────────────────────────────────────────────
+  let sectionsHTML = links.map((link, playerIdx) => {
+    const player     = link.players;
     const playerIDPs = idpsByPlayer[player.id] || [];
 
+    const pInitials    = (player.name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const pAvatarInner = player.photo_url
+      ? `<img src="${player.photo_url}" alt="${esc(player.name)}"><div class="player-photo-sm-overlay">📷</div>`
+      : `${pInitials}<div class="player-photo-sm-overlay">📷</div>`;
+
+    // Empty state — no published IDPs yet
     if (playerIDPs.length === 0) {
-      html += `
-        <div class="idp-section">
-          <div class="idp-meta">
-            <strong style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;">${esc(player.name)}</strong>
-            ${player.positions ? `<span style="font-size:13px;color:var(--text-dim);margin-left:10px;">${esc(player.positions)}</span>` : ''}
+      return `
+        <div class="child-section${playerIdx===0?' visible':''}" id="csec-${playerIdx}">
+          <div class="idp-section">
+            <div class="idp-meta">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div class="player-photo-sm" id="pp-circle-${playerIdx}"
+                  onclick="document.getElementById('pp-input-${playerIdx}').click()" title="Upload photo">
+                  ${pAvatarInner}
+                  <input type="file" id="pp-input-${playerIdx}" accept="image/*" style="display:none"
+                    onchange="handleParentPhotoUpload(event,'${player.id}',${playerIdx})" />
+                </div>
+                <div>
+                  <strong style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;">${esc(player.name)}</strong>
+                  ${player.positions ? `<div style="font-size:13px;color:var(--text-dim);margin-top:2px;">${esc(player.positions)}</div>` : ''}
+                </div>
+              </div>
+            </div>
+            <div class="info-card" style="margin-top:1rem;">
+              <div class="icon">⏳</div>
+              <h2>IDP coming soon</h2>
+              <p>Your coaching staff is preparing ${esc(player.name)}'s Individual Development Plan. You'll receive an email notification when it's published.</p>
+            </div>
           </div>
-          <div class="info-card">
-            <div class="icon">⏳</div>
-            <h2>IDP coming soon</h2>
-            <p>Your coach hasn't published an IDP for ${esc(player.name)} yet.</p>
+          <div class="feedback-section">
+            <div class="feedback-title">💬 Message your coach <button class="mic-btn" type="button" onclick="toggleMicFor('fb-input-${playerIdx}',this)" title="Dictate">🎙</button></div>
+            <textarea class="feedback-textarea" id="fb-input-${playerIdx}"
+              placeholder="Share a question, concern, or observation about ${esc(player.name)}'s development…"
+              rows="3"></textarea>
+            <div class="feedback-footer">
+              <span class="feedback-hint">Your message goes directly to the coaching staff.</span>
+              <button class="feedback-btn" id="fb-btn-${playerIdx}" onclick="submitFeedback(${playerIdx})">Send to Coach</button>
+            </div>
+            <div class="feedback-msg" id="fb-msg-${playerIdx}"></div>
           </div>
         </div>`;
-      return;
     }
 
-    const firstIDP = playerIDPs[0];
+    const firstIDP  = playerIDPs[0];
     const firstDate = new Date(firstIDP.updated_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const isNew     = _isNew(player.id, firstIDP.updated_at);
 
-    // Build date tabs if multiple IDPs
-    const tabsHTML = playerIDPs.length > 1 ? `
+    // Version tabs (multiple IDPs for same player)
+    const versionTabsHTML = playerIDPs.length > 1 ? `
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;">
         ${playerIDPs.map((idp, i) => `
-          <button onclick="switchIDP(${playerIdx}, ${i})" id="ptab-${playerIdx}-${i}"
-            style="padding:6px 12px;border-radius:7px;border:1px solid ${i===0?'rgba(27,138,107,.5)':'rgba(255,255,255,.12)'};
-            background:${i===0?'rgba(27,138,107,.12)':'#1A2E44'};color:${i===0?'#22A882':'#94A3B8'};
-            font-size:11px;font-weight:700;cursor:pointer;font-family:'Barlow Condensed',sans-serif;
+          <button onclick="switchIDP(${playerIdx},${i})" id="ptab-${playerIdx}-${i}"
+            style="padding:6px 12px;border-radius:7px;cursor:pointer;
+            border:1px solid ${i===0?'rgba(27,138,107,.5)':'rgba(255,255,255,.12)'};
+            background:${i===0?'rgba(27,138,107,.12)':'#1A2E44'};
+            color:${i===0?'#22A882':'#94A3B8'};
+            font-size:11px;font-weight:700;font-family:'Barlow Condensed',sans-serif;
             letter-spacing:.06em;text-transform:uppercase;">
             ${new Date(idp.updated_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
           </button>`).join('')}
       </div>` : '';
 
-    const pInitials = (player.name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
-    const pAvatarInner = player.photo_url
-      ? `<img src="${player.photo_url}" alt="${esc(player.name)}"><div class="player-photo-sm-overlay">📷</div>`
-      : `${pInitials}<div class="player-photo-sm-overlay">📷</div>`;
-
-    html += `
-      <div class="idp-section">
-        <input type="file" id="pp-input-${playerIdx}" accept="image/*" style="display:none"
-          onchange="handleParentPhotoUpload(event,'${player.id}',${playerIdx})" />
-        <div class="idp-meta">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div class="player-photo-sm" id="pp-circle-${playerIdx}"
-              onclick="document.getElementById('pp-input-${playerIdx}').click()" title="Upload photo">
-              ${pAvatarInner}
+    return `
+      <div class="child-section${playerIdx===0?' visible':''}" id="csec-${playerIdx}">
+        <div class="idp-section">
+          <input type="file" id="pp-input-${playerIdx}" accept="image/*" style="display:none"
+            onchange="handleParentPhotoUpload(event,'${player.id}',${playerIdx})" />
+          <div class="idp-meta">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div class="player-photo-sm" id="pp-circle-${playerIdx}"
+                onclick="document.getElementById('pp-input-${playerIdx}').click()" title="Upload photo">
+                ${pAvatarInner}
+              </div>
+              <div>
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <strong style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;">${esc(player.name)}</strong>
+                  ${isNew ? `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(240,160,32,.15);color:#F0A020;border:1px solid rgba(240,160,32,.35);font-size:9px;font-weight:800;letter-spacing:.06em;padding:2px 7px;border-radius:3px;text-transform:uppercase;">● New IDP</span>` : ''}
+                </div>
+                ${player.positions ? `<div style="font-size:13px;color:var(--text-dim);margin-top:2px;">${esc(player.positions)}</div>` : ''}
+              </div>
             </div>
-            <div>
-              <strong style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;">${esc(player.name)}</strong>
-              ${player.positions ? `<div style="font-size:13px;color:var(--text-dim);margin-top:2px;">${esc(player.positions)}</div>` : ''}
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span class="idp-date" id="pdate-${playerIdx}">Last updated ${firstDate}</span>
+              <span class="idp-badge">✓ Published</span>
+              <button class="btn-print" onclick="window.print()">⬒ Save as PDF</button>
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <span class="idp-date" id="pdate-${playerIdx}">Last updated ${firstDate}</span>
-            <span class="idp-badge">✓ Published</span>
-            <button class="btn-print" onclick="window.print()">⬒ Save as PDF</button>
+          ${versionTabsHTML}
+          <div id="pidp-${playerIdx}" class="idp-ig">${buildInfographicHTML(firstIDP.data)}</div>
+        </div>
+        <div class="feedback-section">
+          <div class="feedback-title">💬 Message your coach <button class="mic-btn" type="button" onclick="toggleMicFor('fb-input-${playerIdx}',this)" title="Dictate">🎙</button></div>
+          <textarea class="feedback-textarea" id="fb-input-${playerIdx}"
+            placeholder="Share a question, concern, or observation about ${esc(player.name)}'s development…"
+            rows="3"></textarea>
+          <div class="feedback-footer">
+            <span class="feedback-hint">Your message goes directly to the coaching staff.</span>
+            <button class="feedback-btn" id="fb-btn-${playerIdx}" onclick="submitFeedback(${playerIdx})">Send to Coach</button>
           </div>
+          <div class="feedback-msg" id="fb-msg-${playerIdx}"></div>
         </div>
-        ${tabsHTML}
-        <div id="pidp-${playerIdx}" class="idp-ig">${buildInfographicHTML(firstIDP.data)}</div>
-      </div>
-      <div class="feedback-section">
-        <div class="feedback-title">💬 Message your coach <button class="mic-btn" type="button" onclick="toggleMicFor('fb-input-${playerIdx}',this)" title="Dictate">🎙</button></div>
-        <textarea class="feedback-textarea" id="fb-input-${playerIdx}"
-          placeholder="Share a question, concern, or observation about ${esc(player.name)}'s development…"
-          rows="3"></textarea>
-        <div class="feedback-footer">
-          <span class="feedback-hint">Your message goes directly to the coaching staff.</span>
-          <button class="feedback-btn" id="fb-btn-${playerIdx}"
-            onclick="submitFeedback(${playerIdx})">Send to Coach</button>
-        </div>
-        <div class="feedback-msg" id="fb-msg-${playerIdx}"></div>
       </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">Player Development Plans</div>
+      <div class="page-subtitle">Published by your coaching staff</div>
+    </div>
+    ${tabsHTML}
+    ${sectionsHTML}`;
+
+  // Mark first visible child's IDP as seen
+  if (links.length > 0) {
+    const firstPlayer = links[0].players;
+    const firstIDPs   = idpsByPlayer[firstPlayer.id] || [];
+    if (firstIDPs.length > 0) _markSeen(firstPlayer.id);
+  }
+}
+
+// ── Child tab switching ────────────────────────────────────────────────────
+function selectChild(idx) {
+  // Update tab styles
+  document.querySelectorAll('.child-tab').forEach((t, i) => {
+    t.classList.toggle('active', i === idx);
   });
-
-  container.innerHTML = html;
-
-  // Store IDP + link data for tab switching and feedback
-  window._parentIDPs  = links.map(l => idpsByPlayer[l.player_id] || []);
-  window._parentLinks = links;
+  // Show/hide sections
+  document.querySelectorAll('.child-section').forEach((s, i) => {
+    s.classList.toggle('visible', i === idx);
+  });
+  // Mark as seen
+  const links = window._parentLinks || [];
+  if (links[idx]) {
+    const player = links[idx].players;
+    const playerIDPs = (window._parentIDPs || [])[idx] || [];
+    if (playerIDPs.length > 0) {
+      _markSeen(player.id);
+      // Remove the "New" dot from this tab
+      const tab = document.getElementById(`ctab-${idx}`);
+      if (tab) { const dot = tab.querySelector('.new-dot'); if (dot) dot.remove(); }
+    }
+  }
 }
 
 function switchIDP(playerIdx, idpIdx) {
