@@ -1209,7 +1209,31 @@ async function publishIDP(idpId, idx) {
     if (icon) { icon.className = 'item-icon published'; icon.textContent = '✓'; }
     // Refresh viewer
     document.getElementById('idpViewer').innerHTML = renderViewer(allIDPs[idx], idx);
+    notifyParents(allIDPs[idx]);
   }
+}
+
+// Email linked parents that a new IDP is published — fire-and-forget, never blocks publishing
+async function notifyParents(idp) {
+  try {
+    const session = (await sb.auth.getSession()).data.session;
+    if (!session) return;
+    const { data: settingsRow } = await sb.from('settings').select('value').eq('key', 'club_name').maybeSingle();
+    const base = window.location.pathname.replace(/\/[^/]*$/, '');
+    fetch(SUPABASE_CONFIG.url + '/functions/v1/notify-parent', {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        player_id:   idp.player_id,
+        player_name: idp.data?.playerName || '',
+        club_name:   settingsRow?.value || '',
+        portal_url:  `${window.location.origin}${base}/parent.html`,
+      }),
+    }).catch(() => {});
+  } catch (_) { /* notification errors never block publishing */ }
 }
 
 function formatDate(iso) {
