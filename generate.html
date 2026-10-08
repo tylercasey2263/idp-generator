@@ -777,7 +777,7 @@ async function saveAndPublish() {
         const portalBase = `${window.location.origin}${base}/parent.html`;
         const session    = (await sb.auth.getSession()).data.session;
         if (session) {
-          fetch(`${window.location.origin.replace(/\/$/, '')}/functions/v1/notify-parent`, {
+          fetch(SUPABASE_CONFIG.url + '/functions/v1/notify-parent', {
             method:  'POST',
             headers: {
               'Content-Type':  'application/json',
