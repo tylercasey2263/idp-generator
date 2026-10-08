@@ -646,7 +646,7 @@
 <div class="modal-overlay" id="personalKeyModal">
   <div class="modal">
     <h2>My API Key</h2>
-    <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">Paste your own Anthropic API key below. It's stored only for this browser session and takes priority over the team key. Get one at <a href="https://console.anthropic.com" target="_blank" style="color:var(--teal-light);">console.anthropic.com</a>.</p>
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">Paste your own Anthropic API key below. It's stored in this browser until you clear it and takes priority over the team key. Get one at <a href="https://console.anthropic.com" target="_blank" style="color:var(--teal-light);">console.anthropic.com</a>.</p>
     <input type="password" id="personalKeyInput" placeholder="sk-ant-…" autocomplete="off"
            onkeydown="if(event.key==='Enter') savePersonalKey()" />
     <div class="modal-actions">
@@ -772,7 +772,7 @@ async function _decryptBlob(blob, password) {
 // ─── SESSION KEY ───
 // Personal key takes priority over team key
 function getKey() {
-  return sessionStorage.getItem('_idp_pk') || sessionStorage.getItem('_idp_k') || '';
+  return localStorage.getItem('_idp_pk') || localStorage.getItem('_idp_k') || '';
 }
 
 // ─── PASSWORD MODAL ───
@@ -797,7 +797,7 @@ async function unlockWithPassword() {
   try {
     const k = await _decryptBlob(ENCRYPTED_KEY_BLOB, pwd);
     if (!k.startsWith('sk-ant-')) throw new Error('bad key');
-    sessionStorage.setItem('_idp_k', k);
+    localStorage.setItem('_idp_k', k);
     updateKeyStatus();
     closePasswordModal();
   } catch(_) {
@@ -809,14 +809,14 @@ async function unlockWithPassword() {
 
 function updateKeyStatus() {
   // Team key button
-  const teamUnlocked = !!sessionStorage.getItem('_idp_k');
+  const teamUnlocked = !!localStorage.getItem('_idp_k');
   const el  = document.getElementById('keyStatus');
   const lbl = document.getElementById('keyLabel');
   if (teamUnlocked) { el.classList.add('active'); lbl.textContent = 'Team Access ✓'; }
   else              { el.classList.remove('active'); lbl.textContent = '🔒 Team Access'; }
 
   // Personal key button
-  const personalSet = !!sessionStorage.getItem('_idp_pk');
+  const personalSet = !!localStorage.getItem('_idp_pk');
   const pel  = document.getElementById('personalKeyStatus');
   const plbl = document.getElementById('personalKeyLabel');
   if (personalSet) { pel.classList.add('active'); plbl.textContent = 'My Key ✓'; }
@@ -825,7 +825,7 @@ function updateKeyStatus() {
 
 // ─── PERSONAL KEY MODAL ───
 function openPersonalKeyModal() {
-  const current = sessionStorage.getItem('_idp_pk') || '';
+  const current = localStorage.getItem('_idp_pk') || '';
   document.getElementById('personalKeyInput').value = current;
   document.getElementById('personalKeyStatus2').textContent = '';
   document.getElementById('personalKeyModal').classList.add('visible');
@@ -841,12 +841,12 @@ function savePersonalKey() {
     document.getElementById('personalKeyStatus2').textContent = 'That doesn\'t look like an Anthropic key (should start with sk-ant-).';
     return;
   }
-  sessionStorage.setItem('_idp_pk', val);
+  localStorage.setItem('_idp_pk', val);
   updateKeyStatus();
   closePersonalKeyModal();
 }
 function clearPersonalKey() {
-  sessionStorage.removeItem('_idp_pk');
+  localStorage.removeItem('_idp_pk');
   document.getElementById('personalKeyInput').value = '';
   document.getElementById('personalKeyStatus2').textContent = 'Personal key cleared.';
   updateKeyStatus();
