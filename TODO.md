@@ -4,9 +4,10 @@
 
 ## ⚠️ PENDING MANUAL ACTIONS REQUIRED
 
-### 1. Run GotSport Sync (update match scores)
+### 1. Run GotSport Sync (update match scores + dates)
 
 Bun is already installed. Dependencies are already in `scripts/node_modules`.
+The date-population bug has been fixed — match dates should now populate correctly.
 
 **Step 1 — Create your .env file:**
 ```
@@ -23,23 +24,15 @@ bun run scripts/sync-gotsport.js
 ```
 
 **Expected output:** 16 teams processed, standings + match results upserted for each.
+Look for `Merged schedule data into X/Y match rows` per team — if X < Y, the
+unmatched opponent names will be logged as `No schedule match for opponent: "..."`.
 Re-run any time you want to refresh scores from GotSport.
 
 ---
 
-### 2. Deploy the notify-parent Edge Function
+### 2. Rethink data import: PlayMetrics players/teams + GotSport scores
 
-This sends parents an email when a new IDP is published for their child.
-
-**Option A — Supabase CLI:**
-```
-supabase functions deploy notify-parent
-```
-
-**Option B — Supabase Dashboard:**
-- Go to: **Supabase Dashboard → Edge Functions**
-- Click **"Deploy a new function"**
-- Upload or point to `supabase/functions/notify-parent/index.ts`
+The weekly GotSport workflow was auto-disabled by GitHub (inactivity) and failed May–June while Supabase was paused. Plan a fresh import of players and teams from PlayMetrics, assign players to teams, then re-sync standings/scores.
 
 ---
 
@@ -61,11 +54,18 @@ Without this, IDPs still publish fine — emails just won't be sent.
 
 ---
 
-## 🔍 Investigate match result dates not populating
-- GotSport sync fetches the `/schedules` page and tries to match opponent names to results from the matrix
-- Dates are currently coming back null — likely opponent names in the matrix don't exactly match those on the schedule page
-- To debug: check the GitHub Actions sync logs for `"Found X schedule entries for group ..."` and `"Schedule: YYYY-MM-DD vs ..."` output
-- May need to fuzzy-match opponent names (normalize whitespace, strip trailing numbers, etc.)
+## ✅ RLS + security hardening — DONE (2026-10-08)
+- RLS enabled on all public tables (`sql/fix-rls-enable.sql`), profiles recursion fixed (`sql/fix-rls-recursion.sql`)
+- Anonymous access only via token-scoped RPCs (`sql/fix-anon-token-access.sql`)
+- New sign-ups are parents; coach/admin only via `redeem_invite()`; coach_teams insert staff-only (`sql/fix-signup-roles.sql`)
+- `notify-parent` edge function deployed; publish from generate + view-idp both notify
+
+---
+
+## ✅ Match result dates not populating — FIXED
+- Root cause 1: schedule parser assumed column 0 was always a numeric game ID — now dynamically detects the date column by scanning for a month name, works regardless of column layout
+- Root cause 2: H2H matrix uses abbreviated opponent names; schedule page uses full names — fixed with Jaccard token-overlap fuzzy matching (≥2 shared tokens + score ≥ 0.35)
+- 18/18 unit tests passing; run the sync (item 1 above) to populate dates in the DB
 
 ---
 
@@ -109,98 +109,14 @@ Without this, IDPs still publish fine — emails just won't be sent.
 ## ✅ UI: All Teams tab in sidebar — DONE
 - Already present in nav.js for both admin and coach roles
 
-## 📱 PWA — Progressive Web App (Option 1 Mobile)
-
-Make the app installable on iOS and Android via "Add to Home Screen" — no App Store required.
-
-### Step 1 — Web App Manifest (~30 min)
-Create `/manifest.json`:
-```json
-{
-  "name": "Player IDP",
-  "short_name": "IDP",
-  "start_url": "/dashboard.html",
-  "display": "standalone",
-  "background_color": "#0D1B2A",
-  "theme_color": "#1B8A6B",
-  "orientation": "portrait",
-  "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ]
-}
-```
-- Add `<link rel="manifest" href="/manifest.json">` to all HTML pages
-- Add `<meta name="theme-color" content="#1B8A6B">` to all HTML pages
-- Add iOS-specific meta tags to all pages:
-  ```html
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Player IDP">
-  <link rel="apple-touch-icon" href="/icons/icon-192.png">
-  ```
-
-### Step 2 — App Icons (~1 hour)
-Generate icons at these sizes (use a tool like realfavicongenerator.net or Figma):
-- `/icons/icon-192.png` — 192×192 (Android home screen)
-- `/icons/icon-512.png` — 512×512 (Android splash)
-- `/icons/icon-512-maskable.png` — 512×512 with safe zone padding (Android adaptive icon)
-- `/icons/icon-180.png` — 180×180 (iOS touch icon)
-- `/icons/favicon.ico` — 32×32 (browser tab)
-
-Design: dark navy background (#0D1B2A), teal soccer ball or shield logo
-
-### Step 3 — Service Worker (~1–2 hours)
-Create `/sw.js` — cache-first strategy for all static assets so app loads offline:
-```js
-const CACHE = 'idp-v1';
-const PRECACHE = ['/', '/dashboard.html', '/team.html', '/generate.html',
-  '/lineup.html', '/team-plan.html', '/view-idp.html', '/parent.html',
-  '/js/auth.js', '/js/config.js', '/js/nav.js', '/js/pos-picker.js'];
-
-self.addEventListener('install', e => e.waitUntil(
-  caches.open(CACHE).then(c => c.addAll(PRECACHE))
-));
-
-self.addEventListener('fetch', e => e.respondWith(
-  caches.match(e.request).then(r => r || fetch(e.request))
-));
-```
-- Register in all HTML pages:
-  ```html
-  <script>
-    if ('serviceWorker' in navigator)
-      navigator.serviceWorker.register('/sw.js');
-  </script>
-  ```
-- Note: Supabase calls and Claude API calls are network-only (skip cache)
-
-### Step 4 — Mobile Layout Pass (~2–4 hours)
-Pages that need responsive work before this feels right on phones:
-- `dashboard.html` — stats bar may stack oddly, team cards need tap targets
-- `team.html` — player list rows, modal forms need bigger inputs on mobile
-- `lineup.html` — pitch needs pinch-zoom or at minimum scrolls well; left panel collapses to bottom sheet or hamburger
-- `settings.html` — audit form layout
-- `players.html` — table/list view on small screens
-
-General rules:
-- Tap targets minimum 44×44px
-- Font size minimum 16px on inputs (prevents iOS zoom-on-focus)
-- No hover-only actions (tok-remove on lineup tokens needs tap equivalent)
-
-### Step 5 — Test & Install (~30 min)
-- Open site in Chrome on Android → three-dot menu → "Add to Home Screen"
-- Open site in Safari on iOS → share icon → "Add to Home Screen"
-- Verify: splash screen, standalone mode (no browser chrome), icons look correct
-- Test offline: airplane mode → open app → should load last-cached state
-
-### Nice-to-haves (post-MVP)
-- Splash screen customisation for iOS (launch image meta tags)
-- Push notifications for when a parent views a plan (requires a backend push service — Supabase Edge Functions + web-push)
-- Background sync for saving IDPs when connection drops mid-generate
-
-### Total estimate: 1–2 days
+## ✅ PWA — Progressive Web App — DONE
+- `manifest.json` created with name, icons, theme colour, standalone display
+- Icons generated via `scripts/generate-icons.py` (Pillow): 96, 192, 512, 512-maskable, 180, favicon-32, favicon-16
+- `sw.js` created: cache-first for static assets, network-only for Supabase/Claude/Resend APIs, offline fallback to dashboard
+- PWA meta tags + SW registration injected into all 15 HTML pages via `scripts/inject-pwa-tags.py`
+- "↓ Install App" button added to sidebar (shown only when Chrome fires `beforeinstallprompt`)
+- Mobile CSS pass done on: dashboard, team, players, settings, generate, team-plan, view-idp
+- Remaining nice-to-haves (post-MVP): iOS launch images, push notifications, background sync
 
 ---
 
@@ -210,11 +126,11 @@ General rules:
 
 ---
 
-## 📤 IDP Email / Share
-**Effort:** Medium (~1 hour)
-- "Share IDP" button on view-idp.html
-- Generates a public read-only URL (token-based, no login required)
-- Or: email the HTML file directly via Resend / SendGrid
+## ✅ IDP Share Link — DONE
+- "⤴ Share IDP" button in the IDP viewer toolbar generates a token-based public URL (no login required)
+- Share modal: URL box (click to copy), email mailto link, native OS share sheet on mobile
+- "Revoke & generate new link" immediately invalidates the old token and creates a fresh one
+- Public share page (`player-view.html`) shows club logo, player photo/initials, IDP published date, full plan, and confidentiality footer
 
 ---
 

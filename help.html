@@ -166,7 +166,7 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
         <div class="step-num">1</div>
         <div class="step-body">
           <div class="step-title">Set up your club <span class="step-tag tag-admin">Admin</span></div>
-          <div class="step-desc">Go to <strong>Settings</strong> in the sidebar. Add your club name, upload a logo, and paste your Anthropic API key. This only needs to be done once. Admins can also pick a theme colour for the whole portal.</div>
+          <div class="step-desc">Go to <strong>Settings</strong> in the sidebar. Add your club name, upload a logo, and paste your Anthropic API key. Admins can also pick a theme colour for the whole portal and set the Claude model used for AI generation (defaults to <code>claude-sonnet-4-5</code> — update this field whenever Anthropic releases a newer model). This only needs to be done once.</div>
         </div>
       </div>
       <div class="step">
@@ -180,7 +180,7 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
         <div class="step-num">3</div>
         <div class="step-body">
           <div class="step-title">Create your teams <span class="step-tag tag-coach">Coach</span></div>
-          <div class="step-desc">From the <strong>Dashboard</strong>, click <strong>+ Add Team</strong>. Give it a name (e.g. "U14 Boys Blue") and an optional season label. You'll be automatically assigned to that team.</div>
+          <div class="step-desc">From the <strong>Dashboard</strong>, click <strong>+ Add Team</strong>. Give it a name (e.g. "U14 Boys Blue") and an optional season label. You'll be automatically assigned to that team. To rename a team later, click the <strong>Edit</strong> button on the team card.</div>
         </div>
       </div>
       <div class="step">
@@ -194,7 +194,7 @@ html, body { min-height: 100vh; background: var(--navy); color: var(--text); fon
         <div class="step-num">5</div>
         <div class="step-body">
           <div class="step-title">Generate an IDP <span class="step-tag tag-coach">Coach</span></div>
-          <div class="step-desc">Click <strong>✦ Generate IDP</strong> next to a player. Record or paste your coaching notes in the transcript — or click 🎙 to dictate directly. Hit <strong>Clean &amp; Generate</strong> to have Claude AI build a professional development plan. Every section is editable inline before you publish. Each save creates a new version — previous IDPs are always preserved.</div>
+          <div class="step-desc">Click <strong>✦ Generate IDP</strong> next to a player. Record or paste your coaching notes in the transcript — or click 🎙 to dictate directly. Hit <strong>Clean &amp; Generate</strong> to have Claude AI build a professional development plan. Every section is editable inline before you publish. Each save creates a new version — previous IDPs are always preserved. Use <strong>⤴ Share IDP</strong> in the viewer toolbar to generate a public link you can send to anyone — no login required.</div>
         </div>
       </div>
       <div class="step">
@@ -379,6 +379,30 @@ Jane Doe,Forward</div>
         </div>
         <div class="faq-a">Two ways: (1) <strong>Admin path</strong> — go to <strong>Users</strong> in the sidebar, find the coach's row, and click <strong>Manage Teams</strong>. Check the teams you want to assign and uncheck any to remove. (2) <strong>Self-link</strong> — any coach can open a team page and click <strong>Link me to this team</strong> in the Coaching Staff section to add themselves.</div>
       </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Can I rename or edit a team after creating it? <span class="arrow">▼</span>
+        </div>
+        <div class="faq-a">Yes. On the <strong>Dashboard</strong>, each team card has an <strong>Edit</strong> button in its footer. Click it to update the team name or season label. Changes are reflected everywhere immediately — no page reload needed.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Can I share an IDP with someone who doesn't have a login? <span class="arrow">▼</span>
+        </div>
+        <div class="faq-a">Yes — use the <strong>⤴ Share IDP</strong> button in the IDP viewer toolbar. This generates a secure public link that anyone can open in a browser, no account required. The link is token-based and shows a read-only view with the player's name, photo, club branding, and the full IDP. If you want to invalidate the link (e.g. sent to the wrong person), click <strong>Revoke &amp; generate new link</strong> — the old URL stops working immediately and a fresh link is created. On mobile, the Share button also triggers the native OS share sheet so you can send directly via WhatsApp, iMessage, or email.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Can I install the app on my phone? <span class="arrow">▼</span>
+        </div>
+        <div class="faq-a">Yes — Player IDP is a Progressive Web App (PWA) and can be installed on any iOS or Android device without an App Store. On <strong>iOS</strong>: open the site in Safari, tap the Share icon, then <strong>Add to Home Screen</strong>. On <strong>Android / Chrome</strong>: tap the three-dot menu, then <strong>Add to Home Screen</strong> — or look for the <strong>↓ Install App</strong> button that appears in the sidebar when Chrome detects the app is installable. Once installed, it opens full-screen with no browser chrome, and previously visited pages load even without a connection.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          How do I update the AI model used for generating IDPs? <span class="arrow">▼</span>
+        </div>
+        <div class="faq-a">Go to <strong>Settings → AI Settings</strong> and update the <strong>Claude Model</strong> field. The current default is <code>claude-sonnet-4-5</code>. When Anthropic releases a new model, enter the new model ID (e.g. <code>claude-sonnet-4-6</code>) and save — all future IDP and Team Plan generations will use it immediately. Find current model IDs at <strong>docs.anthropic.com/models</strong>. Only admins can change this setting.</div>
+      </div>
     </div>
   </div>
 
@@ -416,7 +440,12 @@ Jane Doe,Forward</div>
       </div>
       <div class="tour-card" onclick="goTour('settings')">
         <div class="tour-card-title">Settings Tour</div>
-        <div class="tour-card-desc">How to configure your club, API key, theme, and manage users.</div>
+        <div class="tour-card-desc">How to configure your club, API key, Claude model, theme, and manage users.</div>
+        <div class="tour-card-btn">▶ Start Tour</div>
+      </div>
+      <div class="tour-card" onclick="goTour('viewidp')">
+        <div class="tour-card-title">IDP Viewer Tour</div>
+        <div class="tour-card-desc">Explore the IDP viewer — tabs, editing, sharing public links, version history, and parent notes.</div>
         <div class="tour-card-btn">▶ Start Tour</div>
       </div>
     </div>
@@ -445,6 +474,7 @@ function goTour(page) {
     players:   '/players.html',
     parent:    '/parent.html',
     settings:  '/settings.html',
+    viewidp:   '/view-idp.html',
   };
   // Clear the tour flag so it shows on next visit
   localStorage.removeItem('idp_tour_v1_' + page);

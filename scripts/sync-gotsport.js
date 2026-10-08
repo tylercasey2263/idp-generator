@@ -92,6 +92,52 @@ function isOurTeam(name) {
 }
 
 /**
+ * Fuzzy-match an opponent name against the scheduleMap keys.
+ *
+ * First tries an exact normalizeName() lookup. If that fails, falls back to
+ * Jaccard token-overlap: both strings are split into tokens (length > 2),
+ * and we require at least 2 overlapping tokens AND Jaccard ≥ 0.35.
+ *
+ * This handles cases where the H2H matrix uses an abbreviated team name
+ * (e.g. "Sporting Blue") while the schedule page uses the full name
+ * (e.g. "Sporting STL 2013B Blue").
+ *
+ * Returns the matching schedule entry object or null.
+ */
+function fuzzyMatchSchedule(scheduleMap, opponentName) {
+  const normKey = normalizeName(opponentName);
+
+  // 1) Exact match
+  if (scheduleMap[normKey]) return scheduleMap[normKey];
+
+  // 2) Token-overlap (Jaccard)
+  const opTokens = normKey.split(/\s+/).filter(t => t.length > 2);
+  if (opTokens.length === 0) return null;
+  const opSet = new Set(opTokens);
+
+  let bestEntry = null;
+  let bestScore = 0;
+
+  for (const [schedKey, schedData] of Object.entries(scheduleMap)) {
+    const schedTokens = schedKey.split(/\s+/).filter(t => t.length > 2);
+    const schedSet    = new Set(schedTokens);
+    const overlap     = opTokens.filter(t => schedSet.has(t)).length;
+    if (overlap < 2) continue;
+    const union = new Set([...opSet, ...schedSet]).size;
+    const score = overlap / union;
+    if (score > bestScore && score >= 0.35) {
+      bestScore = score;
+      bestEntry = schedData;
+    }
+  }
+
+  if (bestEntry) {
+    console.log(`    Fuzzy match: "${opponentName}" => score ${bestScore.toFixed(2)}`);
+  }
+  return bestEntry;
+}
+
+/**
  * Extract U-age, year+gender code, and team keyword from a GotSport team name.
  * E.g. "Steamer's Crew U13 2013B Gray" => { age: 'U13', yearGender: '2013B', keyword: 'Gray' }
  * The yearGender code ("2013B" / "2014G") uniquely identifies boys vs girls.
@@ -495,34 +541,43 @@ async function fetchGroupSchedules(groupId) {
   const $ = cheerio.load(html);
   const scheduleMap = {}; // normalized-opponent-lower -> { match_date, is_home, venue }
 
-  // GotSport schedules page table structure (verified):
-  //   Col 0: game_id (numeric)
-  //   Col 1: date + time  e.g. "Apr 11, 2026 11:45AM CDT CDT"
-  //   Col 2: home team name
-  //   Col 3: score or "-"
-  //   Col 4: away team name
-  //   Col 5: venue
-  //   Col 6: division (optional)
+  // GotSport schedules page — column layout varies between events/seasons.
+  // Known layouts:
+  //   A (with game_id):    game_id | date+time | home | score | away | venue [| division]
+  //   B (without game_id): date+time | home | score | away | venue [| division]
   //
-  // Standings rows also appear in the same table with a team name in col 1
-  // — we skip those by checking that col 1 contains a month name.
+  // Strategy: for each <tr>, find the first cell whose text contains a month
+  // name — that is the date cell regardless of layout. Then read home/away
+  // relative to the date cell: home = dateIdx+1, score = dateIdx+2, away = dateIdx+3,
+  // venue = dateIdx+4.
+  //
+  // This handles both layouts and is resilient to future column additions at
+  // the start of the table (e.g. checkbox, rank).
+
+  const MONTH_RE = /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/i;
+  const SCORE_RE = /^(\d+-\d+|-)$/;
 
   $('table tr').each((_, tr) => {
     const cells = $(tr).find('td');
-    if (cells.length < 5) return;
+    if (cells.length < 4) return;
 
     const texts = [];
     cells.each((_, td) => texts.push($(td).text().replace(/\s+/g, ' ').trim()));
 
-    const gameId   = texts[0];
-    const dateCell = texts[1];
-    const homeTeam = texts[2];
-    const awayTeam = texts[4];
-    const venue    = texts[5] || null;
+    // Find the date cell — first cell that contains a month name
+    const dateIdx = texts.findIndex(t => MONTH_RE.test(t));
+    if (dateIdx === -1) return; // no date column in this row → skip (header or non-game row)
 
-    // Only process rows that look like game rows (numeric id + date in col 1)
-    if (!/^\d+$/.test(gameId)) return;
-    if (!/Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/i.test(dateCell)) return;
+    // Validate expected layout from the date cell forward
+    const dateCell = texts[dateIdx];
+    const homeTeam = texts[dateIdx + 1] || '';
+    const scoreCell = texts[dateIdx + 2] || '';
+    const awayTeam = texts[dateIdx + 3] || '';
+    const venue    = texts[dateIdx + 4] || null;
+
+    // Score cell should look like "3-1", "0-0", or "-" (unplayed).
+    // If it doesn't, the column layout doesn't match our expectation — skip.
+    if (scoreCell && !SCORE_RE.test(scoreCell)) return;
 
     // Check if our team is home or away (normalize apostrophes before comparing)
     const homeIsOurs = isOurTeam(homeTeam);
@@ -542,7 +597,10 @@ async function fetchGroupSchedules(groupId) {
     if (opponent && matchDate) {
       // Use normalized name as key so it matches the matrix-parsed opponent names
       const key = normalizeName(opponent);
-      scheduleMap[key] = { match_date: matchDate, is_home: isHome, venue: venue || null };
+      // If multiple games vs same opponent (rematches), keep the earliest date
+      if (!scheduleMap[key] || matchDate < scheduleMap[key].match_date) {
+        scheduleMap[key] = { match_date: matchDate, is_home: isHome, venue: venue || null };
+      }
       console.log(`    Schedule: ${matchDate} vs ${opponent} (${isHome ? 'Home' : 'Away'})`);
     }
   });
@@ -681,18 +739,26 @@ async function main() {
       fetchGroupSchedules(groupId),
     ]);
 
-    // Merge schedule data (date, home/away, venue) into match rows
-    // Both sides use normalizeName() so apostrophe/case differences don't block matching
+    // Merge schedule data (date, home/away, venue) into match rows.
+    // fuzzyMatchSchedule() first tries an exact normalizeName() key lookup;
+    // if that misses it falls back to Jaccard token-overlap so abbreviated
+    // names from the H2H matrix still match full names on the schedule page.
     if (Object.keys(scheduleMap).length > 0) {
+      let merged = 0;
       matches.forEach(m => {
-        const key = normalizeName(m.opponent);
-        const sched = scheduleMap[key];
+        const sched = fuzzyMatchSchedule(scheduleMap, m.opponent);
         if (sched) {
           if (m.match_date === null) m.match_date = sched.match_date;
           if (m.is_home  === null) m.is_home  = sched.is_home;
           if (m.venue    === null) m.venue    = sched.venue;
+          merged++;
+        } else {
+          console.log(`    No schedule match for opponent: "${m.opponent}"`);
         }
       });
+      console.log(`  Merged schedule data into ${merged}/${matches.length} match rows.`);
+    } else {
+      console.log('  No schedule data found — match_date will be null for all results.');
     }
 
     if (standings.length > 0) {
