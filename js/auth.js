@@ -64,11 +64,7 @@ async function ensureProfile(session) {
 // Respects role hierarchy — never demotes a higher-level user.
 async function processInvite(userId, token) {
   if (!token) return;
-  const { data: invite } = await sb.from('invites')
-    .select('id, role')
-    .eq('token', token)
-    .is('used_at', null)
-    .maybeSingle();
+  const { data: invite } = await sb.rpc('get_invite_by_token', { p_token: token });
   if (!invite) return;
 
   const hierarchy = { admin: 3, coach: 2, parent: 1 };

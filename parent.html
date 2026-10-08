@@ -360,10 +360,7 @@ const urlToken = new URLSearchParams(window.location.search).get('token');
 async function loadIDPsByTokens(tokens) {
   const container = document.getElementById('pageContent');
   // Fetch all parent_players rows matching any of the stored tokens
-  const { data: rawLinks } = await sb
-    .from('parent_players')
-    .select('player_id, invite_token, players(id, name, positions, photo_url)')
-    .in('invite_token', tokens);
+  const { data: rawLinks } = await sb.rpc('get_parent_links_by_tokens', { p_tokens: tokens });
 
   const seen = new Set();
   const links = (rawLinks || []).filter(l => {
@@ -382,7 +379,7 @@ async function loadIDPsByTokens(tokens) {
     return;
   }
 
-  await renderIDPs(links, container);
+  await renderIDPs(links, container, tokens);
 }
 
 // ── Auth-based access ──────────────────────────────────────────────────────
@@ -427,15 +424,17 @@ function _isNew(playerId, updatedAt) {
 }
 
 // ── Shared renderer ────────────────────────────────────────────────────────
-async function renderIDPs(links, container) {
-  // Fetch published IDPs for all linked players
+async function renderIDPs(links, container, tokens) {
+  // Fetch published IDPs for all linked players (token mode goes through a token-scoped RPC)
   const playerIds = links.map(l => l.player_id);
-  const { data: idps } = await sb
-    .from('idps')
-    .select('*')
-    .in('player_id', playerIds)
-    .eq('published', true)
-    .order('updated_at', { ascending: false });
+  const { data: idps } = tokens
+    ? await sb.rpc('get_published_idps_by_tokens', { p_tokens: tokens })
+    : await sb
+        .from('idps')
+        .select('*')
+        .in('player_id', playerIds)
+        .eq('published', true)
+        .order('updated_at', { ascending: false });
 
   // Group ALL IDPs per player (sorted newest first)
   const idpsByPlayer = {};

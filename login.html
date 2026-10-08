@@ -388,11 +388,7 @@ const _inviteToken = new URLSearchParams(window.location.search).get('invite');
     setMode('signup');
     setStatus("You've been invited! Create an account to get started.", 'success');
     // Pre-fill email and name from the invite record
-    const { data: inv } = await sb.from('invites')
-      .select('email, label')
-      .eq('token', _inviteToken)
-      .is('used_at', null)
-      .maybeSingle();
+    const { data: inv } = await sb.rpc('get_invite_by_token', { p_token: _inviteToken });
     if (inv) {
       if (inv.email) document.getElementById('email').value = inv.email;
       if (inv.label) document.getElementById('fullName').value = inv.label;

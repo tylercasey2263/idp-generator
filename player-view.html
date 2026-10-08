@@ -268,8 +268,7 @@ const token = new URLSearchParams(window.location.search).get('token');
   }
 
   // Fetch player info (including photo)
-  const { data: player } = await sb
-    .from('players').select('name, positions, photo_url').eq('id', idp.player_id).maybeSingle();
+  const { data: player } = await sb.rpc('get_share_player', { p_token: token });
 
   const name = idp.data.playerName || player?.name || 'Player';
   const pos  = idp.data.position  || player?.positions || '';
