@@ -813,18 +813,9 @@ function downloadHTML() {
   const clone = ig.cloneNode(true);
   const css   = getTDPInfographicCSS();
   const html  = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>' + name + ' — TDP 2026</title>' +
-    '<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">' +
+    '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">' +
     '<style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}body{background:#0D1B2A;color:#EDF2F7;font-family:\'Inter\',sans-serif;font-size:15px;line-height:1.6;padding:2rem 1.5rem 3rem;max-width:900px;margin:0 auto;}@media print{*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}}' + css + '</style>' +
-    '</head><body>' + clone.outerHTML + '<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () =>
-    navigator.serviceWorker.register('/sw.js').catch(() => {})
-  );
-}
-</script>
-</body></html>';
+    '</head><body>' + clone.outerHTML + '</body></html>';
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
   a.download = name.replace(/\s+/g, '_') + '_TDP_2026.html';
@@ -847,6 +838,13 @@ function setStatus(msg, type) {
 
 function esc(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () =>
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  );
 }
 </script>
 </body>

@@ -53,7 +53,7 @@ async function ensureProfile(session) {
   await sb.from('profiles').upsert({
     id:        user.id,
     full_name: name,
-    role:      user.user_metadata?.role || 'coach',
+    role:      'parent', // coach/admin come only from invites (redeem_invite)
   }, { onConflict: 'id', ignoreDuplicates: true });
   // Sync email (safe — email column added in rbac-phase1-critical.sql)
   await sb.from('profiles').update({ email: user.email }).eq('id', user.id).select();
@@ -61,20 +61,12 @@ async function ensureProfile(session) {
 }
 
 // If the URL contains ?invite=TOKEN, apply the role from the invite and mark it used.
-// Respects role hierarchy — never demotes a higher-level user.
+// Respects role hierarchy — never demotes a higher-level user. Done server-side by
+// redeem_invite() (checks the invite email matches the signed-in user).
 async function processInvite(userId, token) {
   if (!token) return;
-  const { data: invite } = await sb.rpc('get_invite_by_token', { p_token: token });
-  if (!invite) return;
-
-  const hierarchy = { admin: 3, coach: 2, parent: 1 };
-  const { data: profile } = await sb.from('profiles').select('role').eq('id', userId).maybeSingle();
-  if ((hierarchy[invite.role] || 0) > (hierarchy[profile?.role] || 0)) {
-    await sb.from('profiles').update({ role: invite.role }).eq('id', userId);
-  }
-  await sb.from('invites')
-    .update({ used_by: userId, used_at: new Date().toISOString() })
-    .eq('id', invite.id);
+  const { data: newRole } = await sb.rpc('redeem_invite', { p_token: token });
+  if (newRole) window.invalidateProfileCache(userId);
 }
 
 // If a coach pre-linked this email to any players, complete the association now.

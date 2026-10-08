@@ -496,7 +496,7 @@ async function submit() {
     if (!fullName) { setStatus('Please enter your name.', 'error'); btn.disabled = false; btn.textContent = 'Create Account'; return; }
     const { data, error } = await sb.auth.signUp({
       email, password,
-      options: { data: { full_name: fullName, role: 'coach' } }
+      options: { data: { full_name: fullName } }
     });
     if (error) {
       setStatus(error.message, 'error');

@@ -1,7 +1,8 @@
 // Player IDP — Service Worker
-// Cache-first for static assets, network-only for API calls
+// Network-first for pages and scripts (so deploys show up), cache-first for images/fonts,
+// network-only for API calls. Bump CACHE_NAME when the precache list changes.
 
-const CACHE_NAME = 'idp-v1';
+const CACHE_NAME = 'idp-v2';
 
 // Static assets to pre-cache on install
 const PRECACHE = [
@@ -74,7 +75,27 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first for everything else (HTML, JS, CSS, images, fonts)
+  // Network-first for same-origin pages, scripts and styles; fall back to cache when offline
+  const isCode = url.origin === self.location.origin &&
+    (event.request.mode === 'navigate' || /\.(html|js|css|json)$/.test(url.pathname) || url.pathname.endsWith('/'));
+  if (isCode) {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() =>
+        caches.match(event.request).then(cached =>
+          cached || (event.request.mode === 'navigate' ? caches.match('/dashboard.html') : undefined)
+        )
+      )
+    );
+    return;
+  }
+
+  // Cache-first for everything else (images, fonts)
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
